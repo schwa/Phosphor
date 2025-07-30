@@ -1,0 +1,86 @@
+// Reaction-Diffusion - Gray-Scott model
+// Creates organic patterns that grow and evolve using chemical simulation
+
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+    // Texture coordinates
+    float2 uv = position / resolution.xy;
+    float2 texelSize = 1.0 / resolution;
+    
+    // Initialize on first frame or if backbuffer is black
+    uint2 pixelCoord = uint2(position);
+    float4 current = backbuffer.read(pixelCoord);
+    if(frame < 2.0 || length(current.rgb) < 0.01) {
+        // Seed pattern - a few spots of chemical B
+        float2 center1 = float2(0.5, 0.5);
+        float2 center2 = float2(0.3, 0.7);
+        float2 center3 = float2(0.7, 0.3);
+        
+        float b = 0.0;
+        b += smoothstep(0.02, 0.0, length(uv - center1));
+        b += smoothstep(0.02, 0.0, length(uv - center2));
+        b += smoothstep(0.02, 0.0, length(uv - center3));
+        
+        // Add some random spots
+        b += 0.5 * fsnoise(uv * 20.0) * smoothstep(0.4, 0.401, fsnoise(uv * 5.0));
+        
+        return float4(1.0, clamp(b, 0.0, 1.0), 0.0, 1.0);
+    }
+    
+    // Gray-Scott reaction-diffusion parameters
+    float dA = 1.0;      // Diffusion rate A
+    float dB = 0.5;      // Diffusion rate B  
+    float feed = 0.055;  // Feed rate (try 0.014 to 0.090)
+    float kill = 0.062;  // Kill rate (try 0.045 to 0.070)
+    
+    // Different patterns based on time (slowly morphing parameters)
+    feed += 0.01 * sin(time * 0.1);
+    kill += 0.005 * cos(time * 0.13);
+    
+    // Get chemical concentrations (A in red, B in green)
+    float a = current.r;
+    float b = current.g;
+    
+    // Calculate Laplacian using 3x3 kernel for diffusion
+    float2 laplacian = float2(0.0);
+    
+    // Sample neighbors
+    for(int y = -1; y <= 1; y++) {
+        for(int x = -1; x <= 1; x++) {
+            int2 offset = int2(x, y);
+            uint2 neighborCoord = clamp(uint2(int2(pixelCoord) + offset), uint2(0), uint2(resolution) - 1);
+            float4 neighbor = backbuffer.read(neighborCoord);
+            
+            // Laplacian weights: center=-1, edges=0.2, corners=0.05
+            float weight = 0.05;
+            if(x == 0 || y == 0) weight = 0.2;
+            if(x == 0 && y == 0) weight = -1.0;
+            
+            laplacian.x += neighbor.r * weight;
+            laplacian.y += neighbor.g * weight;
+        }
+    }
+    
+    // Reaction-diffusion equations
+    float reaction = a * b * b;
+    float newA = a + (dA * laplacian.x - reaction + feed * (1.0 - a));
+    float newB = b + (dB * laplacian.y + reaction - (kill + feed) * b);
+    
+    // Clamp to valid range
+    newA = clamp(newA, 0.0, 1.0);
+    newB = clamp(newB, 0.0, 1.0);
+    
+    // Visualization - create subtle colors from the concentrations
+    float3 color = float3(0.0);
+    
+    // Base pattern from chemical B - muted blue-green
+    color = float3(newB * 0.1, newB * 0.2, newB * 0.3);
+    
+    // Add warm tones from chemical A
+    color += (1.0 - newA) * float3(0.05, 0.03, 0.01);
+    
+    // Subtle contrast enhancement
+    color = pow(color * 2.0, float3(1.1));
+    
+    // Store chemicals for next iteration
+    return float4(newA, newB, color.b, 1.0);
+}

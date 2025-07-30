@@ -1,0 +1,6 @@
+// Intentionally broken shader for testing error display
+
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+    // This will cause a compilation error - undefined_function doesn't exist
+    return undefined_function();
+}

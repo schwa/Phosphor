@@ -1,0 +1,92 @@
+// Fire effect - Simple animated flames
+// Creates stylized fire using basic noise and color gradients
+
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+    // Normalized coordinates
+    float2 uv = position / resolution.xy;
+    
+    // Create fire base shape - stronger at bottom, narrower at top
+    float2 firePos = uv;
+    firePos.x = (firePos.x - 0.5) * (1.0 + uv.y * 2.0) + 0.5;
+    
+    // Create continuous flame field
+    float2 noiseCoord = firePos * float2(10.0, 6.0);
+    noiseCoord.y -= time * 3.0;
+    
+    // Main flame body
+    float noise = 0.0;
+    
+    // Multiple octaves of noise for detail
+    noise += sin(noiseCoord.x * 1.5 + sin(noiseCoord.y * 1.2)) * 0.5;
+    noise += sin(noiseCoord.y * 2.0 + cos(noiseCoord.x * 0.8) + time * 3.0) * 0.3;
+    noise += cos(noiseCoord.x * 3.0 + sin(noiseCoord.y * 2.5 + time * 2.0)) * 0.2;
+    noise += sin(noiseCoord.x * 5.0 - noiseCoord.y * 3.0 + time * 4.0) * 0.15;
+    
+    // Add horizontal variation to break up vertical stripes
+    float horizontalWave = sin(firePos.x * 15.0 + time * 2.0) * 0.1;
+    noise += horizontalWave;
+    
+    // Add some swirl
+    float2 swirlCoord = noiseCoord;
+    swirlCoord.x += sin(swirlCoord.y * 0.5 + time) * 0.3;
+    noise += sin(swirlCoord.x * 4.0) * 0.1;
+    
+    // Create flame peaks
+    float flames = noise * 0.5 + 0.5;
+    
+    // Add some vertical variation without discrete tongues
+    float verticalVar = sin(firePos.x * 8.0 + sin(time * 2.0) * 2.0) * 0.2;
+    flames += verticalVar * (1.0 - uv.y);
+    
+    float fireNoise = flames;
+    
+    // Shape the fire
+    float fireShape = fireNoise - uv.y * 1.5;
+    fireShape = smoothstep(0.0, 0.4, fireShape);
+    
+    // Add hot core at bottom center
+    float core = 1.0 - length((uv - float2(0.5, 0.0)) * float2(3.0, 1.5));
+    core = smoothstep(0.0, 0.7, core);
+    fireShape = max(fireShape, core);
+    
+    // Fire colors
+    float3 color = float3(0.0);
+    
+    // Temperature-based coloring
+    if(fireShape > 0.8) {
+        // White hot
+        color = float3(1.0, 0.95, 0.8);
+    } else if(fireShape > 0.6) {
+        // Yellow
+        float t = (fireShape - 0.6) / 0.2;
+        color = mix(float3(1.0, 0.6, 0.0), float3(1.0, 0.95, 0.8), t);
+    } else if(fireShape > 0.3) {
+        // Orange
+        float t = (fireShape - 0.3) / 0.3;
+        color = mix(float3(0.8, 0.2, 0.0), float3(1.0, 0.6, 0.0), t);
+    } else if(fireShape > 0.0) {
+        // Red
+        float t = fireShape / 0.3;
+        color = float3(0.8 * t, 0.2 * t, 0.0);
+    }
+    
+    // Add organic flickering using 2D noise instead of horizontal scan
+    float flicker = 0.9 + 0.1 * sin(time * 20.0 + fsnoise(uv * 10.0) * 5.0);
+    color *= flicker;
+    
+    // Add glow
+    float glow = smoothstep(0.0, 1.0, fireShape);
+    color += float3(1.0, 0.4, 0.1) * glow * 0.3;
+    
+    // Add sparks (using uv instead of position to avoid stripes)
+    float sparkNoise = fsnoise(uv * 50.0 + float2(0, time * 100.0));
+    if(sparkNoise > 0.98 && fireShape > 0.3) {
+        color += float3(1.0, 0.8, 0.4) * 0.5;
+    }
+    
+    // Dark background with subtle red glow
+    float3 background = float3(0.1, 0.02, 0.01) * (1.0 + fireShape * 0.5);
+    color = mix(background, color, fireShape);
+    
+    return float4(color, 1.0);
+}

@@ -1,0 +1,97 @@
+// Voronoi cells - Animated cellular patterns
+// Creates organic cell-like structures with smooth borders
+
+/// Generate a random 2D vector from a 2D input
+/// @param p Input vector (usually cell coordinates)
+/// @return Pseudo-random 2D vector
+float2 random2(float2 p) {
+    return fract(sin(float2(
+        dot(p, float2(127.1, 311.7)),
+        dot(p, float2(269.5, 183.3))
+    )) * 43758.5453);
+}
+
+/// Calculate Voronoi distance field
+/// @param p Point to evaluate
+/// @param time Animation time
+/// @return float3 where .x = distance to closest, .y = distance to 2nd closest, .z = cell ID
+float3 voronoi(float2 p, float time) {
+    float2 n = floor(p);
+    float2 f = fract(p);
+    
+    // Distance to closest and second closest point
+    float minDist1 = 9999.0;
+    float minDist2 = 9999.0;
+    float cellID = 0.0;
+    
+    // Check 3x3 grid of cells around current position
+    for(int y = -1; y <= 1; y++) {
+        for(int x = -1; x <= 1; x++) {
+            float2 neighbor = float2(x, y);
+            float2 cellPos = n + neighbor;
+            
+            // Random point in the cell (animated)
+            float2 randomOffset = random2(cellPos);
+            
+            // Animate the cell centers
+            randomOffset = 0.5 + 0.5 * sin(time * 2.0 + randomOffset * 6.2831);
+            
+            // Calculate distance to this cell's point
+            float2 diff = neighbor + randomOffset - f;
+            float dist = length(diff);
+            
+            // Update closest and second closest distances
+            if(dist < minDist1) {
+                minDist2 = minDist1;
+                minDist1 = dist;
+                cellID = random2(cellPos).x;
+            } else if(dist < minDist2) {
+                minDist2 = dist;
+            }
+        }
+    }
+    
+    return float3(minDist1, minDist2, cellID);
+}
+
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+    // Normalize coordinates and scale
+    float2 uv = position / resolution.y;
+    uv *= 8.0;  // Scale to show multiple cells
+    
+    // Add some domain warping for organic look
+    uv += 0.2 * sin(uv.yx * 2.0 + time);
+    
+    // Calculate Voronoi
+    float3 vor = voronoi(uv, time);
+    
+    // Extract distances and cell ID
+    float d1 = vor.x;  // Distance to closest
+    float d2 = vor.y;  // Distance to second closest
+    float id = vor.z;  // Cell ID for coloring
+    
+    // Create cell borders using distance difference
+    float border = smoothstep(0.0, 0.05, d2 - d1);
+    
+    // Create organic-looking cells
+    float cells = 1.0 - smoothstep(0.0, 0.1, d1);
+    
+    // Color based on cell ID with time variation
+    float3 cellColor = 0.5 + 0.5 * cos(2.0 * PI * id + float3(0.0, 2.0, 4.0) + time);
+    
+    // Combine cells and borders
+    float3 color = mix(
+        cellColor * 0.2,           // Dark background
+        cellColor * (0.5 + 0.5 * cells),  // Bright cells
+        border
+    );
+    
+    // Add subtle distance field visualization
+    color += 0.1 * (1.0 - d1);
+    
+    // Add highlight at cell centers
+    float highlight = 1.0 - smoothstep(0.0, 0.02, d1);
+    color += highlight * 0.5;
+    
+    return float4(color, 1.0);
+}

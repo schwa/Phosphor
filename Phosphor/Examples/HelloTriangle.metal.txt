@@ -1,0 +1,34 @@
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+    // Convert position to normalized device coordinates (-1 to 1)
+    float2 ndc = (position * 2.0 - resolution) / min(resolution.x, resolution.y);
+    
+    // Define triangle vertices in normalized coordinates
+    float2 v0 = float2(0.0, 0.866);   // Top vertex (at 60 degrees)
+    float2 v1 = float2(-1.0, -0.5);   // Bottom left
+    float2 v2 = float2(1.0, -0.5);    // Bottom right
+    
+    // Calculate barycentric coordinates
+    float2 v0v1 = v1 - v0;
+    float2 v0v2 = v2 - v0;
+    float2 v0p = ndc - v0;
+    
+    float dot00 = dot(v0v2, v0v2);
+    float dot01 = dot(v0v2, v0v1);
+    float dot02 = dot(v0v2, v0p);
+    float dot11 = dot(v0v1, v0v1);
+    float dot12 = dot(v0v1, v0p);
+    
+    float invDenom = 1.0 / (dot00 * dot11 - dot01 * dot01);
+    float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
+    float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+    float w = 1.0 - u - v;
+    
+    // Check if point is inside triangle
+    if (u >= 0.0 && v >= 0.0 && w >= 0.0) {
+        // Interpolate colors: Red at top, Green at bottom-left, Blue at bottom-right
+        return float4(w, v, u, 1.0);
+    }
+    
+    // Background color
+    return float4(0.1, 0.1, 0.1, 1.0);
+}

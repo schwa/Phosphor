@@ -1,0 +1,72 @@
+// Water ripples - Interactive water simulation
+// Click/drag with mouse to create ripples (or watch automatic ripples)
+
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+    // Normalized coordinates
+    float2 uv = position / resolution.xy;
+    
+    // Read previous frame for persistence (using pixel coordinates)
+    uint2 pixelCoord = uint2(position);
+    float4 previous = backbuffer.read(pixelCoord);
+    
+    // Height is stored in red channel
+    float height = previous.r;
+    
+    // Create automatic ripples at different points
+    float ripple = 0.0;
+    
+    // Ripple source 1 - moves in circle
+    float2 source1 = float2(
+        0.5 + 0.3 * sin(time * 0.7),
+        0.5 + 0.3 * cos(time * 0.7)
+    );
+    float dist1 = length(uv - source1);
+    ripple += 0.5 * sin(40.0 * dist1 - time * 8.0) * exp(-5.0 * dist1);
+    
+    // Ripple source 2 - figure-8 pattern
+    float2 source2 = float2(
+        0.5 + 0.2 * sin(time * 1.1),
+        0.5 + 0.2 * sin(time * 2.2)
+    );
+    float dist2 = length(uv - source2);
+    ripple += 0.5 * sin(35.0 * dist2 - time * 7.0) * exp(-5.0 * dist2);
+    
+    // Mouse interaction (if mouse is pressed, it would be at mouse position)
+    float mouseDist = length(uv - mouse);
+    float mouseRipple = sin(50.0 * mouseDist - time * 10.0) * exp(-8.0 * mouseDist);
+    ripple += mouseRipple * smoothstep(0.1, 0.0, mouseDist);
+    
+    // Damping - water slowly returns to rest
+    height = height * 0.98 + ripple * 0.02;
+    
+    // Calculate fake normals from height
+    float heightL = backbuffer.read(clamp(pixelCoord - uint2(1, 0), uint2(0), uint2(resolution) - 1)).r;
+    float heightR = backbuffer.read(clamp(pixelCoord + uint2(1, 0), uint2(0), uint2(resolution) - 1)).r;
+    float heightT = backbuffer.read(clamp(pixelCoord - uint2(0, 1), uint2(0), uint2(resolution) - 1)).r;
+    float heightB = backbuffer.read(clamp(pixelCoord + uint2(0, 1), uint2(0), uint2(resolution) - 1)).r;
+    
+    float2 normal = float2(heightL - heightR, heightT - heightB);
+    
+    // Water color with refraction effect
+    float2 refractedUV = uv + normal * 0.02;
+    
+    // Base water color
+    float3 waterColor = float3(0.0, 0.3, 0.6);
+    
+    // Add refraction distortion (fake underwater texture)
+    float pattern = sin(refractedUV.x * 30.0) * sin(refractedUV.y * 30.0);
+    waterColor += 0.1 * float3(0.0, pattern, pattern);
+    
+    // Specular highlights
+    float3 lightDir = normalize(float3(1.0, 1.0, -1.0));
+    float3 normal3D = normalize(float3(normal * 5.0, 1.0));
+    float spec = pow(max(dot(normal3D, lightDir), 0.0), 32.0);
+    
+    // Combine water color with highlights
+    float3 finalColor = waterColor + spec * 0.8;
+    
+    // Store height in red channel for next frame
+    finalColor.r = height * 0.5 + 0.5;
+    
+    return float4(finalColor, 1.0);
+}

@@ -1,0 +1,140 @@
+// Raymarching demo - A lit sphere with soft shadows
+// Demonstrates fundamental raymarching concepts in a working example
+
+/// Signed distance function for a sphere
+/// @param p Point in 3D space to measure distance from
+/// @param center Center position of the sphere
+/// @param radius Radius of the sphere
+/// @return Signed distance (negative inside, positive outside)
+float sdSphere(float3 p, float3 center, float radius) {
+    return length(p - center) - radius;
+}
+
+/// The scene's distance function - defines what objects exist
+/// @param p Point in 3D space
+/// @return Distance to nearest surface
+float sceneSDF(float3 p) {
+    // Animate sphere position slightly
+    float3 spherePos = float3(0.0, 0.0, 0.0);
+    
+    // Single sphere at origin
+    float sphere = sdSphere(p, spherePos, 1.0);
+    
+    // Ground plane at y = -1.5
+    float ground = p.y + 1.5;
+    
+    // Return minimum distance (union of objects)
+    return min(sphere, ground);
+}
+
+/// Calculate normal at a point using gradient of distance field
+/// @param p Point on surface
+/// @return Surface normal vector
+float3 calcNormal(float3 p) {
+    const float eps = 0.001;
+    return normalize(float3(
+        sceneSDF(p + float3(eps, 0, 0)) - sceneSDF(p - float3(eps, 0, 0)),
+        sceneSDF(p + float3(0, eps, 0)) - sceneSDF(p - float3(0, eps, 0)),
+        sceneSDF(p + float3(0, 0, eps)) - sceneSDF(p - float3(0, 0, eps))
+    ));
+}
+
+/// Calculate soft shadows
+/// @param ro Ray origin
+/// @param rd Ray direction
+/// @param tmin Minimum distance
+/// @param tmax Maximum distance
+/// @param k Softness factor (higher = softer)
+/// @return Shadow factor (0 = full shadow, 1 = no shadow)
+float softShadow(float3 ro, float3 rd, float tmin, float tmax, float k) {
+    float res = 1.0;
+    float t = tmin;
+    
+    for(int i = 0; i < 32; i++) {
+        float h = sceneSDF(ro + rd * t);
+        res = min(res, k * h / t);
+        t += clamp(h, 0.02, 0.1);
+        if(h < 0.001 || t > tmax) break;
+    }
+    
+    return clamp(res, 0.0, 1.0);
+}
+
+/// Main raymarching function
+/// @param ro Ray origin
+/// @param rd Ray direction
+/// @return Distance to hit (-1 if miss)
+float raymarch(float3 ro, float3 rd) {
+    float t = 0.0;
+    
+    for(int i = 0; i < 100; i++) {
+        float3 p = ro + rd * t;
+        float d = sceneSDF(p);
+        
+        if(d < 0.001) return t;  // Hit
+        if(t > 20.0) break;       // Too far
+        
+        t += d;  // Step forward by distance
+    }
+    
+    return -1.0;  // Miss
+}
+
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+    // Normalize coordinates to -1 to 1
+    float2 uv = (position - resolution * 0.5) / resolution.y;
+    
+    // Camera setup
+    float3 ro = float3(3.0 * sin(time * 0.3), 2.0, 3.0 * cos(time * 0.3));  // Orbit camera
+    float3 ta = float3(0.0, 0.0, 0.0);  // Look at origin
+    
+    // Create camera matrix
+    float3 ww = normalize(ta - ro);
+    float3 uu = normalize(cross(ww, float3(0, 1, 0)));
+    float3 vv = normalize(cross(uu, ww));
+    
+    // Ray direction
+    float3 rd = normalize(uv.x * uu + uv.y * vv + 1.5 * ww);
+    
+    // Background color
+    float3 col = float3(0.4, 0.6, 0.8) - 0.5 * rd.y;
+    
+    // Raymarch
+    float t = raymarch(ro, rd);
+    
+    if(t > 0.0) {
+        // Hit something
+        float3 p = ro + rd * t;
+        float3 n = calcNormal(p);
+        
+        // Light setup
+        float3 lightPos = float3(2.0, 4.0, -3.0);
+        float3 lightDir = normalize(lightPos - p);
+        
+        // Diffuse lighting
+        float diff = max(dot(n, lightDir), 0.0);
+        
+        // Specular lighting
+        float3 viewDir = normalize(ro - p);
+        float3 reflectDir = reflect(-lightDir, n);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+        
+        // Shadows
+        float shadow = softShadow(p + n * 0.002, lightDir, 0.02, 10.0, 8.0);
+        
+        // Combine lighting
+        float3 objColor = float3(0.8, 0.3, 0.3);  // Red sphere
+        if(p.y < -1.49) objColor = float3(0.8, 0.8, 0.8);  // Gray ground
+        
+        // Tint specular highlight with object color for more natural look
+        col = objColor * (0.2 + 0.8 * diff * shadow) + objColor * 0.3 * spec * shadow;
+        
+        // Fog
+        col = mix(col, float3(0.4, 0.6, 0.8), 1.0 - exp(-0.1 * t));
+    }
+    
+    // Gamma correction
+    col = pow(col, float3(0.4545));
+    
+    return float4(col, 1.0);
+}

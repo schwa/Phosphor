@@ -1,0 +1,17 @@
+// Iterative trigonometric pattern
+// Creates complex patterns through iterative trigonometric transformations
+
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+    float4 p = float4(position.xy / 4e2, 0, -4);
+
+    for(int i = 0; i < 9; ++i) {
+        p += float4(
+            sin(-(p.x + time * 0.2)) + atan(p.y * p.w),
+            cos(-p.x) + atan(p.z * p.w),
+            cos(-(p.x + sin(time * 0.8))) + atan(p.z * p.w),
+            0
+        );
+    }
+    
+    return p;
+}

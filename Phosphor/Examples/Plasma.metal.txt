@@ -1,0 +1,43 @@
+// Plasma effect - Classic demoscene multi-sine plasma
+// Combines multiple sine waves to create flowing, colorful patterns
+
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+    // Normalize coordinates
+    float2 uv = position / resolution.xy;
+    
+    // Create multiple plasma layers with different frequencies and speeds
+    float plasma = 0.0;
+    
+    // Horizontal waves
+    plasma += sin((uv.x + time * 0.3) * 10.0);
+    
+    // Vertical waves
+    plasma += sin((uv.y + time * 0.2) * 8.0);
+    
+    // Diagonal waves
+    plasma += sin((uv.x + uv.y + time * 0.25) * 12.0);
+    
+    // Circular waves from center
+    float2 center = float2(0.5, 0.5);
+    float dist = length(uv - center);
+    plasma += sin((dist - time * 0.4) * 25.0);
+    
+    // Another circular pattern from a moving center
+    float2 movingCenter = float2(
+        0.5 + 0.3 * sin(time * 0.7),
+        0.5 + 0.3 * cos(time * 0.9)
+    );
+    float dist2 = length(uv - movingCenter);
+    plasma += sin((dist2 - time * 0.35) * 20.0);
+    
+    // Normalize plasma value
+    plasma = plasma / 5.0;
+    
+    // Create colorful gradient using the plasma value
+    float3 color = 0.5 + 0.5 * cos(PI * plasma + float3(0.0, 2.0, 4.0) + time * 0.5);
+    
+    // Add some contrast
+    color = pow(color, float3(0.8));
+    
+    return float4(color, 1.0);
+}
