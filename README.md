@@ -6,7 +6,7 @@ _DANGER_ This project is very vibe-coded! Use at your own risk!
 
 Simple shader toy like project inspired by [twigl.app](http://twigl.app) and <https://mini.gmshaders.com/p/decoding-phosphor>.
 
-![Demo Video](https://files.catbox.moe/klno3f.mov)
+[Demo Video](https://files.catbox.moe/klno3f.mov)
 
 ## Sources
 
