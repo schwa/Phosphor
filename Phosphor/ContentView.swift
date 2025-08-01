@@ -64,7 +64,7 @@ struct ContentView: View {
                 .padding(.vertical, 8)
                 .background(Color(NSColor.controlBackgroundColor))
                 
-                TextEditor(text: $shaderCode)
+                MetalTextEditor(text: $shaderCode)
                     .font(.system(.body, design: .monospaced))
                     .padding(4)
                 
