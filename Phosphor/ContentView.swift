@@ -29,7 +29,8 @@ struct ContentView: View {
         "FractalPlant",
         "Cityscape",
         "HSVRaymarch",
-        "BrokenShader"
+        "BrokenShader",
+        "NeonLamp"
     ]
     
     var body: some View {
