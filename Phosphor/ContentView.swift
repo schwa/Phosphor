@@ -3,18 +3,48 @@ import SwiftUI
 import Observation
 
 struct ContentView: View {
-    let snippet = """
-        #import <metal_stdlib>
-    
-        using namespace metal;
-    
-        [[stitchable]] float4 snippet(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
-            return float4(1.0, 1.0, 0.0, 1.0);
-        }    
+    @State
+    var viewModel = PhosphorViewModel()
+
+    @State
+    var snippet = """
+    #import <metal_stdlib>
+
+    using namespace metal;
+
+    [[stitchable]] float4 snippet(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+        return float4(1.0, 1.0, 0.0, 1.0);
+    }    
     """
 
     var body: some View {
-        PhosphorView(snippet: snippet)
+        HSplitView {
+            PhosphorView(snippet: snippet)
+            .overlay {
+                if let error = viewModel.error {
+                    ContentUnavailableView("Oops", systemImage: "gear", description: Text("\(error.localizedDescription)"))
+                        .padding()
+                        .background(.white, in: RoundedRectangle(cornerRadius: 10))
+                        .padding()
+
+                }
+            }
+
+            MetalTextEditor(text: $snippet)
+            .monospaced()
+            .toolbar {
+                Picker("Snippet Style", selection: $viewModel.snippetStyle) {
+                    ForEach(SnippetStyle.allCases, id: \.self) { style in
+                        Text(String(describing: style)).tag(style)
+                    }
+                }
+                .labelsVisibility(.visible)
+
+                Toggle("Expanded Snippet", isOn: .constant(false))
+
+            }
+        }
+        .environment(viewModel)
     }
 }
 
@@ -22,8 +52,8 @@ struct PhosphorView: View {
 
     let snippet: String
 
-    @State
-    var viewModel = PhosphorViewModel()
+    @Environment(PhosphorViewModel.self)
+    var viewModel
 
     init(snippet: String) {
         self.snippet = snippet
@@ -48,7 +78,7 @@ class PhosphorViewModel {
     var textures: [MTLTexture] = []
     var snippet: String = "" {
         didSet {
-            (computePipelineState, snippetFunctionTable) = try! makeComputePipeline()
+            snippetDidChange()
         }
     }
     var vertexBuffer: MTLBuffer
@@ -59,6 +89,12 @@ class PhosphorViewModel {
     var currentTexture: Int = 0
     var commandQueue: MTLCommandQueue
     var frame: Int = 0
+    var snippetStyle: SnippetStyle = .raw {
+        didSet {
+            snippetDidChange()
+        }
+    }
+    var error: Error?
 
     init() {
         let defaultLibrary = device.makeDefaultLibrary()!
@@ -79,6 +115,21 @@ class PhosphorViewModel {
                                               options: [])!
         renderPipelineState = try! makeRenderPipeline()
 
+
+    }
+
+    func snippetDidChange() {
+        do {
+            print("MAKING PIPELINE")
+            (computePipelineState, snippetFunctionTable) = try makeComputePipeline()
+            error = nil
+        }
+        catch {
+            print("Error creating compute pipeline: \(error.localizedDescription)")
+            self.error = error
+            computePipelineState = nil
+            snippetFunctionTable = nil
+        }
 
     }
 
@@ -138,18 +189,10 @@ class PhosphorViewModel {
     }
 
     func render(renderPassDescriptor: MTLRenderPassDescriptor, commandBuffer: MTLCommandBuffer) {
-        // Render pass - draw current texture to screen
-//        let renderPassDescriptor = MTLRenderPassDescriptor()
-//        renderPassDescriptor.colorAttachments[0].texture = drawable.texture
-//        renderPassDescriptor.colorAttachments[0].loadAction = .clear
-//        renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
-//        renderPassDescriptor.colorAttachments[0].storeAction = .store
-
         guard let renderPipelineState else {
             print("Render pipeline state not ready")
             return
         }
-
         let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)!
         renderEncoder.setRenderPipelineState(renderPipelineState)
         renderEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
@@ -159,7 +202,11 @@ class PhosphorViewModel {
     }
 
     func makeComputePipeline() throws -> (MTLComputePipelineState, MTLVisibleFunctionTable) {
-        let snippetFunction = try! Compiler().compileSnippet(snippet: snippet)
+
+        let snippet = expandSnippet(source: snippet, style: snippetStyle)
+
+
+        let snippetFunction = try SnippetCompiler().compileSnippet(snippet: snippet)
 
         let pipelineDescriptor = MTLComputePipelineDescriptor()
         pipelineDescriptor.computeFunction = kernelFunction
@@ -196,17 +243,12 @@ class PhosphorViewModel {
 
 
 
-struct Compiler {
-
-
-
+struct SnippetCompiler {
     func compileSnippet(snippet: String) throws -> MTLFunction {
         let device = MTLCreateSystemDefaultDevice()!
         let snippetLibrary = try device.makeLibrary(source: snippet, options: nil)
         let functionDescriptor = MTLFunctionDescriptor()
-//        functionDescriptor.options = .compileToBinary
         functionDescriptor.name = "snippet"
-//        id<MTLFunction> foo = [library newFunctionWithDescriptor:functionD
 
         let snippetFunction = try snippetLibrary.makeFunction(descriptor: functionDescriptor)
 
@@ -231,4 +273,24 @@ struct Compiler {
         return snippetFunction
     }
 
+}
+
+enum SnippetStyle: CaseIterable {
+    case raw
+    case original
+}
+
+func expandSnippet(source: String, style: SnippetStyle) -> String {
+    switch style {
+    case .raw:
+        return source
+    case .original:
+        return """
+            #import <metal_stdlib>
+
+            using namespace metal;
+
+            [[stitchable]] \(source)
+        """
+    }
 }
