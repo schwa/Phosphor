@@ -1,110 +1,234 @@
+import Metal
 import SwiftUI
-import FoundationModels
+import Observation
 
 struct ContentView: View {
-    @State private var shaderCode = ""
-    @State private var compiledShaderCode = ""
-    @State private var compilationError: String?
-
-    let shaderExamples = [
-        "HelloTriangle",
-        "Checkerboard",
-        "RaymarchingSphere",
-        "VoronoiCells",
-        "Plasma",
-        "Fire",
-        "WaterRipples (Experimental)",
-        "ReactionDiffusion (Experimental)",
-        "Heart",
-        "IterativeTrig",
-        "FractalKaleidoscope",
-        "TerrainRiver",
-        "NoiseFlow",
-        "FractalPlant",
-        "Cityscape",
-        "HSVRaymarch",
-        "BrokenShader",
-        "NeonLamp"
-    ]
+    let snippet = """
+        #import <metal_stdlib>
+    
+        using namespace metal;
+    
+        [[stitchable]] float4 snippet(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+            return float4(1.0, 1.0, 0.0, 1.0);
+        }    
+    """
 
     var body: some View {
-        HSplitView {
-            MetalView(shaderSource: $compiledShaderCode, compilationError: $compilationError)
-                .frame(minWidth: 400, minHeight: 600)
-
-            // Right side - Text editor
-            VStack(alignment: .leading) {
-
-
-                DisclosureGroup("Generator") {
-                    ShaderGeneratorView { generatedCode in
-                        shaderCode = generatedCode
-                    }
-                }
-
-
-                MetalTextEditor(text: $shaderCode)
-                    .font(.system(.body, design: .monospaced))
-                    .padding(4)
-                    .onChange(of: shaderCode) {
-                        compileShader()
-                    }
-
-                if let error = compilationError {
-                    ScrollView {
-                        Text(error)
-                            .foregroundColor(.red)
-                            .font(.system(.caption, design: .monospaced))
-                            .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(height: 100)
-                    .background(Color.red.opacity(0.1))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 4)
-                            .stroke(Color.red.opacity(0.3), lineWidth: 1)
-                    )
-                }
-            }
-        }
-        .toolbar {
-            Menu("Examples") {
-                ForEach(shaderExamples, id: \.self) { example in
-                    Button(example) {
-                        loadShaderExample(example)
-                    }
-                }
-            }
-        }
-
-        .onAppear {
-            loadShaderCode()
-        }
-    }
-
-    private func loadShaderCode() {
-        loadShaderExample("HelloTriangle")
-    }
-
-    private func loadShaderExample(_ name: String) {
-        // Remove the " (Experimental)" suffix if present
-        let fileName = name.replacingOccurrences(of: " (Experimental)", with: "")
-
-        if let url = Bundle.main.url(forResource: "\(fileName).metal", withExtension: "txt"),
-           let content = try? String(contentsOf: url, encoding: .utf8) {
-            shaderCode = content
-            compiledShaderCode = content
-            compilationError = nil
-        } else {
-            shaderCode = "// Failed to load shader file: \(fileName)"
-        }
-    }
-
-    private func compileShader() {
-        // Clear any previous error
-        compilationError = nil
-        // Trigger compilation by updating the shader source
-        compiledShaderCode = shaderCode
+        PhosphorView(snippet: snippet)
     }
 }
 
+struct PhosphorView: View {
+
+    let snippet: String
+
+    @State
+    var viewModel = PhosphorViewModel()
+
+    init(snippet: String) {
+        self.snippet = snippet
+    }
+
+    var body: some View {
+        BareMetalView(device: viewModel.device) { size in
+            viewModel.drawableSizeWillChange(size: size)
+        }
+        draw: { currentRenderPassDescriptor, drawable in
+            viewModel.draw(renderPassDescriptor: currentRenderPassDescriptor, drawable: drawable)
+        }
+        .onChange(of: snippet, initial: true) {
+            viewModel.snippet = snippet
+        }
+    }
+}
+
+@Observable
+class PhosphorViewModel {
+    let device = MTLCreateSystemDefaultDevice()!
+    var textures: [MTLTexture] = []
+    var snippet: String = "" {
+        didSet {
+            (computePipelineState, snippetFunctionTable) = try! makeComputePipeline()
+        }
+    }
+    var vertexBuffer: MTLBuffer
+    let kernelFunction: MTLFunction
+    var computePipelineState: MTLComputePipelineState?
+    var renderPipelineState: MTLRenderPipelineState?
+    var snippetFunctionTable: MTLVisibleFunctionTable?
+    var currentTexture: Int = 0
+    var commandQueue: MTLCommandQueue
+    var frame: Int = 0
+
+    init() {
+        let defaultLibrary = device.makeDefaultLibrary()!
+        kernelFunction = defaultLibrary.makeFunction(name: "newComputeMain")!
+
+        commandQueue = device.makeCommandQueue()!
+
+        let vertices: [Float] = [
+            -1.0, -1.0,  // bottom left
+             1.0, -1.0,  // bottom right
+             -1.0,  1.0,  // top left
+             1.0, -1.0,  // bottom right
+             1.0,  1.0,  // top right
+             -1.0,  1.0,  // top left
+        ]
+        vertexBuffer = device.makeBuffer(bytes: vertices,
+                                              length: vertices.count * MemoryLayout<Float>.size,
+                                              options: [])!
+        renderPipelineState = try! makeRenderPipeline()
+
+
+    }
+
+    func drawableSizeWillChange(size: CGSize) {
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba32Float, width: Int(size.width), height: Int(size.height), mipmapped: false)
+        textureDescriptor.usage = [.shaderRead, .shaderWrite]
+        textures = [device.makeTexture(descriptor: textureDescriptor)!, device.makeTexture(descriptor: textureDescriptor)!]
+    }
+
+    func draw(renderPassDescriptor: MTLRenderPassDescriptor, drawable: MTLDrawable) {
+        let commandBuffer = commandQueue.makeCommandBuffer()!
+        compute(commandBuffer: commandBuffer)
+        render(renderPassDescriptor: renderPassDescriptor, commandBuffer: commandBuffer)
+        commandBuffer.present(drawable)
+        commandBuffer.commit()
+    }
+
+    func compute(commandBuffer: MTLCommandBuffer) {
+        guard textures.count >= 2 else {
+            print("Not enough textures for buffering")
+            return
+        }
+
+        let textureA = textures[currentTexture]
+        let textureB = textures[(currentTexture + 1) % textures.count]
+
+        guard let computePipelineState else {
+            print("Compute pipeline state not ready")
+            return
+        }
+
+        let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
+        computeEncoder.setComputePipelineState(computePipelineState)
+
+        computeEncoder.setTexture(textureA, index: 0) // Output texture
+        computeEncoder.setTexture(textureB, index: 1) // Input texture
+
+        struct Uniforms {
+            var time: Float
+            var frame: Float
+            var resolution: SIMD2<Float>
+            var mouse: SIMD2<Float>
+        }
+
+        var uniforms = Uniforms(
+            time: Float(Date().timeIntervalSinceReferenceDate),
+            frame: Float(frame),
+            resolution: [Float(textureA.width), Float(textureA.height)],
+            mouse: [0.5, 0.5]
+        )
+        computeEncoder.setBytes(&uniforms, length: MemoryLayout<Uniforms>.size, index: 0)
+        computeEncoder.setVisibleFunctionTable(snippetFunctionTable, bufferIndex: 1)
+        let threads = MTLSize(width: textureA.width, height: textureA.height, depth: 1)
+        let threadsPerThreadgroup = MTLSize(width: 16, height: 16, depth: 1)
+        computeEncoder.dispatchThreads(threads, threadsPerThreadgroup: threadsPerThreadgroup)
+        computeEncoder.endEncoding()
+    }
+
+    func render(renderPassDescriptor: MTLRenderPassDescriptor, commandBuffer: MTLCommandBuffer) {
+        // Render pass - draw current texture to screen
+//        let renderPassDescriptor = MTLRenderPassDescriptor()
+//        renderPassDescriptor.colorAttachments[0].texture = drawable.texture
+//        renderPassDescriptor.colorAttachments[0].loadAction = .clear
+//        renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
+//        renderPassDescriptor.colorAttachments[0].storeAction = .store
+
+        guard let renderPipelineState else {
+            print("Render pipeline state not ready")
+            return
+        }
+
+        let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)!
+        renderEncoder.setRenderPipelineState(renderPipelineState)
+        renderEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+        renderEncoder.setFragmentTexture(textures[currentTexture], index: 0)
+        renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
+        renderEncoder.endEncoding()
+    }
+
+    func makeComputePipeline() throws -> (MTLComputePipelineState, MTLVisibleFunctionTable) {
+        let snippetFunction = try! Compiler().compileSnippet(snippet: snippet)
+
+        let pipelineDescriptor = MTLComputePipelineDescriptor()
+        pipelineDescriptor.computeFunction = kernelFunction
+        let linkedFunctions = MTLLinkedFunctions()
+        linkedFunctions.functions = [snippetFunction]
+        pipelineDescriptor.linkedFunctions = linkedFunctions
+
+        let (pipeline, reflection) = try device.makeComputePipelineState(descriptor: pipelineDescriptor, options: [.bindingInfo])
+
+        let functionTableDescriptor = MTLVisibleFunctionTableDescriptor()
+        functionTableDescriptor.functionCount = 1
+        let functionTable = pipeline.makeVisibleFunctionTable(descriptor: functionTableDescriptor)!
+        let functionHandle = pipeline.functionHandle(function: snippetFunction)!
+        functionTable.setFunction(functionHandle, index:0)
+
+        return (pipeline, functionTable)
+    }
+
+    func makeRenderPipeline() throws -> MTLRenderPipelineState {
+        let library = device.makeDefaultLibrary()!
+        // Create render pipeline
+        let vertexFunction = library.makeFunction(name: "vertexShader")!
+        let fragmentFunction = library.makeFunction(name: "fragmentShader")!
+
+        let pipelineDescriptor = MTLRenderPipelineDescriptor()
+        pipelineDescriptor.vertexFunction = vertexFunction
+        pipelineDescriptor.fragmentFunction = fragmentFunction
+        pipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+
+        return try device.makeRenderPipelineState(descriptor: pipelineDescriptor)
+    }
+}
+
+
+
+
+struct Compiler {
+
+
+
+    func compileSnippet(snippet: String) throws -> MTLFunction {
+        let device = MTLCreateSystemDefaultDevice()!
+        let snippetLibrary = try device.makeLibrary(source: snippet, options: nil)
+        let functionDescriptor = MTLFunctionDescriptor()
+//        functionDescriptor.options = .compileToBinary
+        functionDescriptor.name = "snippet"
+//        id<MTLFunction> foo = [library newFunctionWithDescriptor:functionD
+
+        let snippetFunction = try snippetLibrary.makeFunction(descriptor: functionDescriptor)
+
+//        let inputNodes = [
+//            MTLFunctionStitchingInputNode(argumentIndex: 0),
+//            MTLFunctionStitchingInputNode(argumentIndex: 1),
+//            MTLFunctionStitchingInputNode(argumentIndex: 2),
+//            MTLFunctionStitchingInputNode(argumentIndex: 3),
+//            MTLFunctionStitchingInputNode(argumentIndex: 4),
+//            MTLFunctionStitchingInputNode(argumentIndex: 5),
+//        ]
+//        let functionNode = MTLFunctionStitchingFunctionNode(name: "snippet", arguments: inputNodes, controlDependencies: [])
+//        let graph = MTLFunctionStitchingGraph(functionName: "mygraph", nodes: [functionNode], outputNode: nil, attributes: [])
+//        let stitchedLibraryDescriptor = MTLStitchedLibraryDescriptor()
+//        stitchedLibraryDescriptor.functions = [snippetFunction]
+//        stitchedLibraryDescriptor.functionGraphs = [graph]
+//        let stitchedLibrary = try device.makeLibrary(stitchedDescriptor: stitchedLibraryDescriptor)
+//        let stitchedFunction = try stitchedLibrary.makeFunction(name: "mygraph")!
+//
+//        print(stitchedFunction.name, stitchedFunction.functionType.rawValue)
+
+        return snippetFunction
+    }
+
+}
