@@ -109,8 +109,6 @@ class Renderer: NSObject, MTKViewDelegate {
             
             let newPipelineState = try device.makeComputePipelineState(function: computeFunction)
             computePipelineState = newPipelineState
-            
-            print("Shader compiled successfully")
             completion(nil)
         } catch {
             let errorMessage = "Shader compilation error:\n\(error.localizedDescription)"

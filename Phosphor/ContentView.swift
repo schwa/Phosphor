@@ -41,33 +41,13 @@ struct ContentView: View {
             
             // Right side - Text editor
             VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Text("Shader Editor")
-                        .font(.headline)
-                    
-                    Spacer()
-                    
-                    Menu("Examples") {
-                        ForEach(shaderExamples, id: \.self) { example in
-                            Button(example) {
-                                loadShaderExample(example)
-                            }
-                        }
-                    }
-                    
-                    Button("Compile") {
-                        compileShader()
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .background(Color(NSColor.controlBackgroundColor))
-                
                 MetalTextEditor(text: $shaderCode)
                     .font(.system(.body, design: .monospaced))
                     .padding(4)
-                
+                    .onChange(of: shaderCode) {
+                        compileShader()
+                    }
+
                 if let error = compilationError {
                     ScrollView {
                         Text(error)
@@ -84,9 +64,17 @@ struct ContentView: View {
                     )
                 }
             }
-            .frame(minWidth: 400, minHeight: 600)
         }
-        .frame(minWidth: 800, minHeight: 600)
+        .toolbar {
+            Menu("Examples") {
+                ForEach(shaderExamples, id: \.self) { example in
+                    Button(example) {
+                        loadShaderExample(example)
+                    }
+                }
+            }
+        }
+
         .onAppear {
             loadShaderCode()
         }
@@ -101,7 +89,7 @@ struct ContentView: View {
         let fileName = name.replacingOccurrences(of: " (Experimental)", with: "")
         
         if let url = Bundle.main.url(forResource: "\(fileName).metal", withExtension: "txt"),
-           let content = try? String(contentsOf: url) {
+           let content = try? String(contentsOf: url, encoding: .utf8) {
             shaderCode = content
             compiledShaderCode = content
             compilationError = nil

@@ -25,7 +25,9 @@ struct MetalTextEditor: View {
         .onChange(of: text, initial: true) {
             attributedText = AttributedString(text)
             Task {
+                print("Formatting starting")
                 attributedText = try! format(text)
+                print("Formatting completed")
             }
         }
         .onChange(of: attributedText) {
@@ -35,7 +37,9 @@ struct MetalTextEditor: View {
 
     func format(_ source: String) throws -> AttributedString {
         var attributedString = AttributedString(source)
-        tree = parser.parse(tree: tree, string: source)
+        // TODO: We chould re-use the tree - but this breaks is the source changes radically.
+        // tree = parser.parse(tree: tree, string: source)
+        tree = parser.parse(source)
         guard let rootNode = tree?.rootNode else {
             return attributedString
         }
