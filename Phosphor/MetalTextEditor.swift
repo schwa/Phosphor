@@ -14,10 +14,15 @@ struct MetalTextEditor: View {
     init(text: Binding<String>) {
         self._text = text
 
-        cppConfig = try! LanguageConfiguration(tree_sitter_cpp(), name: "cpp")
-        parser = Parser()
-        try! parser.setLanguage(cppConfig.language)
-        tree = parser.parse(text.wrappedValue)
+        do {
+            cppConfig = try LanguageConfiguration(tree_sitter_cpp(), name: "cpp")
+            parser = Parser()
+            try parser.setLanguage(cppConfig.language)
+            tree = parser.parse(text.wrappedValue)
+        }
+        catch {
+            fatalError("Failed to initialize parser: \(error)")
+        }
     }
 
     var body: some View {
@@ -25,9 +30,12 @@ struct MetalTextEditor: View {
         .onChange(of: text, initial: true) {
             attributedText = AttributedString(text)
             Task {
-                print("Formatting starting")
-                attributedText = try! format(text)
-                print("Formatting completed")
+                do {
+                    attributedText = try format(text)
+                }
+                catch {
+                    print("Error formatting text: \(error)")
+                }
             }
         }
         .onChange(of: attributedText) {
@@ -51,7 +59,6 @@ struct MetalTextEditor: View {
             guard let characterRange = Range(nsRange, in: attributedString) else {
                 return
             }
-
             switch node.nodeType {
             case "comment":
                 attributedString[characterRange].foregroundColor = .green
@@ -70,7 +77,6 @@ struct MetalTextEditor: View {
             default:
                 break
             }
-
             node.enumerateChildren { child in
                 walk(node: child, depth: depth + 1)
             }
