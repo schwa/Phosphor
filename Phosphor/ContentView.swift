@@ -8,14 +8,12 @@ struct ContentView: View {
 
     @State
     var snippet = """
-    #import <metal_stdlib>
+    for(float i=-fract(t/.1),j;i++<1e2;o+=(cos((j=round(i+t/.1))*j+vec4(0,1,2,3))+1.)*exp(cos(j*j/.1)/.6)*min(1e3-i/.1+9.,i)/5e4/length((FC.xy-r*.5)/r.y+.05*cos(j*j/F4+vec2(0,5))*sqrt(i)));o=tanh(o*o);
 
-    using namespace metal;
-
-    [[stitchable]] float4 snippet(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
-        return float4(1.0, 1.0, 0.0, 1.0);
-    }    
     """
+
+    @State
+    var showExpandedSnippet = false
 
     var body: some View {
         HSplitView {
@@ -30,7 +28,16 @@ struct ContentView: View {
                 }
             }
 
-            MetalTextEditor(text: $snippet)
+            Group {
+                if showExpandedSnippet {
+                    let expandedSnippet = expandSnippet(source: snippet, style: viewModel.snippetStyle)
+                    TextEditor(text: .constant(expandedSnippet))
+                }
+                else {
+                    MetalTextEditor(text: $snippet)
+                }
+            }
+            .frame(minWidth: 300)
             .monospaced()
             .toolbar {
                 Picker("Snippet Style", selection: $viewModel.snippetStyle) {
@@ -40,7 +47,8 @@ struct ContentView: View {
                 }
                 .labelsVisibility(.visible)
 
-                Toggle("Expanded Snippet", isOn: .constant(false))
+                Toggle("Expanded Snippet", isOn: $showExpandedSnippet)
+
 
             }
         }
@@ -89,12 +97,13 @@ class PhosphorViewModel {
     var currentTexture: Int = 0
     var commandQueue: MTLCommandQueue
     var frame: Int = 0
-    var snippetStyle: SnippetStyle = .raw {
+    var snippetStyle: SnippetStyle = .twiglGeek {
         didSet {
             snippetDidChange()
         }
     }
     var error: Error?
+    var startTime = Date()
 
     init() {
         let defaultLibrary = device.makeDefaultLibrary()!
@@ -175,7 +184,7 @@ class PhosphorViewModel {
         }
 
         var uniforms = Uniforms(
-            time: Float(Date().timeIntervalSinceReferenceDate),
+            time: Float(Date().timeIntervalSince(startTime)),
             frame: Float(frame),
             resolution: [Float(textureA.width), Float(textureA.height)],
             mouse: [0.5, 0.5]
@@ -204,7 +213,6 @@ class PhosphorViewModel {
     func makeComputePipeline() throws -> (MTLComputePipelineState, MTLVisibleFunctionTable) {
 
         let snippet = expandSnippet(source: snippet, style: snippetStyle)
-
 
         let snippetFunction = try SnippetCompiler().compileSnippet(snippet: snippet)
 
@@ -245,6 +253,8 @@ class PhosphorViewModel {
 
 struct SnippetCompiler {
     func compileSnippet(snippet: String) throws -> MTLFunction {
+
+
         let device = MTLCreateSystemDefaultDevice()!
         let snippetLibrary = try device.makeLibrary(source: snippet, options: nil)
         let functionDescriptor = MTLFunctionDescriptor()
@@ -278,19 +288,68 @@ struct SnippetCompiler {
 enum SnippetStyle: CaseIterable {
     case raw
     case original
+    case twiglGeek
 }
 
 func expandSnippet(source: String, style: SnippetStyle) -> String {
+
+    let supportURL = Bundle.main.url(forResource: "Support", withExtension: "h")!
+    let supportCode = try! String(contentsOf: supportURL, encoding: .utf8)
+
+
+//
+//    for(float i=-fract(t/.1),j;i++<1e2;o+=(cos((j=round(i+t/.1))*j+vec4(0,1,2,3))+1.)*exp(cos(j*j/.1)/.6)*min(1e3-i/.1+9.,i)/5e4/length((FC.xy-r*.5)/r.y+.05*cos(j*j/F4+vec2(0,5))*sqrt(i)));o=tanh(o*o);
+
+
     switch style {
     case .raw:
-        return source
+        return """
+            \(supportCode)
+            \(source)
+        """
     case .original:
         return """
+            \(supportCode)
+
             #import <metal_stdlib>
 
             using namespace metal;
 
             [[stitchable]] \(source)
         """
+    case .twiglGeek:
+        return """
+        \(supportCode)
+
+        #import <metal_stdlib>
+
+        using namespace metal;
+
+        [[stitchable]] float4 snippet(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+            auto r = resolution;
+            auto m = mouse;
+            auto t = time;
+            auto f = frame;
+            auto b = backbuffer;
+            auto FC = position;
+            float4 o = float4(0, 0, 0, 1);
+            // START SNIPPET
+            \(source)    
+            // END SNIPPET
+            return o;
+        }    
+        """
     }
 }
+
+//for(float i=-fract(t/.1),j;i++<1e2;o+=(cos((j=round(i+t/.1))*j+vec4(0,1,2,3))+1.)*exp(cos(j*j/.1)/.6)*min(1e3-i/.1+9.,i)/5e4/length((FC.xy-r*.5)/r.y+.05*cos(j*j/F4+vec2(0,5))*sqrt(i)));o=tanh(o*o);
+
+struct Snipper {
+    var source: String
+    var style: SnippetStyle
+
+    var expandedSource: String {
+        return ""
+    }
+}
+

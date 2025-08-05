@@ -37,7 +37,14 @@ struct BareMetalView: NSViewRepresentable {
         mtkView.device = device
         mtkView.delegate = context.coordinator
         mtkView.colorPixelFormat = .bgra8Unorm
+//        mtkView.colorspace = CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3)
         mtkView.clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
+
+
+
+
+
+
         return mtkView
     }
 

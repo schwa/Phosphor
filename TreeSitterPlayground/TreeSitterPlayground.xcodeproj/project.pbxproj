@@ -7,70 +7,49 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		454EC2872E3D3A5100CBC203 /* TreeSitterCPP in Frameworks */ = {isa = PBXBuildFile; productRef = 454EC2862E3D3A5100CBC203 /* TreeSitterCPP */; };
-		45E19FDB2E3D373300A7F8D3 /* SwiftTreeSitter in Frameworks */ = {isa = PBXBuildFile; productRef = 45E19FDA2E3D373300A7F8D3 /* SwiftTreeSitter */; };
-		45E19FDD2E3D373300A7F8D3 /* SwiftTreeSitterLayer in Frameworks */ = {isa = PBXBuildFile; productRef = 45E19FDC2E3D373300A7F8D3 /* SwiftTreeSitterLayer */; };
+		45DCBBB52E3DCD5700788E2B /* SwiftTreeSitter in Frameworks */ = {isa = PBXBuildFile; productRef = 45DCBBB42E3DCD5700788E2B /* SwiftTreeSitter */; };
+		45DCBBB72E3DCD5700788E2B /* SwiftTreeSitterLayer in Frameworks */ = {isa = PBXBuildFile; productRef = 45DCBBB62E3DCD5700788E2B /* SwiftTreeSitterLayer */; };
+		45DCBBBA2E3DCD6300788E2B /* TreeSitterCPP in Frameworks */ = {isa = PBXBuildFile; productRef = 45DCBBB92E3DCD6300788E2B /* TreeSitterCPP */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		452826DD2E3B2953005E0BC5 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-		45826DF52E3AD429007D0255 /* Phosphor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Phosphor.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		45DCBBA52E3DCD2400788E2B /* TreeSitterPlayground.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TreeSitterPlayground.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		45EAC6782E3D8963002FE878 /* Exceptions for "Phosphor" folder in "Copy Bundle Resources" phase from "Phosphor" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = 45826DF32E3AD429007D0255 /* Resources */;
-			membershipExceptions = (
-				Support.h,
-			);
-		};
-/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		4529CB0E2E3DB1AD0042EBDE /* Packages */ = {
+		45DCBBA72E3DCD2400788E2B /* TreeSitterPlayground */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Packages;
-			sourceTree = "<group>";
-		};
-		45826DF72E3AD429007D0255 /* Phosphor */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				45EAC6782E3D8963002FE878 /* Exceptions for "Phosphor" folder in "Copy Bundle Resources" phase from "Phosphor" target */,
-			);
-			path = Phosphor;
+			path = TreeSitterPlayground;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		45826DF22E3AD429007D0255 /* Frameworks */ = {
+		45DCBBA22E3DCD2400788E2B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				454EC2872E3D3A5100CBC203 /* TreeSitterCPP in Frameworks */,
-				45E19FDB2E3D373300A7F8D3 /* SwiftTreeSitter in Frameworks */,
-				45E19FDD2E3D373300A7F8D3 /* SwiftTreeSitterLayer in Frameworks */,
+				45DCBBBA2E3DCD6300788E2B /* TreeSitterCPP in Frameworks */,
+				45DCBBB52E3DCD5700788E2B /* SwiftTreeSitter in Frameworks */,
+				45DCBBB72E3DCD5700788E2B /* SwiftTreeSitterLayer in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		45826DEC2E3AD429007D0255 = {
+		45DCBB9C2E3DCD2400788E2B = {
 			isa = PBXGroup;
 			children = (
-				452826DD2E3B2953005E0BC5 /* README.md */,
-				4529CB0E2E3DB1AD0042EBDE /* Packages */,
-				45826DF72E3AD429007D0255 /* Phosphor */,
-				45826DF62E3AD429007D0255 /* Products */,
+				45DCBBA72E3DCD2400788E2B /* TreeSitterPlayground */,
+				45DCBBA62E3DCD2400788E2B /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		45826DF62E3AD429007D0255 /* Products */ = {
+		45DCBBA62E3DCD2400788E2B /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				45826DF52E3AD429007D0255 /* Phosphor.app */,
+				45DCBBA52E3DCD2400788E2B /* TreeSitterPlayground.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -78,71 +57,71 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		45826DF42E3AD429007D0255 /* Phosphor */ = {
+		45DCBBA42E3DCD2400788E2B /* TreeSitterPlayground */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 45826E002E3AD429007D0255 /* Build configuration list for PBXNativeTarget "Phosphor" */;
+			buildConfigurationList = 45DCBBB02E3DCD2500788E2B /* Build configuration list for PBXNativeTarget "TreeSitterPlayground" */;
 			buildPhases = (
-				45826DF12E3AD429007D0255 /* Sources */,
-				45826DF22E3AD429007D0255 /* Frameworks */,
-				45826DF32E3AD429007D0255 /* Resources */,
+				45DCBBA12E3DCD2400788E2B /* Sources */,
+				45DCBBA22E3DCD2400788E2B /* Frameworks */,
+				45DCBBA32E3DCD2400788E2B /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				45826DF72E3AD429007D0255 /* Phosphor */,
+				45DCBBA72E3DCD2400788E2B /* TreeSitterPlayground */,
 			);
-			name = Phosphor;
+			name = TreeSitterPlayground;
 			packageProductDependencies = (
-				45E19FDA2E3D373300A7F8D3 /* SwiftTreeSitter */,
-				45E19FDC2E3D373300A7F8D3 /* SwiftTreeSitterLayer */,
-				454EC2862E3D3A5100CBC203 /* TreeSitterCPP */,
+				45DCBBB42E3DCD5700788E2B /* SwiftTreeSitter */,
+				45DCBBB62E3DCD5700788E2B /* SwiftTreeSitterLayer */,
+				45DCBBB92E3DCD6300788E2B /* TreeSitterCPP */,
 			);
-			productName = Phosphor;
-			productReference = 45826DF52E3AD429007D0255 /* Phosphor.app */;
+			productName = TreeSitterPlayground;
+			productReference = 45DCBBA52E3DCD2400788E2B /* TreeSitterPlayground.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		45826DED2E3AD429007D0255 /* Project object */ = {
+		45DCBB9D2E3DCD2400788E2B /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
-					45826DF42E3AD429007D0255 = {
+					45DCBBA42E3DCD2400788E2B = {
 						CreatedOnToolsVersion = 26.0;
 					};
 				};
 			};
-			buildConfigurationList = 45826DF02E3AD429007D0255 /* Build configuration list for PBXProject "Phosphor" */;
+			buildConfigurationList = 45DCBBA02E3DCD2400788E2B /* Build configuration list for PBXProject "TreeSitterPlayground" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = 45826DEC2E3AD429007D0255;
+			mainGroup = 45DCBB9C2E3DCD2400788E2B;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				45E19FD92E3D373300A7F8D3 /* XCRemoteSwiftPackageReference "swift-tree-sitter" */,
-				454EC2852E3D3A5100CBC203 /* XCRemoteSwiftPackageReference "tree-sitter-cpp" */,
+				45DCBBB32E3DCD5700788E2B /* XCRemoteSwiftPackageReference "swift-tree-sitter" */,
+				45DCBBB82E3DCD6300788E2B /* XCRemoteSwiftPackageReference "tree-sitter-cpp" */,
 			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 45826DF62E3AD429007D0255 /* Products */;
+			productRefGroup = 45DCBBA62E3DCD2400788E2B /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				45826DF42E3AD429007D0255 /* Phosphor */,
+				45DCBBA42E3DCD2400788E2B /* TreeSitterPlayground */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		45826DF32E3AD429007D0255 /* Resources */ = {
+		45DCBBA32E3DCD2400788E2B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -152,7 +131,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		45826DF12E3AD429007D0255 /* Sources */ = {
+		45DCBBA12E3DCD2400788E2B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -162,7 +141,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		45826DFE2E3AD429007D0255 /* Debug */ = {
+		45DCBBAE2E3DCD2500788E2B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -224,7 +203,7 @@
 			};
 			name = Debug;
 		};
-		45826DFF2E3AD429007D0255 /* Release */ = {
+		45DCBBAF2E3DCD2500788E2B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -278,7 +257,7 @@
 			};
 			name = Release;
 		};
-		45826E012E3AD429007D0255 /* Debug */ = {
+		45DCBBB12E3DCD2500788E2B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -306,7 +285,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = io.schwa.Phosphor;
+				PRODUCT_BUNDLE_IDENTIFIER = io.schwa.TreeSitterPlayground;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -322,7 +301,7 @@
 			};
 			name = Debug;
 		};
-		45826E022E3AD429007D0255 /* Release */ = {
+		45DCBBB22E3DCD2500788E2B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -350,7 +329,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = io.schwa.Phosphor;
+				PRODUCT_BUNDLE_IDENTIFIER = io.schwa.TreeSitterPlayground;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -369,20 +348,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		45826DF02E3AD429007D0255 /* Build configuration list for PBXProject "Phosphor" */ = {
+		45DCBBA02E3DCD2400788E2B /* Build configuration list for PBXProject "TreeSitterPlayground" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				45826DFE2E3AD429007D0255 /* Debug */,
-				45826DFF2E3AD429007D0255 /* Release */,
+				45DCBBAE2E3DCD2500788E2B /* Debug */,
+				45DCBBAF2E3DCD2500788E2B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		45826E002E3AD429007D0255 /* Build configuration list for PBXNativeTarget "Phosphor" */ = {
+		45DCBBB02E3DCD2500788E2B /* Build configuration list for PBXNativeTarget "TreeSitterPlayground" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				45826E012E3AD429007D0255 /* Debug */,
-				45826E022E3AD429007D0255 /* Release */,
+				45DCBBB12E3DCD2500788E2B /* Debug */,
+				45DCBBB22E3DCD2500788E2B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -390,15 +369,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		454EC2852E3D3A5100CBC203 /* XCRemoteSwiftPackageReference "tree-sitter-cpp" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/tree-sitter/tree-sitter-cpp";
-			requirement = {
-				branch = master;
-				kind = branch;
-			};
-		};
-		45E19FD92E3D373300A7F8D3 /* XCRemoteSwiftPackageReference "swift-tree-sitter" */ = {
+		45DCBBB32E3DCD5700788E2B /* XCRemoteSwiftPackageReference "swift-tree-sitter" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/tree-sitter/swift-tree-sitter";
 			requirement = {
@@ -406,25 +377,33 @@
 				minimumVersion = 0.25.0;
 			};
 		};
+		45DCBBB82E3DCD6300788E2B /* XCRemoteSwiftPackageReference "tree-sitter-cpp" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tree-sitter/tree-sitter-cpp";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		454EC2862E3D3A5100CBC203 /* TreeSitterCPP */ = {
+		45DCBBB42E3DCD5700788E2B /* SwiftTreeSitter */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 454EC2852E3D3A5100CBC203 /* XCRemoteSwiftPackageReference "tree-sitter-cpp" */;
-			productName = TreeSitterCPP;
-		};
-		45E19FDA2E3D373300A7F8D3 /* SwiftTreeSitter */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 45E19FD92E3D373300A7F8D3 /* XCRemoteSwiftPackageReference "swift-tree-sitter" */;
+			package = 45DCBBB32E3DCD5700788E2B /* XCRemoteSwiftPackageReference "swift-tree-sitter" */;
 			productName = SwiftTreeSitter;
 		};
-		45E19FDC2E3D373300A7F8D3 /* SwiftTreeSitterLayer */ = {
+		45DCBBB62E3DCD5700788E2B /* SwiftTreeSitterLayer */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 45E19FD92E3D373300A7F8D3 /* XCRemoteSwiftPackageReference "swift-tree-sitter" */;
+			package = 45DCBBB32E3DCD5700788E2B /* XCRemoteSwiftPackageReference "swift-tree-sitter" */;
 			productName = SwiftTreeSitterLayer;
+		};
+		45DCBBB92E3DCD6300788E2B /* TreeSitterCPP */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 45DCBBB82E3DCD6300788E2B /* XCRemoteSwiftPackageReference "tree-sitter-cpp" */;
+			productName = TreeSitterCPP;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 45826DED2E3AD429007D0255 /* Project object */;
+	rootObject = 45DCBB9D2E3DCD2400788E2B /* Project object */;
 }
