@@ -10,6 +10,11 @@ struct GeneratePanel: View {
     @State private var prompt: String = ""
     @State private var isGenerating: Bool = false
     @State private var errorMessage: String?
+    @AppStorage("phosphor.generation.model") private var modelRawValue: String = GenerationModel.onDevice.rawValue
+
+    private var selectedModel: GenerationModel {
+        get { GenerationModel(rawValue: modelRawValue) ?? .onDevice }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -24,6 +29,19 @@ struct GeneratePanel: View {
                 .lineLimit(3...10)
                 .textFieldStyle(.roundedBorder)
                 .disabled(isGenerating)
+
+            HStack {
+                Text("Model:")
+                    .foregroundStyle(.secondary)
+                Picker("Model", selection: $modelRawValue) {
+                    ForEach(GenerationModel.allCases, id: \.rawValue) { model in
+                        Text(model.displayName).tag(model.rawValue)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .disabled(isGenerating)
+            }
 
             if let errorMessage {
                 Text(errorMessage)
@@ -62,7 +80,7 @@ struct GeneratePanel: View {
         defer { isGenerating = false }
 
         do {
-            let source = try await ShaderGenerator().generate(prompt: prompt)
+            let source = try await ShaderGenerator().generate(prompt: prompt, model: selectedModel)
             document.text = source
             document.refreshParsed()
             isPresented = false

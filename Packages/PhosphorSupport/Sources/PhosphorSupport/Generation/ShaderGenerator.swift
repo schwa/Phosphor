@@ -1,6 +1,23 @@
 import FoundationModels
 import Foundation
 
+/// Which Apple Intelligence backend to use for a generation request.
+public enum GenerationModel: String, CaseIterable, Hashable, Sendable {
+    /// On-device foundation model (`SystemLanguageModel.default`).
+    case onDevice
+    /// Apple's Private Cloud Compute foundation model. Higher capability,
+    /// requires Apple Intelligence sign-in and connectivity, subject to
+    /// per-app quotas.
+    case privateCloudCompute
+
+    public var displayName: String {
+        switch self {
+        case .onDevice: "On Device"
+        case .privateCloudCompute: "Private Cloud Compute"
+        }
+    }
+}
+
 /// Generates a Phosphor `.metal` source from a natural-language prompt via
 /// Apple Intelligence (FoundationModels).
 ///
@@ -13,8 +30,20 @@ public struct ShaderGenerator {
 
     /// Runs a one-shot generation: produces a ``GeneratedShader``, then
     /// renders it to a full `.metal` source string.
-    public func generate(prompt: String) async throws -> String {
-        let session = LanguageModelSession(instructions: Self.instructions)
+    public func generate(prompt: String, model: GenerationModel = .onDevice) async throws -> String {
+        let session: LanguageModelSession
+        switch model {
+        case .onDevice:
+            session = LanguageModelSession(
+                model: SystemLanguageModel.default,
+                instructions: Self.instructions
+            )
+        case .privateCloudCompute:
+            session = LanguageModelSession(
+                model: PrivateCloudComputeLanguageModel(),
+                instructions: Self.instructions
+            )
+        }
         let response = try await session.respond(
             to: prompt,
             generating: GeneratedShader.self
