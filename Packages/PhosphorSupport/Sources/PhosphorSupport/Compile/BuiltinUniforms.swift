@@ -14,7 +14,10 @@ public struct BuiltinUniforms: Equatable, Sendable {
     public var resolution: SIMD2<Float>
     public var mouse: SIMD2<Float>
     public var mouseButtons: UInt32
-    private var _pad0: UInt32 = 0
+    /// `1` on the frame after the drawable size changes (texture reallocation).
+    /// Use this in kernels that need to (re)seed feedback state when the view
+    /// resizes — e.g. Game of Life, reaction-diffusion, fluid sims.
+    public var resized: UInt32
     public var mouseClickOrigin: SIMD2<Float>
 
     public init(
@@ -25,6 +28,7 @@ public struct BuiltinUniforms: Equatable, Sendable {
         resolution: SIMD2<Float> = .zero,
         mouse: SIMD2<Float> = .zero,
         mouseButtons: UInt32 = 0,
+        resized: UInt32 = 0,
         mouseClickOrigin: SIMD2<Float> = .zero
     ) {
         self.time = time
@@ -34,6 +38,7 @@ public struct BuiltinUniforms: Equatable, Sendable {
         self.resolution = resolution
         self.mouse = mouse
         self.mouseButtons = mouseButtons
+        self.resized = resized
         self.mouseClickOrigin = mouseClickOrigin
     }
 }

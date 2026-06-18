@@ -30,6 +30,10 @@ public final class PhosphorRuntime {
     /// are reallocated and zero-filled.
     public private(set) var currentDrawableSize: CGSize = .zero
 
+    /// Set whenever a texture is (re)allocated, cleared by the next call to
+    /// ``writeBuiltinUniforms(_:)``. Surfaced to kernels via `Uniforms.resized`.
+    private var resizedFlag: Bool = false
+
     /// Per-pass channel argument buffers (Metal 3 bindless). Rebuilt every
     /// frame against the current parity table to support multi-resource
     /// pipelines where a pass reads a ping-pong resource owned by a different
@@ -184,6 +188,7 @@ public final class PhosphorRuntime {
             guard resizeRequired else { continue }
 
             textures[id] = try allocate(id: id, spec: spec, width: width, height: height)
+            resizedFlag = true
         }
 
         // Drop textures for resources that no longer exist.
@@ -203,6 +208,8 @@ public final class PhosphorRuntime {
     public func writeBuiltinUniforms(_ uniforms: BuiltinUniforms) {
         var copy = uniforms
         copy.channelCount = UInt32(channelCount(for: environment))
+        copy.resized = resizedFlag ? 1 : 0
+        resizedFlag = false
         let length = MemoryLayout<BuiltinUniforms>.stride
         guard let buffer = device.makeBuffer(length: length, options: .storageModeShared) else { return }
         buffer.label = "Phosphor.Uniforms"

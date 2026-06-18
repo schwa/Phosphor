@@ -29,6 +29,9 @@ public struct GeneratedShader {
     @Guide(description: "Id of the resource that gets blitted to the screen. Must match one of resources[].id.")
     var outputResourceID: String
 
+    @Guide(description: "Set true if the body uses GLSL/Shadertoy convention (Y=0 at the bottom). The runtime will flip the final blit vertically so the shader renders right-side up. Leave false for Phosphor-native code where Y=0 is at the top (which matches gid.y = 0).")
+    var flipY: Bool
+
     @Guide(description: "Full MSL source — file-scope helpers plus one `kernel void <pass.id>(...)` per pass. Must NOT contain the front-matter block (that's regenerated from the structured fields).")
     var body: String
 }
@@ -140,7 +143,8 @@ public extension GeneratedShader {
             resources: resources,
             passes: passes,
             output: ResourceID(outputResourceID),
-            uniforms: uniforms
+            uniforms: uniforms,
+            flipY: flipY
         )
         let diagnostics = validate(env)
         return (env, diagnostics)

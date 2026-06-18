@@ -41,6 +41,7 @@ public enum PhosphorHeader {
             float2 resolution;
             float2 mouse;
             uint mouseButtons;
+            uint resized;
             float2 mouseClickOrigin;
         };
 

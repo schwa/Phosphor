@@ -44,8 +44,8 @@ kernel void image(
         return;
     }
 
-    // Seed on first frame.
-    if (uniforms.frame < 1.0) {
+    // Seed on first frame, or whenever the view was just resized.
+    if (uniforms.frame < 1.0 || uniforms.resized != 0u) {
         uint seed = wangHash(gid.x * 1973u + gid.y * 9277u + 12345u);
         float r = float(seed & 0xffu) / 255.0;
         float alive = r < 0.35 ? 1.0 : 0.0;

@@ -199,12 +199,13 @@ Probably belongs in the demo app, not in PhosphorSupport — Support stays headl
 ## 8: GoL (and any frame-0-seeded shader) goes black after window resize
 
 +++
-status: open
+status: closed
 priority: medium
 kind: bug
 labels: effort:s
 created: 2026-06-18T20:05:43Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-18T22:36:29Z
+closed: 2026-06-18T22:36:29Z
 +++
 
 Repro: launch the Game of Life demo, watch the cells evolve, resize the window. The screen goes black and stays black.
@@ -224,6 +225,8 @@ Options to consider:
 (2) feels right: it's an additive uniforms field, doesn't change existing semantics, and gives authors a clean "this is a fresh canvas" signal.
 
 Affects every demo that uses a frame-0 seed: GameOfLife. Will affect any reaction-diffusion / fluid sim once we have them.
+
+- `2026-06-18T22:36:29Z`: Fixed. Added a new `uniforms.resized` field (UInt32) to BuiltinUniforms and the synthesized MSL Uniforms struct. PhosphorRuntime sets a resizedFlag whenever any texture is (re)allocated in ensureTextures, and writeBuiltinUniforms forwards that flag as `resized` and clears it. Shaders that need to (re)seed feedback state should test `uniforms.frame < 1.0 || uniforms.resized != 0u`. GameOfLife.metal updated to use the new pattern; the system prompt mentions `resized` so generated shaders pick it up. Verified by resizing the GoL window: the simulation reseeds cleanly instead of going black.
 
 ---
 
@@ -571,12 +574,13 @@ Implementation:
 ## 21: Generated shaders are often upside down — teach the model our coordinate system
 
 +++
-status: open
+status: closed
 priority: medium
 kind: bug
 labels: effort:xs
 created: 2026-06-18T22:04:00Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-18T22:41:40Z
+closed: 2026-06-18T22:41:40Z
 +++
 
 Many generated shaders come out vertically flipped. The model is defaulting to GLSL/Shadertoy conventions where Y=0 is at the bottom of the screen, but our compute kernels use Metal's `gid` directly, where Y=0 is at the top.
@@ -593,6 +597,10 @@ Fix:
 - Consider also mentioning aspect ratio (uv.x / uv.y after dividing by resolution) and how to compute it.
 
 Once added, regenerate a few prompts that previously came out flipped and confirm they're right-side-up.
+
+- `2026-06-18T22:41:40Z`: Fixed. Added a `flipY: Bool` field to PhosphorEnvironment (default false, omitted from TOML when false). When true, PhosphorPipeline passes flipped V coordinates to TextureBillboardPipeline so the final blit is upside down — the kernel can write in GLSL/Shadertoy convention (Y=0 at bottom) and the result lands right-side up.
+
+The system prompt explains both conventions explicitly and tells the model to set flipY when writing Shadertoy-style code. The generation schema (GeneratedShader) gained a matching flipY field. Existing demos (Phosphor convention, Y=0 at top) default to false and render identically to before; Shadertoy ports can paste verbatim and set flipY=true in the front-matter.
 
 ---
 

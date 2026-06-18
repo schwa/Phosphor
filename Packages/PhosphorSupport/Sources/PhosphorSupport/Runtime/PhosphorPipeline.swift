@@ -68,10 +68,14 @@ public struct PhosphorPipeline: Element {
                 }
 
                 if let outputTexture {
+                    let textureCoordinates: Quad = runtime.environment.flipY
+                        ? Quad(min: [0, 1], max: [1, 0])
+                        : .unit
                     try RenderPass {
                         try TextureBillboardPipeline(
                             specifierA: .texture2D(outputTexture),
-                            specifierB: .color([0, 0, 0])
+                            specifierB: .color([0, 0, 0]),
+                            textureCoordinates: textureCoordinates
                         )
                     }
                 }

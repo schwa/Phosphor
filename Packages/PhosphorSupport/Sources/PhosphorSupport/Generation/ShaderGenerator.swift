@@ -126,6 +126,16 @@ public struct ShaderGenerator {
 
         Available inside a kernel:
         - `uniforms.time` (float seconds), `uniforms.frame` (float), `uniforms.resolution` (float2).
+        - `uniforms.resized` (uint) is 1 on the frame after the view resizes (textures are freshly
+          zeroed). Feedback effects should re-seed when `uniforms.frame < 1.0 || uniforms.resized != 0u`.
+
+        COORDINATE SYSTEM:
+        - In Phosphor, `gid.y = 0` is at the TOP of the screen and `gid.y = resolution.y - 1`
+          is at the bottom. This is opposite to GLSL / Shadertoy / WebGL.
+        - If you write in the Phosphor convention (Y=0 at top), leave `flipY = false`.
+        - If you write in GLSL/Shadertoy convention (Y=0 at bottom), set `flipY = true` and the
+          runtime will flip the final blit vertically so the result is right-side up.
+        - Be consistent: don't mix conventions in one shader.
         - `channels.iChannelN` (texture2d<float, access::read>) — only for channels you declared as inputs.
           Sample with `channels.iChannel0.read(gid)`.
         - `userUniforms->name` for each uniform you declared.
