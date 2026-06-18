@@ -1018,3 +1018,107 @@ Either way, things to figure out:
 Related: #27 (Shadertoy compat layer), #26 (Shadertoy audit).
 
 ---
+
+## 33: Audio input v1: signature change to device const Uniforms*
+
++++
+status: new
+priority: low
+kind: none
+created: 2026-06-18T23:49:45Z
++++
+
+Pre-requisite step for #17 (microphone input). Migrate kernel signatures from `constant Uniforms&` to `device const Uniforms*` so the Uniforms struct can carry device pointers (needed for audio buffers).
+
+Scope:
+- Update the synthesized PhosphorHeader Uniforms struct to expose two new `device const float*` pointers: `waveform` and `spectrum`. Initially they point at zero-filled MTLBuffers so kernels see zeros.
+- Update the canonical kernel signature everywhere it's documented (system prompt, doc comments, README) from `constant Uniforms&` to `device const Uniforms*` and change every reference inside kernels from `uniforms.x` to `uniforms->x`.
+- Update every shipped Examples/*.metal demo: Plasma, GameOfLife, Bloom, Accumulate, Noise, SolidColor, MouseProbe, ParityProbe.
+- Update the generation schema instructions so the model produces the new signature.
+- Verify all demos still render unchanged.
+
+No audio capture yet \u2014 buffers stay zero-filled. This issue is purely the structural break so we can land audio safely afterwards.
+
+Effort: small. ~30-45 min plus a couple build/test cycles.
+
+---
+
+## 34: Audio input v2: AVAudioEngine capture pipeline
+
++++
+status: new
+priority: low
+kind: none
+created: 2026-06-18T23:49:57Z
++++
+
+Capture step for #17. Depends on #33 (signature change landed first).
+
+Scope:
+- Add an `AudioCaptureEngine` (or similar) in PhosphorSupport that owns:
+  - An AVAudioEngine instance with a tap on the input node.
+  - A small lock-protected ring buffer of the most recent ~1024 mono Float32 samples.
+- Settings UI: a 'Microphone' toggle in SettingsView. When OFF, the engine is stopped and the ring buffer stays zero. When ON, prompt for the entitlement on first use; if denied, fall back to OFF.
+- Plumb a 'mic enabled' AppStorage key through PhosphorView -> PhosphorRuntime so the runtime knows whether to populate the audio buffers each frame.
+- Info.plist: add NSMicrophoneUsageDescription and the audio-input entitlement (com.apple.security.device.audio-input on macOS sandbox).
+- Hook AVAudioSession-style routing on macOS (it differs from iOS; check the AVFoundation docs).
+
+Output: `audioWaveformBuffer` on PhosphorRuntime is populated each frame with the most recent 1024 samples (centered around 0.5 if we follow Shadertoy, or raw -1..1 \u2014 decide which).
+
+No FFT yet \u2014 spectrum buffer stays zero. That's the next issue.
+
+Effort: medium. AVAudioEngine + sandboxed permissions are the main complications.
+
+---
+
+## 35: Audio input v3: FFT for spectrum buffer
+
++++
+status: new
+priority: low
+kind: none
+created: 2026-06-18T23:50:07Z
++++
+
+FFT step for #17. Depends on #34 (capture pipeline landed).
+
+Scope:
+- Use vDSP_DFT_zop_CreateSetup (or vDSP_FFT_zip / vDSP.DFT) to forward-transform the most recent 1024 waveform samples.
+- Compute linear magnitudes (sqrt(re^2 + im^2)), normalize to 0..1, write into the `audioSpectrumBuffer` (512 bins).
+- Apply a window function (Hann is the standard choice) before the FFT to reduce spectral leakage.
+- Optional: smooth across frames so the spectrum doesn't strobe \u2014 weighted average with the previous frame's magnitudes.
+
+Output: `audioSpectrumBuffer` on PhosphorRuntime is populated each frame.
+
+Tests:
+- A 1 kHz sine into the mic should produce a clear peak at the corresponding FFT bin.
+- An audio probe demo (#35 below) visualises both buffers so we can sanity-check.
+
+Effort: medium. vDSP API surface is fiddly, especially the setup/teardown and the interleaved real/imaginary buffer layouts.
+
+---
+
+## 36: Audio input v4: AudioProbe.metal demo + docs
+
++++
+status: new
+priority: low
+kind: none
+created: 2026-06-18T23:50:19Z
++++
+
+Final step for #17. Depends on #33 (signature change), #34 (capture), and #35 (FFT).
+
+Scope:
+- Examples/AudioProbe.metal: a single-pass shader that draws the waveform as a horizontal line across the middle of the screen and the FFT magnitudes as vertical bars below, classic oscilloscope + spectrum-analyzer layout. Tests both buffers visually.
+- Update the README and the generation system prompt to mention the new uniforms.waveform and uniforms.spectrum pointers (size 1024 and 512 respectively, Float, available always but zero when the mic is off).
+- Update the Phosphor.h synthesized header documentation comment so the popover surfaces what the new fields are.
+
+Tests:
+- Whistle into the mic \u2014 should see a peak at the corresponding bin in the spectrum bar visualisation.
+- Speak / hum \u2014 waveform line wiggles.
+- Toggle mic off in Settings \u2014 visualisation flatlines.
+
+Effort: small. ~30 min. Closes #17 once landed.
+
+---
