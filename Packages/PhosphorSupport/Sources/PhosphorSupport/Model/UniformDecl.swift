@@ -6,7 +6,7 @@ import simd
 /// The runtime auto-generates a `struct UserUniforms { ... };` typedef from
 /// the environment's uniforms and prepends it to each pass's source before
 /// compilation. The host UI renders a control per ``UniformUIHint``.
-public struct UniformDecl: Hashable, Codable, Sendable {
+public struct UniformDecl: Hashable, Sendable {
     public var name: String
     public var kind: UniformKind
     public var defaultValue: UniformValue
@@ -32,7 +32,7 @@ public enum UniformKind: String, Hashable, Codable, Sendable {
 }
 
 /// The actual value of a user uniform. Tagged union over the kinds.
-public enum UniformValue: Hashable, Codable, Sendable {
+public enum UniformValue: Hashable, Sendable {
     case float(Float)
     case float2(SIMD2<Float>)
     case float3(SIMD3<Float>)
@@ -53,7 +53,7 @@ public enum UniformValue: Hashable, Codable, Sendable {
 }
 
 /// UI control hint for a user uniform. Host renders controls accordingly.
-public enum UniformUIHint: Hashable, Codable, Sendable {
+public enum UniformUIHint: Hashable, Sendable {
     case slider(min: Float, max: Float)
     case color
     case toggle

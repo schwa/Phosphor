@@ -51,10 +51,12 @@ Implementation:
 ## 3: Step 7: TOML front-matter parser
 
 +++
-status: new
+status: closed
 priority: high
 kind: none
 created: 2026-06-18T20:02:15Z
+updated: 2026-06-18T20:12:51Z
+closed: 2026-06-18T20:12:51Z
 +++
 
 The whole "data-driven" promise relies on this: a single `.metal` string carries its own environment in a `/* phosphor:environment ... */` block at the top of the file. Today `PhosphorEnvironment` is built only from Swift literals.
@@ -66,6 +68,12 @@ Implementation:
 - Decode the TOML body into `PhosphorEnvironment` via Decodable. The current `Codable` impls should mostly Just Work; verify the inline-table / array-of-tables shape from the design doc round-trips.
 - Wire it into `PhosphorView`: if env is nil, infer from `source`; otherwise honor the explicit env argument. Probably split into a `PhosphorView(source:)` convenience that parses, and a `PhosphorView(environment:, source:)` raw form.
 - Add the docs example from §4 of Phosphor2.md as a test fixture; verify the resulting env equals the equivalent Swift literal.
+
+- `2026-06-18T20:12:51Z`: Implemented. TOMLKit parses /* phosphor:environment ... */ blocks at the top of a source file into a PhosphorEnvironment. Custom Codable conformances on Resource, TextureSize, TextureInit, UniformDecl, UniformValue, and UniformUIHint adapt the model to a hand-friendly TOML shape (string-or-table for unit enum cases, flat kind-discriminator for Resource, kind-driven dispatch for UniformValue). Texture2DSpec, Pass, and PhosphorEnvironment grew custom Codable inits with optional-with-default decoding so omitted fields fall back to sane defaults.
+
+PhosphorView gained a failable PhosphorView(source:) convenience that parses front-matter, surfaces parse + validation diagnostics in the overlay, and forwards the cleaned body to the runtime. GameOfLife is now defined entirely through its embedded front-matter block.
+
+7 new tests in FrontMatterTests cover: no front-matter, single-pass, the Phosphor2.md §4 multi-buffer + uniforms example, TOML syntax errors, validation errors propagating, top-of-file requirement, and optional-field defaults.
 
 ---
 

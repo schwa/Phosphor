@@ -1,35 +1,27 @@
 import Foundation
 import PhosphorSupport
 
-/// Conway's Game of Life as a single ping-pong compute pass.
+/// Conway's Game of Life, defined entirely through the front-matter TOML
+/// block in the kernel source.
 ///
-/// On frame 0 each cell is seeded from a hash of `(gid, time)`. On subsequent
-/// frames the Life rule (B3/S23) is applied: live cells with 2 or 3 live
-/// neighbors survive; dead cells with exactly 3 live neighbors are born.
-///
-/// Output color: white for alive, black for dead.
+/// Frame 0 seeds every cell from a hash of `(gid, time)`. Subsequent frames
+/// apply the B3/S23 rule.
 enum GameOfLife {
-    static let environment = PhosphorEnvironment(
-        resources: [
-            .texture2D(id: "image", spec: .init(
-                size: .drawable,
-                format: .rgba32Float,
-                pingPong: true,
-                flipTiming: .endOfFrame,
-                initial: .zero
-            )),
-        ],
-        passes: [
-            Pass(
-                id: "image",
-                inputs: [.init(name: "iChannel0", resource: "image")],
-                output: "image"
-            ),
-        ],
-        output: "image"
-    )
-
     static let source: String = """
+    /* phosphor:environment
+    output = "image"
+
+    [[resources]]
+    kind = "texture2D"
+    id = "image"
+    spec = { size = "drawable", format = "rgba32Float", pingPong = true, flipTiming = "endOfFrame", initial = "zero" }
+
+    [[passes]]
+    id = "image"
+    output = "image"
+    inputs = [{ name = "iChannel0", resource = "image" }]
+    */
+
     #include "Phosphor.h"
 
     // Tiny integer hash (Wang). Cheap noise for seeding.

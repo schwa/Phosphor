@@ -1,5 +1,5 @@
 {
-  "originHash" : "89024e4cfbf90d84b3ec6e960466b652aafc9a2527dec06a56a714b464897862",
+  "originHash" : "e7c462d112512eda4cd8b3b21f905e0031f864decd5b58a3da434e0f9b8bea4f",
   "pins" : [
     {
       "identity" : "geometrylite2d",
@@ -107,6 +107,15 @@
       "state" : {
         "branch" : "main",
         "revision" : "297481243ec242c1e8a724df9a4a47ade6105060"
+      }
+    },
+    {
+      "identity" : "tomlkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/LebJe/TOMLKit",
+      "state" : {
+        "revision" : "ec6198d37d495efc6acd4dffbd262cdca7ff9b3f",
+        "version" : "0.6.0"
       }
     }
   ],

@@ -11,6 +11,7 @@ import SwiftUI
 public struct PhosphorView: View {
     public let environment: PhosphorEnvironment
     public let source: String
+    public let frontMatterDiagnostics: [PhosphorDiagnostic]
 
     @State private var runtime: PhosphorRuntime?
     @State private var initError: Error?
@@ -18,6 +19,19 @@ public struct PhosphorView: View {
     public init(environment: PhosphorEnvironment, source: String) {
         self.environment = environment
         self.source = source
+        self.frontMatterDiagnostics = []
+    }
+
+    /// Convenience: parses front-matter from `source`, then constructs as
+    /// usual. If the source has no front-matter or parsing fails, the
+    /// diagnostics are surfaced through the runtime overlay; the runtime
+    /// itself will fail to materialize without an environment.
+    public init?(source: String) {
+        let result = PhosphorFrontMatter.parse(source)
+        guard let environment = result.environment else { return nil }
+        self.environment = environment
+        self.source = result.body
+        self.frontMatterDiagnostics = result.diagnostics
     }
 
     public var body: some View {
@@ -37,7 +51,7 @@ public struct PhosphorView: View {
                     )
                 }
                 .overlay(alignment: .topLeading) {
-                    diagnosticsOverlay(diagnostics: runtime.diagnostics)
+                    diagnosticsOverlay(diagnostics: frontMatterDiagnostics + runtime.diagnostics)
                 }
             } else if let initError {
                 errorView(message: "\(initError)")

@@ -5,7 +5,7 @@ import simd
 ///
 /// Phosphor 2.0 only supports 2D textures. The enum exists so future versions
 /// can add buffers, cubemaps, etc. without changing call sites.
-public enum Resource: Hashable, Codable, Sendable {
+public enum Resource: Hashable, Sendable {
     case texture2D(id: ResourceID, spec: Texture2DSpec)
 
     public var id: ResourceID {
@@ -16,7 +16,7 @@ public enum Resource: Hashable, Codable, Sendable {
 }
 
 /// Describes a 2D texture resource: size, format, ping-pong behavior, initial contents.
-public struct Texture2DSpec: Hashable, Codable, Sendable {
+public struct Texture2DSpec: Hashable, Sendable, Codable {
     public var size: TextureSize
     public var format: PhosphorPixelFormat
     public var pingPong: Bool
@@ -36,6 +36,32 @@ public struct Texture2DSpec: Hashable, Codable, Sendable {
         self.flipTiming = flipTiming
         self.initial = initial
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case size
+        case format
+        case pingPong
+        case flipTiming
+        case initial
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.size = try container.decodeIfPresent(TextureSize.self, forKey: .size) ?? .drawable
+        self.format = try container.decodeIfPresent(PhosphorPixelFormat.self, forKey: .format) ?? .rgba32Float
+        self.pingPong = try container.decodeIfPresent(Bool.self, forKey: .pingPong) ?? false
+        self.flipTiming = try container.decodeIfPresent(FlipTiming.self, forKey: .flipTiming) ?? .endOfFrame
+        self.initial = try container.decodeIfPresent(TextureInit.self, forKey: .initial) ?? .zero
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(size, forKey: .size)
+        try container.encode(format, forKey: .format)
+        try container.encode(pingPong, forKey: .pingPong)
+        try container.encode(flipTiming, forKey: .flipTiming)
+        try container.encode(initial, forKey: .initial)
+    }
 }
 
 /// How a texture's pixel dimensions are derived at materialization.
@@ -43,7 +69,7 @@ public struct Texture2DSpec: Hashable, Codable, Sendable {
 /// - `.drawable`: matches the host's drawable size; reallocated on resize.
 /// - `.fixed`: fixed pixel dimensions; survives drawable resize.
 /// - `.scaledDrawable(s)`: drawable size times `s`, rounded to nearest pixel.
-public enum TextureSize: Hashable, Codable, Sendable {
+public enum TextureSize: Hashable, Sendable {
     case drawable
     case fixed(width: Int, height: Int)
     case scaledDrawable(Float)
@@ -70,7 +96,7 @@ public enum FlipTiming: String, Hashable, Codable, Sendable {
 
 /// Initial contents for a texture, applied once at materialization (and on
 /// reallocation after resize).
-public enum TextureInit: Hashable, Codable, Sendable {
+public enum TextureInit: Hashable, Sendable {
     case zero
     case color(SIMD4<Float>)
     /// Resolved through the host-injected asset registry by string key.
