@@ -1,0 +1,15 @@
+# xcb project configuration
+# Settings here override global config (~/.config/xcb/config.toml).
+
+[defaults]
+# destination = "iphone-sim"    # Default build destination
+# scheme = "MyApp"              # Default scheme to build
+target = "Phosphor"
+# xcode_version = "16.0"        # Xcode version to use
+
+[output]
+# formatter = "xcbeautify"      # "raw", "xcpretty", or "xcbeautify"
+
+[new]
+# license = "MIT"               # Default license (run `licensor -l` for options)
+# copyright = "Your Name"       # Default copyright holder
