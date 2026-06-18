@@ -12,6 +12,7 @@ struct Demo: Identifiable, Hashable {
         let names = [
             "GameOfLife",
             "Plasma",
+            "Bloom",
             "Accumulate",
             "Noise",
             "SolidColor",
