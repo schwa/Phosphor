@@ -8,5 +8,9 @@ struct PhosphorApp: App {
         } makeDocument: { configuration, _ in
             PhosphorMetalDocument(configuration: configuration)
         }
+
+        Settings {
+            SettingsView()
+        }
     }
 }

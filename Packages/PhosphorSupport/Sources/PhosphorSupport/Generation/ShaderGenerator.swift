@@ -1,4 +1,5 @@
 import FoundationModels
+import FoundationModelBackends
 import Foundation
 
 /// Which Apple Intelligence backend to use for a generation request.
@@ -9,11 +10,24 @@ public enum GenerationModel: String, CaseIterable, Hashable, Sendable {
     /// requires Apple Intelligence sign-in and connectivity, subject to
     /// per-app quotas.
     case privateCloudCompute
+    /// Anthropic Claude Opus (via FoundationModelBackends). Requires an API
+    /// key stored in the Keychain (see `KeychainAccount.anthropicAPIKey`).
+    case anthropicClaudeOpus
 
     public var displayName: String {
         switch self {
         case .onDevice: "On Device"
         case .privateCloudCompute: "Private Cloud Compute"
+        case .anthropicClaudeOpus: "Anthropic Claude Opus"
+        }
+    }
+
+    /// True if this model is available without extra configuration (no API
+    /// key required).
+    public var requiresAPIKey: Bool {
+        switch self {
+        case .onDevice, .privateCloudCompute: return false
+        case .anthropicClaudeOpus: return true
         }
     }
 }
@@ -41,6 +55,19 @@ public struct ShaderGenerator {
         case .privateCloudCompute:
             session = LanguageModelSession(
                 model: PrivateCloudComputeLanguageModel(),
+                instructions: Self.instructions
+            )
+        case .anthropicClaudeOpus:
+            guard let apiKey = KeychainStore.read(account: KeychainAccount.anthropicAPIKey),
+                  !apiKey.isEmpty else {
+                throw ShaderGeneratorError.missingAPIKey(.anthropicClaudeOpus)
+            }
+            let anthropic = AnthropicLanguageModel(
+                apiKey: apiKey,
+                model: "claude-opus-4-5"
+            )
+            session = LanguageModelSession(
+                model: anthropic,
                 instructions: Self.instructions
             )
         }
@@ -163,4 +190,16 @@ public struct ShaderGenerator {
 
         Keep kernels under ~80 lines. Do NOT write `#include` directives; the host adds them.
     """
+}
+
+/// Errors that ``ShaderGenerator`` may raise before reaching the model.
+public enum ShaderGeneratorError: Error, LocalizedError {
+    case missingAPIKey(GenerationModel)
+
+    public var errorDescription: String? {
+        switch self {
+        case .missingAPIKey(let model):
+            return "Missing API key for \(model.displayName). Set it in Settings → Models."
+        }
+    }
 }
