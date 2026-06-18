@@ -46,11 +46,8 @@ struct ContentView: View {
             Divider()
 
             ScrollView([.horizontal, .vertical]) {
-                Text(verbatim: selected.source)
-                    .font(.system(.body, design: .monospaced))
-                    .textSelection(.enabled)
+                MetalSourceView(text: selected.source)
                     .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(Color(.textBackgroundColor))
         }
@@ -62,11 +59,8 @@ struct ContentView: View {
         let env = parsed.environment ?? PhosphorEnvironment(output: "image")
         let header = PhosphorHeader.source(for: env)
         ScrollView([.horizontal, .vertical]) {
-            Text(verbatim: header)
-                .font(.system(.body, design: .monospaced))
-                .textSelection(.enabled)
+            MetalSourceView(text: header)
                 .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(minWidth: 480, idealWidth: 600, minHeight: 320, idealHeight: 480)
     }

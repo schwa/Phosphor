@@ -1,5 +1,5 @@
 {
-  "originHash" : "e7c462d112512eda4cd8b3b21f905e0031f864decd5b58a3da434e0f9b8bea4f",
+  "originHash" : "b426c177b3c4e98d2078dcdd629d4810198e742b19d583604dc737f864411338",
   "pins" : [
     {
       "identity" : "geometrylite2d",
@@ -92,6 +92,15 @@
       }
     },
     {
+      "identity" : "swift-tree-sitter",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tree-sitter/swift-tree-sitter",
+      "state" : {
+        "revision" : "08ef81eb8620617b55b08868126707ad72bf754f",
+        "version" : "0.25.0"
+      }
+    },
+    {
       "identity" : "swiftearcut",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/SwiftEarcut",
@@ -116,6 +125,24 @@
       "state" : {
         "revision" : "ec6198d37d495efc6acd4dffbd262cdca7ff9b3f",
         "version" : "0.6.0"
+      }
+    },
+    {
+      "identity" : "tree-sitter",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tree-sitter/tree-sitter",
+      "state" : {
+        "revision" : "da6fe9beb4f7f67beb75914ca8e0d48ae48d6406",
+        "version" : "0.25.10"
+      }
+    },
+    {
+      "identity" : "tree-sitter-cpp",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tree-sitter/tree-sitter-cpp",
+      "state" : {
+        "branch" : "master",
+        "revision" : "8b5b49eb196bec7040441bee33b2c9a4838d6967"
       }
     }
   ],
