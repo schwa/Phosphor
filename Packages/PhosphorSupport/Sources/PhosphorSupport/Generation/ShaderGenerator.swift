@@ -1,6 +1,8 @@
 import FoundationModels
 import FoundationModelBackends
 import Foundation
+import Metal
+import os
 
 /// Which language model backend to use for a generation request.
 ///
@@ -91,21 +93,101 @@ public struct AnthropicModel: Hashable, Sendable {
 public struct ShaderGenerator {
     public init() {}
 
-    /// Runs a one-shot generation: produces a ``GeneratedShader``, then
-    /// renders it to a full `.metal` source string.
+    /// Runs a generation: produces a ``GeneratedShader``, renders it to a
+    /// full `.metal` source string, then attempts to compile it. If the
+    /// initial output fails to compile, the model gets one automatic retry
+    /// with the compiler errors as feedback.
     ///
     /// If `existingSource` is non-empty the model is asked to *modify* the
     /// existing shader rather than produce a fresh one.
-    public func generate(prompt: String, model: GenerationModel = .onDevice, existingSource: String = "") async throws -> String {
-        let session: LanguageModelSession
+    ///
+    /// `progress`, if provided, is called on the main actor with phase
+    /// updates so the UI can show what the generator is doing.
+    public func generate(
+        prompt: String,
+        model: GenerationModel = .onDevice,
+        existingSource: String = "",
+        progress: (@Sendable @MainActor (GenerationPhase) -> Void)? = nil
+    ) async throws -> String {
+        let session = try Self.makeSession(model: model)
+        let priorPrompts = PromptHistory.extract(from: existingSource)
+        let device = MTLCreateSystemDefaultDevice()
+
+        // First attempt.
+        await progress?(.generating)
+        let initialPrompt = Self.buildPrompt(userPrompt: prompt, existingSource: existingSource)
+        var generated = try await Self.respond(session: session, prompt: initialPrompt, model: model)
+        Self.logGeneration(label: "initial", model: model, generated: generated)
+        if generated.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            throw ShaderGeneratorError.emptyBody(model)
+        }
+        var source = try generated.toMetalSource(prompts: priorPrompts + [prompt])
+
+        // Compile check. If we don't have a device or the source has no
+        // front-matter we can validate, just return as-is.
+        guard let device else { return source }
+        if let compileError = Self.tryCompile(source: source, device: device) {
+            await progress?(.retrying(compileError: compileError))
+            // One retry. The session retains history so the model already
+            // knows what it just produced.
+            let followUp = Self.buildRetryPrompt(compileError: compileError)
+            generated = try await Self.respond(session: session, prompt: followUp, model: model)
+            Self.logGeneration(label: "retry", model: model, generated: generated)
+            if generated.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                throw ShaderGeneratorError.emptyBody(model)
+            }
+            source = try generated.toMetalSource(prompts: priorPrompts + [prompt])
+        }
+        return source
+    }
+
+    /// Wraps `session.respond` so we can translate framework decode errors
+    /// (e.g. the model omitted a required field) into our cleaner error
+    /// surface, with the raw content logged for debugging.
+    private static func respond(session: LanguageModelSession, prompt: String, model: GenerationModel) async throws -> GeneratedShader {
+        do {
+            return try await session.respond(to: prompt, generating: GeneratedShader.self).content
+        } catch {
+            logger.error("[respond] model=\(model.displayName, privacy: .public) decode failed: \(error, privacy: .public)")
+            throw ShaderGeneratorError.malformedResponse(model: model, underlying: "\(error)")
+        }
+    }
+
+    private static let logger = Logger(subsystem: "io.schwa.PhosphorSupport", category: "generator")
+
+    /// Logs what the model produced so we can debug why something looked wrong
+    /// without losing the response.
+    private static func logGeneration(label: String, model: GenerationModel, generated: GeneratedShader) {
+        let bodyChars = generated.body.count
+        let bodyHasKernel = generated.body.contains("kernel void")
+        logger.info("""
+            [\(label, privacy: .public)] model=\(model.displayName, privacy: .public) \
+            title=\"\(generated.title, privacy: .public)\" \
+            resources=\(generated.resources.count, privacy: .public) \
+            passes=\(generated.passes.count, privacy: .public) \
+            uniforms=\(generated.uniforms.count, privacy: .public) \
+            flipY=\(generated.flipY, privacy: .public) \
+            output=\"\(generated.outputResourceID, privacy: .public)\" \
+            bodyChars=\(bodyChars, privacy: .public) \
+            bodyHasKernel=\(bodyHasKernel, privacy: .public)
+            """)
+        if bodyChars == 0 {
+            logger.error("[\(label, privacy: .public)] model returned empty body")
+        } else {
+            logger.debug("[\(label, privacy: .public)] body=\"\(generated.body, privacy: .public)\"")
+        }
+    }
+
+    /// Constructs a session for the chosen backend.
+    private static func makeSession(model: GenerationModel) throws -> LanguageModelSession {
         switch model {
         case .onDevice:
-            session = LanguageModelSession(
+            return LanguageModelSession(
                 model: SystemLanguageModel.default,
                 instructions: Self.instructions
             )
         case .privateCloudCompute:
-            session = LanguageModelSession(
+            return LanguageModelSession(
                 model: PrivateCloudComputeLanguageModel(),
                 instructions: Self.instructions
             )
@@ -118,18 +200,43 @@ public struct ShaderGenerator {
                 apiKey: apiKey,
                 model: anthropicModel.id
             )
-            session = LanguageModelSession(
+            return LanguageModelSession(
                 model: anthropic,
                 instructions: Self.instructions
             )
         }
-        let fullPrompt = Self.buildPrompt(userPrompt: prompt, existingSource: existingSource)
-        let response = try await session.respond(
-            to: fullPrompt,
-            generating: GeneratedShader.self
-        )
-        let priorPrompts = PromptHistory.extract(from: existingSource)
-        return try response.content.toMetalSource(prompts: priorPrompts + [prompt])
+    }
+
+    /// Parses `source` for front-matter and tries to compile each declared
+    /// pass. Returns a human-readable error string on the first failure, or
+    /// nil if everything compiles (or if the source has no front-matter we
+    /// can drive a compile from).
+    private static func tryCompile(source: String, device: MTLDevice) -> String? {
+        let parsed = ParsedPhosphorSource(source: source)
+        guard let env = parsed.environment else { return nil }
+        let compiler = PhosphorCompiler(device: device)
+        do {
+            let library = try compiler.compileLibrary(environment: env, userSource: parsed.body)
+            for pass in env.passes where pass.enabled {
+                _ = try compiler.makeFunction(library: library, for: pass.id)
+            }
+            return nil
+        } catch {
+            return "\(error)"
+        }
+    }
+
+    private static func buildRetryPrompt(compileError: String) -> String {
+        """
+            The previous attempt failed to compile with these Metal compiler errors:
+
+            \(compileError)
+
+            Produce a complete updated shader that fixes the errors. Keep the same overall intent
+            as the previous attempt, but make sure the kernel(s) compile cleanly. Common pitfalls
+            to check: vector dimension mismatches in function calls (MSL is stricter than GLSL),
+            undeclared identifiers, missing helper functions, integer vs float types in operations.
+            """
     }
 
     /// Combines the user's prompt with the current shader source (if any) into
@@ -306,14 +413,29 @@ public struct ShaderGenerator {
     """
 }
 
+/// Reported by ``ShaderGenerator/generate(prompt:model:existingSource:progress:)``
+/// so the UI can show what's happening during long generations.
+public enum GenerationPhase: Hashable, Sendable {
+    /// The model is producing its initial response.
+    case generating
+    /// The first response failed to compile; the model is being asked to fix it.
+    case retrying(compileError: String)
+}
+
 /// Errors that ``ShaderGenerator`` may raise before reaching the model.
 public enum ShaderGeneratorError: Error, LocalizedError {
     case missingAPIKey(GenerationModel)
+    case emptyBody(GenerationModel)
+    case malformedResponse(model: GenerationModel, underlying: String)
 
     public var errorDescription: String? {
         switch self {
         case .missingAPIKey(let model):
             return "Missing API key for \(model.displayName). Set it in Settings → Models."
+        case .emptyBody(let model):
+            return "\(model.displayName) returned a response with no kernel body. Try a different model or rephrase your prompt."
+        case .malformedResponse(let model, let underlying):
+            return "\(model.displayName) returned an incomplete response — try a different model or rephrase. (Details: \(underlying))"
         }
     }
 }

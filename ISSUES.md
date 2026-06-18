@@ -897,10 +897,12 @@ Approach:
 ## 30: Generation: retry once when the produced shader fails to compile
 
 +++
-status: new
+status: closed
 priority: medium
 kind: none
 created: 2026-06-18T23:01:03Z
+updated: 2026-06-18T23:38:57Z
+closed: 2026-06-18T23:38:57Z
 +++
 
 Today, ShaderGenerator does a single pass: prompt the model, take its output, replace document.text. If the result fails to compile (Metal compiler errors), the user sees the error and has to manually re-prompt.
@@ -919,6 +921,19 @@ Notes:
 - The GeneratePanel can show a small 'compiling…' / 'retrying with compiler feedback…' state.
 - Multi-pass generation may need to compile each pass kernel separately to scope errors.
 - Models that don't follow instructions well (small on-device model) may retry-loop without improving; the single-retry cap protects against that.
+
+- `2026-06-18T23:38:57Z`: Implemented. ShaderGenerator.generate runs an automatic compile-on-success / retry-on-failure loop:
+
+- After the model responds, parse the front-matter and run the body through PhosphorCompiler against MTLCreateSystemDefaultDevice().
+- If compile throws, capture the error and call session.respond again with a follow-up prompt explaining the failure. (The session retains conversation history so the model already has its own attempt as context.)
+- Single retry; second failure falls through to the runtime's diagnostics overlay as before.
+
+Also along the way:
+- GenerationPhase enum so the panel can show 'Generating…' / 'Compile failed, retrying with feedback…'.
+- Empty-body responses are caught explicitly (ShaderGeneratorError.emptyBody).
+- Decode failures from FoundationModels (the 'model omitted body' case) are translated to ShaderGeneratorError.malformedResponse.
+- All model responses are logged to os.Logger (subsystem: io.schwa.PhosphorSupport, category: generator) so we can see what the model produced even when it's broken.
+- The body field in GeneratedShader moved up to second position (right after title) and its @Guide description starts with 'Required. ... Always non-empty', which seems to help small models populate it.
 
 ---
 

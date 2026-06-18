@@ -9,6 +9,7 @@ struct GeneratePanel: View {
 
     @State private var prompt: String = ""
     @State private var isGenerating: Bool = false
+    @State private var statusMessage: String?
     @State private var errorMessage: String?
     @AppStorage("phosphor.generation.model") private var modelRawValue: String = GenerationModel.onDevice.rawValue
 
@@ -49,6 +50,12 @@ struct GeneratePanel: View {
                 .disabled(isGenerating)
             }
 
+            if let statusMessage {
+                Text(statusMessage)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
             if let errorMessage {
                 Text(errorMessage)
                     .font(.callout)
@@ -83,19 +90,35 @@ struct GeneratePanel: View {
     private func generate() async {
         isGenerating = true
         errorMessage = nil
-        defer { isGenerating = false }
+        statusMessage = nil
+        defer {
+            isGenerating = false
+            statusMessage = nil
+        }
 
         do {
             let source = try await ShaderGenerator().generate(
                 prompt: prompt,
                 model: selectedModel,
-                existingSource: isModifying ? document.text : ""
+                existingSource: isModifying ? document.text : "",
+                progress: { phase in
+                    statusMessage = phaseMessage(phase)
+                }
             )
             document.text = source
             document.refreshParsed()
             isPresented = false
         } catch {
             errorMessage = "\(error)"
+        }
+    }
+
+    private func phaseMessage(_ phase: GenerationPhase) -> String {
+        switch phase {
+        case .generating:
+            return "Generating…"
+        case .retrying:
+            return "Compile failed, retrying with feedback…"
         }
     }
 }

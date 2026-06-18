@@ -17,6 +17,9 @@ public struct GeneratedShader {
     @Guide(description: "Brief title for the effect, e.g. 'Plasma' or 'Game of Life'.")
     var title: String
 
+    @Guide(description: "Required. Full MSL source: file-scope helpers plus one `kernel void <pass.id>(...)` per pass. Always non-empty; always contains at least one `kernel void` declaration. Output ONLY MSL source code; do NOT include any TOML front-matter or `#include` directives.")
+    var body: String
+
     @Guide(description: "GPU resources (typically textures) read or written by the passes.")
     var resources: [GeneratedResource]
 
@@ -31,9 +34,6 @@ public struct GeneratedShader {
 
     @Guide(description: "Set true if the body uses GLSL/Shadertoy convention (Y=0 at the bottom). The runtime will flip the final blit vertically so the shader renders right-side up. Leave false for Phosphor-native code where Y=0 is at the top (which matches gid.y = 0).")
     var flipY: Bool
-
-    @Guide(description: "Full MSL source — file-scope helpers plus one `kernel void <pass.id>(...)` per pass. Must NOT contain the front-matter block (that's regenerated from the structured fields).")
-    var body: String
 }
 
 @Generable
