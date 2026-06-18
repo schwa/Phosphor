@@ -1,8 +1,12 @@
 import PhosphorSupport
 import SwiftUI
 
-struct ContentView: View {
-    @State private var selected: Demo = Demo.all.first!
+/// Top-level view for an open `.metal` document.
+///
+/// Same split-pane layout as the demo browser: source on the left, preview
+/// on the right. Read-only for now; live editing is a separate feature.
+struct PhosphorDocumentView: View {
+    @Bindable var document: PhosphorMetalDocument
     @State private var showHeader: Bool = false
 
     var body: some View {
@@ -11,17 +15,6 @@ struct ContentView: View {
                 .frame(minWidth: 280, idealWidth: 420)
             previewPane
                 .frame(minWidth: 360, idealWidth: 640)
-        }
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Picker("Demo", selection: $selected) {
-                    ForEach(Demo.all) { demo in
-                        Text(demo.name).tag(demo)
-                    }
-                }
-                .pickerStyle(.menu)
-                .frame(minWidth: 180)
-            }
         }
         .frame(minWidth: 800, minHeight: 500)
     }
@@ -46,7 +39,7 @@ struct ContentView: View {
             Divider()
 
             ScrollView([.horizontal, .vertical]) {
-                MetalSourceView(text: selected.source)
+                MetalSourceView(text: document.text)
                     .padding(12)
             }
             .background(Color(.textBackgroundColor))
@@ -55,7 +48,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var headerPopover: some View {
-        let env = selected.parsed.environment ?? PhosphorEnvironment(output: "image")
+        let env = document.parsed.environment ?? PhosphorEnvironment(output: "image")
         let header = PhosphorHeader.source(for: env)
         ScrollView([.horizontal, .vertical]) {
             MetalSourceView(text: header)
@@ -66,18 +59,14 @@ struct ContentView: View {
 
     @ViewBuilder
     private var previewPane: some View {
-        if let view = PhosphorView(parsed: selected.parsed) {
+        if let view = PhosphorView(parsed: document.parsed) {
             view
         } else {
             ContentUnavailableView {
-                Label("Failed to parse demo", systemImage: "exclamationmark.triangle")
+                Label("No front-matter", systemImage: "doc.text.magnifyingglass")
             } description: {
-                Text(selected.name)
+                Text("This file has no /* phosphor:environment ... */ block, or it failed to parse.")
             }
         }
     }
-}
-
-#Preview {
-    ContentView()
 }

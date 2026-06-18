@@ -1,13 +1,13 @@
-// swift-tools-version: 6.3
+// swift-tools-version: 6.4
 
 import PackageDescription
 
 let package = Package(
     name: "PhosphorSupport",
     platforms: [
-        .iOS(.v26),
-        .macOS(.v26),
-        .visionOS(.v26)
+        .iOS(.v27),
+        .macOS(.v27),
+        .visionOS(.v27)
     ],
     products: [
         .library(name: "PhosphorSupport", targets: ["PhosphorSupport"]),
