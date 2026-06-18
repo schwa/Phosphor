@@ -370,12 +370,13 @@ UX details to decide when implementing:
 ## 15: Generation: ask the model to document each kernel
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: effort:xs
 created: 2026-06-18T21:49:10Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-18T23:14:31Z
+closed: 2026-06-18T23:14:31Z
 +++
 
 Update the ShaderGenerator system prompt so the model emits a documentation comment above each `kernel void` declaration, describing what the kernel does in 1-3 sentences.
@@ -400,6 +401,8 @@ UX details to decide:
 - Single short comment vs. structured doc block? Probably let the model choose, but show one structured example in the system prompt.
 - Should multi-pass shaders document each kernel separately? Yes \u2014 they're often quite different.
 - Trade-off: more comments = more output tokens = slower + costlier generation. Probably worth it.
+
+- `2026-06-18T23:14:31Z`: Done. Added a DOCUMENT EACH KERNEL section to the ShaderGenerator system prompt instructing the model to write a 1-3 sentence doc comment above every kernel void declaration describing what it does, which channels it reads, and what it writes. Includes a /// example. Multi-pass shaders document each kernel separately. No runtime/code changes — just the prompt.
 
 ---
 

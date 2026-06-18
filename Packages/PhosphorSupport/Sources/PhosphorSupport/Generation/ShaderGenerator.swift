@@ -287,6 +287,17 @@ public struct ShaderGenerator {
 
         Keep kernels under ~80 lines. Do NOT write `#include` directives; the host adds them.
 
+        DOCUMENT EACH KERNEL:
+        Before every `kernel void` declaration, write a short documentation comment
+        (one to three sentences) describing what the kernel does, which channels it
+        reads, and what it writes. Use a /// or /** ... */ comment block. Multi-pass
+        shaders document each kernel separately. Example:
+
+            /// Steps Conway's Game of Life by one generation: reads the previous
+            /// frame from iChannel0 and writes the next state into outTexture.
+            kernel void image(
+                ...
+
         MODIFICATION REQUESTS:
         If the user provides an existing shader together with their request, treat it as a
         modification: keep the existing structure and approach, change only what the user asks
