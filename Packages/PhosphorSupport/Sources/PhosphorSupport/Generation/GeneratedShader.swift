@@ -146,17 +146,21 @@ public extension GeneratedShader {
         return (env, diagnostics)
     }
 
-    /// Renders a full `.metal` source string (prompt comment + front-matter +
+    /// Renders a full `.metal` source string (prompt comments + front-matter +
     /// body) suitable to drop into a document.
     ///
-    /// `prompt`, if non-nil, is recorded as a `/* prompt: ... */` block at the
-    /// top so the user can see what generated the shader.
-    func toMetalSource(prompt: String? = nil) throws -> String {
+    /// `prompts` is the full history of prompts that produced this shader,
+    /// oldest first. Each is recorded as a separate `/* prompt: ... */` block
+    /// at the top so the user can see how the shader evolved.
+    func toMetalSource(prompts: [String] = []) throws -> String {
         let (env, _) = toPhosphorEnvironment()
         let toml = try TOMLEncoder().encode(env)
         var output = ""
-        if let prompt, !prompt.isEmpty {
-            output += "/* prompt: \(prompt) */\n\n"
+        for prompt in prompts where !prompt.isEmpty {
+            output += "/* prompt: \(prompt) */\n"
+        }
+        if !prompts.isEmpty {
+            output += "\n"
         }
         output += "/* phosphor:environment\n\(toml)*/\n\n\(body)\n"
         return output

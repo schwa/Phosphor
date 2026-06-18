@@ -16,12 +16,18 @@ struct GeneratePanel: View {
         get { GenerationModel(rawValue: modelRawValue) ?? .onDevice }
     }
 
+    private var isModifying: Bool {
+        document.parsed.environment != nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Generate Shader", systemImage: "sparkles")
+            Label(isModifying ? "Modify Shader" : "Generate Shader", systemImage: "sparkles")
                 .font(.headline)
 
-            Text("Describe the effect you want, e.g. \"a swirling galaxy\" or \"falling Matrix code\".")
+            Text(isModifying
+                ? "Describe how to change the current shader, e.g. \"make it pulse with the time\" or \"add a red tint\"."
+                : "Describe the effect you want, e.g. \"a swirling galaxy\" or \"falling Matrix code\".")
                 .foregroundStyle(.secondary)
                 .font(.callout)
 
@@ -63,7 +69,7 @@ struct GeneratePanel: View {
                     if isGenerating {
                         ProgressView().controlSize(.small)
                     } else {
-                        Text("Generate")
+                        Text(isModifying ? "Modify" : "Generate")
                     }
                 }
                 .keyboardShortcut(.defaultAction)
@@ -80,7 +86,11 @@ struct GeneratePanel: View {
         defer { isGenerating = false }
 
         do {
-            let source = try await ShaderGenerator().generate(prompt: prompt, model: selectedModel)
+            let source = try await ShaderGenerator().generate(
+                prompt: prompt,
+                model: selectedModel,
+                existingSource: isModifying ? document.text : ""
+            )
             document.text = source
             document.refreshParsed()
             isPresented = false

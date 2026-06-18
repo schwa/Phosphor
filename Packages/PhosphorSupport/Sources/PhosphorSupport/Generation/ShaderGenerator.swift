@@ -44,7 +44,10 @@ public struct ShaderGenerator {
 
     /// Runs a one-shot generation: produces a ``GeneratedShader``, then
     /// renders it to a full `.metal` source string.
-    public func generate(prompt: String, model: GenerationModel = .onDevice) async throws -> String {
+    ///
+    /// If `existingSource` is non-empty the model is asked to *modify* the
+    /// existing shader rather than produce a fresh one.
+    public func generate(prompt: String, model: GenerationModel = .onDevice, existingSource: String = "") async throws -> String {
         let session: LanguageModelSession
         switch model {
         case .onDevice:
@@ -71,11 +74,30 @@ public struct ShaderGenerator {
                 instructions: Self.instructions
             )
         }
+        let fullPrompt = Self.buildPrompt(userPrompt: prompt, existingSource: existingSource)
         let response = try await session.respond(
-            to: prompt,
+            to: fullPrompt,
             generating: GeneratedShader.self
         )
-        return try response.content.toMetalSource(prompt: prompt)
+        let priorPrompts = PromptHistory.extract(from: existingSource)
+        return try response.content.toMetalSource(prompts: priorPrompts + [prompt])
+    }
+
+    /// Combines the user's prompt with the current shader source (if any) into
+    /// the message we hand to the model.
+    private static func buildPrompt(userPrompt: String, existingSource: String) -> String {
+        let trimmedSource = existingSource.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSource.isEmpty else { return userPrompt }
+        return """
+            The user has an existing Phosphor shader. Modify it according to their request, \
+            keeping as much of the original structure as makes sense.
+
+            ===== EXISTING SHADER =====
+            \(trimmedSource)
+            ===== END =====
+
+            User request: \(userPrompt)
+            """
     }
 
     /// System prompt: explains what Phosphor is and what the model needs to produce.
@@ -189,6 +211,12 @@ public struct ShaderGenerator {
         - Good: `channels.iChannel0.read(gid)`.
 
         Keep kernels under ~80 lines. Do NOT write `#include` directives; the host adds them.
+
+        MODIFICATION REQUESTS:
+        If the user provides an existing shader together with their request, treat it as a
+        modification: keep the existing structure and approach, change only what the user asks
+        for. Output the complete updated shader (resources, passes, uniforms, full body) —
+        we cannot apply partial edits.
     """
 }
 

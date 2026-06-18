@@ -200,6 +200,7 @@
 			baseConfigurationReferenceAnchor = 45CFGGRP2F64AA9A005F944D /* Configuration */;
 			baseConfigurationReferenceRelativePath = "Project-Debug.xcconfig";
 			buildSettings = {
+				DEVELOPMENT_TEAM = XXXXXXXXXX;
 			};
 			name = Debug;
 		};
@@ -208,6 +209,7 @@
 			baseConfigurationReferenceAnchor = 45CFGGRP2F64AA9A005F944D /* Configuration */;
 			baseConfigurationReferenceRelativePath = "Project-Release.xcconfig";
 			buildSettings = {
+				DEVELOPMENT_TEAM = XXXXXXXXXX;
 			};
 			name = Release;
 		};
