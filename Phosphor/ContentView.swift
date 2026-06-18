@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var selected: Demo = Demo.all.first!
+    @State private var showHeader: Bool = false
 
     var body: some View {
         HSplitView {
@@ -27,14 +28,47 @@ struct ContentView: View {
 
     @ViewBuilder
     private var codePane: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Spacer()
+                Button {
+                    showHeader.toggle()
+                } label: {
+                    Label("Show Phosphor.h", systemImage: "doc.text.magnifyingglass")
+                }
+                .popover(isPresented: $showHeader, arrowEdge: .top) {
+                    headerPopover
+                }
+            }
+            .padding(8)
+            .background(Color(.windowBackgroundColor))
+
+            Divider()
+
+            ScrollView([.horizontal, .vertical]) {
+                Text(verbatim: selected.source)
+                    .font(.system(.body, design: .monospaced))
+                    .textSelection(.enabled)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(Color(.textBackgroundColor))
+        }
+    }
+
+    @ViewBuilder
+    private var headerPopover: some View {
+        let parsed = PhosphorFrontMatter.parse(selected.source)
+        let env = parsed.environment ?? PhosphorEnvironment(output: "image")
+        let header = PhosphorHeader.source(for: env)
         ScrollView([.horizontal, .vertical]) {
-            Text(verbatim: selected.source)
+            Text(verbatim: header)
                 .font(.system(.body, design: .monospaced))
                 .textSelection(.enabled)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Color(.textBackgroundColor))
+        .frame(minWidth: 480, idealWidth: 600, minHeight: 320, idealHeight: 480)
     }
 
     @ViewBuilder
