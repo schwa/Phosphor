@@ -34,8 +34,8 @@ struct CompileTests {
         """
         let compiler = PhosphorCompiler(device: device)
         let library = try compiler.compileLibrary(environment: env, userSource: source)
-        let state = try compiler.makePipelineState(library: library, for: "image")
-        #expect(state.threadExecutionWidth > 0)
+        let function = try compiler.makeFunction(library: library, for: "image")
+        #expect(function.name == "image")
     }
 
     @Test("Multi-pass kernels with channels + user uniforms compile")
@@ -91,8 +91,8 @@ struct CompileTests {
         """
         let compiler = PhosphorCompiler(device: device)
         let library = try compiler.compileLibrary(environment: env, userSource: source)
-        _ = try compiler.makePipelineState(library: library, for: "bufA")
-        _ = try compiler.makePipelineState(library: library, for: "image")
+        _ = try compiler.makeFunction(library: library, for: "bufA")
+        _ = try compiler.makeFunction(library: library, for: "image")
     }
 
     @Test("BuiltinUniforms size matches MSL struct (sanity)")

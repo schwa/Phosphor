@@ -20,13 +20,16 @@ public struct PhosphorCompiler {
         return try device.makeLibrary(source: assembled, options: nil)
     }
 
-    /// Builds a compute pipeline state for one pass, looking up
-    /// `function(named: passID)` in `library`.
-    public func makePipelineState(library: MTLLibrary, for passID: ResourceID) throws -> MTLComputePipelineState {
+    /// Looks up the `MTLFunction` for a pass by its kernel name.
+    ///
+    /// Returns an `MTLFunction` rather than an `MTLComputePipelineState`
+    /// because MetalSprockets owns pipeline-state creation/caching via
+    /// `ComputeKernel`.
+    public func makeFunction(library: MTLLibrary, for passID: ResourceID) throws -> MTLFunction {
         guard let function = library.makeFunction(name: passID.raw) else {
             throw PhosphorCompileFailure.functionNotFound(passID)
         }
-        return try device.makeComputePipelineState(function: function)
+        return function
     }
 }
 

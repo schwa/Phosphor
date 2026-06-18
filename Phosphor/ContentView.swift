@@ -1,9 +1,13 @@
+import PhosphorSupport
 import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        Text("Phosphor")
-            .frame(minWidth: 400, minHeight: 300)
+        PhosphorView(
+            environment: GameOfLife.environment,
+            source: GameOfLife.source
+        )
+        .frame(minWidth: 640, minHeight: 480)
     }
 }
 
