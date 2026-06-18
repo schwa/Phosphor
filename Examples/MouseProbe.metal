@@ -1,4 +1,5 @@
 /* prompt: make this shader sexier */
+/* prompt: close the pod bay doors  */
 
 /* phosphor:environment
 output = 'image'
@@ -21,10 +22,9 @@ initial = 'zero'
 pingPong = false
 size = 'drawable'*/
 
-/// Draws a sensual, pulsing glow that follows the mouse with rainbow trails,
-/// particle sparkles, and smooth color transitions. Background pulses with
-/// warm colors when mouse button is held. A vibrant starburst marks the
-/// click origin while held.
+/// I'm sorry Dave, I'm afraid I can't do that. Draws a menacing red HAL 9000 eye
+/// that watches the mouse position, with animated closing pod bay door panels
+/// and ominous pulsing glow. The eye tracks movement and the doors slowly close.
 kernel void image(
     texture2d<float, access::write> outTexture     [[texture(0)]],
     device const ChannelBindings&   channels       [[buffer(1)]],
@@ -34,69 +34,96 @@ kernel void image(
 {
     float2 p = float2(gid);
     float2 uv = p / uniforms.resolution;
+    float2 center = uniforms.resolution * 0.5;
     float t = uniforms.time;
     
-    // Animated gradient background with subtle movement
-    float bgWave = 0.5 + 0.5 * sin(uv.x * 3.0 + t * 0.5) * sin(uv.y * 2.0 - t * 0.3);
-    float3 bgColor1 = float3(0.02, 0.01, 0.05);
-    float3 bgColor2 = float3(0.08, 0.02, 0.12);
-    float3 bg = mix(bgColor1, bgColor2, bgWave);
+    // Dark, cold spaceship interior background
+    float3 bg = float3(0.02, 0.02, 0.03);
+    float noise = fract(sin(dot(floor(p / 4.0), float2(12.9898, 78.233))) * 43758.5453);
+    bg += float3(0.01) * noise; // subtle texture
     
-    // Warm pulse when button is held
-    if (uniforms.mouseButtons != 0u) {
-        float pulse = 0.5 + 0.5 * sin(t * 4.0);
-        bg = mix(bg, float3(0.15, 0.02, 0.08), 0.5 + 0.3 * pulse);
-    }
+    // HAL 9000 eye - tracks mouse slightly
+    float2 eyeCenter = center;
+    float2 toMouse = uniforms.mouse - center;
+    eyeCenter += toMouse * 0.05; // subtle tracking
     
-    // Rainbow hue based on time and position
-    float hue = fract(t * 0.1 + length(p - uniforms.mouse) * 0.001);
-    float3 rainbow;
-    rainbow.r = abs(hue * 6.0 - 3.0) - 1.0;
-    rainbow.g = 2.0 - abs(hue * 6.0 - 2.0);
-    rainbow.b = 2.0 - abs(hue * 6.0 - 4.0);
-    rainbow = clamp(rainbow, 0.0, 1.0);
+    float distEye = length(p - eyeCenter);
+    float eyeRadius = min(uniforms.resolution.x, uniforms.resolution.y) * 0.15;
     
-    // Main glow at mouse position - softer, larger, pulsing
-    float distMouse = length(p - uniforms.mouse);
-    float pulse = 1.0 + 0.3 * sin(t * 3.0);
-    float glowMouse = exp(-distMouse * 0.015 * pulse);
-    float innerGlow = exp(-distMouse * 0.05);
+    // Outer ring (silver/grey)
+    float ring = smoothstep(eyeRadius * 1.1, eyeRadius * 1.05, distEye) *
+                 smoothstep(eyeRadius * 0.95, eyeRadius, distEye);
+    float3 ringColor = float3(0.3, 0.32, 0.35);
     
-    // Sparkle effect using pseudo-random noise
-    float2 sparklePos = floor(p / 8.0);
-    float sparkle = fract(sin(dot(sparklePos, float2(12.9898, 78.233)) + t) * 43758.5453);
-    sparkle = pow(sparkle, 20.0) * exp(-distMouse * 0.01);
+    // Inner dark area
+    float innerDark = smoothstep(eyeRadius, eyeRadius * 0.9, distEye);
     
-    // Combine mouse glow with rainbow tint
+    // Red glowing center - the menacing eye
+    float redGlow = exp(-distEye * 0.025);
+    float coreGlow = exp(-distEye * 0.06);
+    float pulse = 0.7 + 0.3 * sin(t * 1.5); // slow, ominous pulse
+    
+    // Menacing red color
+    float3 halRed = float3(1.0, 0.1, 0.05) * pulse;
+    float3 halCore = float3(1.0, 0.4, 0.3);
+    
+    // Pod bay doors - closing from top and bottom
+    float doorProgress = clamp(t * 0.1, 0.0, 0.45); // slowly closing
+    float doorTop = uniforms.resolution.y * doorProgress;
+    float doorBottom = uniforms.resolution.y * (1.0 - doorProgress);
+    
+    // Door panels with metallic look
+    float3 doorColor = float3(0.15, 0.16, 0.18);
+    float doorLines = abs(sin(p.x * 0.02)) * 0.3;
+    doorColor += doorLines * float3(0.05);
+    
+    // Add door edge highlights
+    float topEdge = smoothstep(doorTop - 5.0, doorTop, p.y) * smoothstep(doorTop + 5.0, doorTop, p.y);
+    float bottomEdge = smoothstep(doorBottom + 5.0, doorBottom, p.y) * smoothstep(doorBottom - 5.0, doorBottom, p.y);
+    
+    // Compose the scene
     float3 color = bg;
-    color += rainbow * glowMouse * 0.8;
-    color += float3(1.0, 0.95, 0.9) * innerGlow * 0.6;
-    color += float3(1.0) * sparkle * 0.5;
     
-    // Starburst at click origin while button is held
-    if (uniforms.mouseButtons != 0u) {
-        float2 toClick = p - uniforms.mouseClickOrigin;
-        float distClick = length(toClick);
-        float angle = atan2(toClick.y, toClick.x);
-        
-        // Rotating starburst rays
-        float rays = pow(abs(sin(angle * 6.0 + t * 2.0)), 8.0);
-        float starGlow = exp(-distClick * 0.02) * (0.5 + 0.5 * rays);
-        float coreGlow = exp(-distClick * 0.08);
-        
-        // Gradient from pink to cyan
-        float3 starColor = mix(float3(1.0, 0.2, 0.6), float3(0.2, 0.8, 1.0), 
-                               0.5 + 0.5 * sin(t * 2.0));
-        color += starColor * starGlow;
-        color += float3(1.0, 0.9, 1.0) * coreGlow;
+    // Add HAL's glow to background
+    color += halRed * redGlow * 0.3;
+    
+    // HAL eye components
+    color = mix(color, float3(0.01), innerDark * 0.9);
+    color += halRed * coreGlow * innerDark;
+    color += halCore * exp(-distEye * 0.15) * innerDark;
+    color = mix(color, ringColor, ring);
+    
+    // Reflection spot on the eye
+    float2 reflectPos = eyeCenter + float2(-eyeRadius * 0.3, -eyeRadius * 0.3);
+    float reflection = exp(-length(p - reflectPos) * 0.08);
+    color += float3(0.3) * reflection * innerDark;
+    
+    // Draw the closing doors
+    if (p.y < doorTop) {
+        color = doorColor;
+        color += float3(0.1) * topEdge; // highlight at edge
+        // Red warning light reflection on door
+        color += halRed * 0.1 * (1.0 - p.y / doorTop);
+    }
+    if (p.y > doorBottom) {
+        color = doorColor;
+        color += float3(0.1) * bottomEdge;
+        color += halRed * 0.1 * ((p.y - doorBottom) / (uniforms.resolution.y - doorBottom));
     }
     
-    // Vignette for extra moodiness
-    float vignette = 1.0 - 0.4 * length(uv - 0.5);
+    // Door seam lines
+    float seamX = abs(p.x - center.x);
+    if (seamX < 2.0 && (p.y < doorTop || p.y > doorBottom)) {
+        color = float3(0.05);
+    }
+    
+    // Vignette
+    float vignette = 1.0 - 0.5 * length(uv - 0.5);
     color *= vignette;
     
-    // Slight bloom/saturation boost
-    color = pow(color, float3(0.95));
+    // Occasional flicker for unease
+    float flicker = 1.0 - 0.05 * step(0.98, fract(t * 7.0));
+    color *= flicker;
     
     outTexture.write(float4(clamp(color, 0.0, 1.0), 1.0), gid);
 }
