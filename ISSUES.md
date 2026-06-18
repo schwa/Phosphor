@@ -890,3 +890,67 @@ Approach:
 - Pick the top 1-2 wins by measured impact, not by theoretical concern.
 
 ---
+
+## 30: Generation: retry once when the produced shader fails to compile
+
++++
+status: new
+priority: medium
+kind: none
+created: 2026-06-18T23:01:03Z
++++
+
+Today, ShaderGenerator does a single pass: prompt the model, take its output, replace document.text. If the result fails to compile (Metal compiler errors), the user sees the error and has to manually re-prompt.
+
+Better: capture the Metal compiler diagnostics on first failure and feed them back to the model with a 'this is what you produced; here are the compiler errors; produce a fixed version' message. One automatic retry usually catches the silly type-mismatch and missing-include style errors (MSL vs GLSL strictness, etc).
+
+Implementation sketch:
+- ShaderGenerator.generate(prompt:model:existingSource:) becomes the entry point.
+- After the first generation, run the compiler against the produced source. If it succeeds, return as today.
+- If it fails, take the PhosphorCompileError + the produced body and start a SECOND LanguageModelSession.respond, with a follow-up prompt:
+  'The previous attempt failed to compile with these errors: <errors>. Fix the shader and produce a complete updated version.'
+- If THAT also fails, give up and surface the errors to the user (current behavior).
+- Cap at one retry to bound latency / token cost.
+
+Notes:
+- The GeneratePanel can show a small 'compiling…' / 'retrying with compiler feedback…' state.
+- Multi-pass generation may need to compile each pass kernel separately to scope errors.
+- Models that don't follow instructions well (small on-device model) may retry-loop without improving; the single-retry cap protects against that.
+
+---
+
+## 31: Pause / play / reset / time-scrub controls
+
++++
+status: new
+priority: medium
+kind: none
+created: 2026-06-18T23:01:19Z
++++
+
+Add playback controls so the user can freeze a shader (and step through it) instead of having it always run at the drawable's refresh rate.
+
+UI:
+- Toolbar buttons: pause/play (toggle), reset, maybe a small time scrubber for paused mode.
+- Possibly a transport bar at the bottom of the preview pane when paused.
+
+Semantics:
+- 'Pause' freezes `uniforms.time` and `uniforms.frame` at their current values; the runtime keeps rendering the same frame so the screen doesn't go dark.
+- 'Play' resumes from where time was paused (NOT from t=0).
+- 'Reset' sets time = 0 and frame = 0, and re-seeds the runtime's 'just-resized' flag so feedback shaders re-initialize.
+- 'Step' (optional, while paused) advances one frame at a time. Useful for debugging ping-pong feedback.
+
+Implementation sketch:
+- Add a TimeController-ish struct in PhosphorView (or hoisted to PhosphorDocumentView) tracking: isPaused, accumulatedTime, currentFrame, lastWallClockSample.
+- BuiltinUniforms construction uses TimeController's emitted values instead of reading frameUniforms.time/.index directly.
+- Reset bumps a 'just-reset' signal that the runtime forwards to uniforms.resized (or a new uniforms.justReset field) so feedback shaders re-seed.
+- Pause/play state persists per-document.
+
+Related: #8 (resize re-seeding). Reset is essentially a manual trigger for the same code path.
+
+Stretch:
+- Record/playback time as a video.
+- 'Slow motion' multiplier.
+- 'Step back' is impossible without snapshotting feedback state \u2014 don't promise it.
+
+---
