@@ -1,27 +1,37 @@
 {
+  "features" : [
+    "refractivity"
+  ],
   "fill" : {
-    "automatic-gradient" : "srgb:0.10196,0.10196,0.18039,1.00000"
+    "linear-gradient" : [
+      "extended-srgb:1.00000,0.80000,0.00000,1.00000",
+      "extended-srgb:1.00000,0.21961,0.23529,1.00000"
+    ]
   },
   "groups" : [
     {
+      "blur-material" : null,
       "layers" : [
         {
-          "glass" : false,
+          "fill" : "automatic",
+          "glass" : true,
           "image-name" : "center.svg",
           "name" : "center"
-        },
-        {
-          "image-name" : "label-0-topRight.svg",
-          "name" : "topRight"
         }
       ],
+      "lighting" : "individual",
+      "refractivity" : {
+        "depth" : 0,
+        "enabled" : true,
+        "strength" : 0.5059375
+      },
       "shadow" : {
-        "kind" : "neutral",
+        "kind" : "layer-color",
         "opacity" : 0.5
       },
       "specular" : true,
       "translucency" : {
-        "enabled" : false,
+        "enabled" : true,
         "value" : 0.5
       }
     }

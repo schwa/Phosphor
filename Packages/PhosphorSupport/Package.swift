@@ -1,22 +1,30 @@
 // swift-tools-version: 6.3
-// The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
 let package = Package(
     name: "PhosphorSupport",
+    platforms: [
+        .iOS(.v26),
+        .macOS(.v26),
+        .visionOS(.v26)
+    ],
     products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
-        .library(
-            name: "PhosphorSupport",
-            targets: ["PhosphorSupport"]
-        ),
+        .library(name: "PhosphorSupport", targets: ["PhosphorSupport"]),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/schwa/MetalSprockets", branch: "main"),
+        .package(url: "https://github.com/schwa/MetalSprocketsAddOns", branch: "main"),
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "PhosphorSupport"
+            name: "PhosphorSupport",
+            dependencies: [
+                .product(name: "MetalSprockets", package: "MetalSprockets"),
+                .product(name: "MetalSprocketsUI", package: "MetalSprockets"),
+                .product(name: "MetalSprocketsSupport", package: "MetalSprockets"),
+                .product(name: "MetalSprocketsAddOns", package: "MetalSprocketsAddOns"),
+            ]
         ),
         .testTarget(
             name: "PhosphorSupportTests",
