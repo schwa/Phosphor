@@ -49,7 +49,7 @@ public struct PhosphorPipeline: Element {
                     parityByResource[id] = spec.pingPong ? isEvenFrame : true
                 }
             }
-            let useLists = runtime.useResources(parity: parityByResource)
+            let useLists = runtime.writeChannelBuffers(parity: parityByResource)
 
             // The billboard samples this frame's *write* target — same parity
             // as the writing pass.
@@ -83,7 +83,7 @@ public struct PhosphorPipeline: Element {
     private func makeComputePass(_ pass: Pass, parity: Bool, useResources: [MTLTexture]) throws -> some Element {
         if let function = runtime.passFunctions[pass.id],
            let outTexture = runtime.textures[pass.output]?.writeTexture(currentIsA: parity),
-           let channelBuffer = runtime.channelBuffer(for: pass.id, parity: parity) {
+           let channelBuffer = runtime.channelBuffer(for: pass.id) {
             try ComputePass(label: pass.id.raw) {
                 try ComputePipeline(computeKernel: ComputeKernel(function)) {
                     try ComputeDispatch(
