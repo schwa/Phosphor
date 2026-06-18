@@ -53,10 +53,13 @@ struct PhosphorDocumentView: View {
             Divider()
 
             ScrollView([.horizontal, .vertical]) {
-                MetalSourceView(text: document.text)
+                MetalSourceView(text: $document.text)
                     .padding(12)
             }
             .background(Color(.textBackgroundColor))
+            .onChange(of: document.text) { _, _ in
+                document.refreshParsed()
+            }
         }
     }
 

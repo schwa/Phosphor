@@ -3,31 +3,86 @@ import SwiftTreeSitterLayer
 import SwiftUI
 import TreeSitterCPP
 
-/// Read-only, syntax-highlighted view of a Metal source string.
+/// Source view for Metal kernel text. Supports both read-only display and
+/// live editing (when given a binding); both modes are syntax-highlighted
+/// via tree-sitter's C++ grammar.
 ///
-/// Uses the tree-sitter C++ grammar (MSL is close enough to C++ that the
-/// grammar gives useful coloring out of the box). Highlighting kicks in on
-/// the first appearance and on source changes.
+/// Highlighting is applied as `AttributedString` foreground colors; the
+/// editable mode uses `TextEditor(text: Binding<AttributedString>)`.
 public struct MetalSourceView: View {
-    public let text: String
+    private enum Storage {
+        case readOnly(String)
+        case editable(Binding<String>)
+    }
+
+    private let storage: Storage
 
     @State private var attributedText: AttributedString = ""
 
+    /// Read-only view of `text`.
     public init(text: String) {
-        self.text = text
+        self.storage = .readOnly(text)
+    }
+
+    /// Editable view bound to `text`. Edits flow back through the binding.
+    public init(text: Binding<String>) {
+        self.storage = .editable(text)
     }
 
     public var body: some View {
-        Text(attributedText)
-            .font(.system(.body, design: .monospaced))
-            .textSelection(.enabled)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .task(id: text) {
-                attributedText = AttributedString(text)
-                if let highlighted = try? Self.format(text) {
-                    attributedText = highlighted
+        Group {
+            switch storage {
+            case .readOnly:
+                Text(attributedText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            case .editable(let binding):
+                TextEditor(text: attributedEditingBinding(plainTextBinding: binding))
+            }
+        }
+        .font(.system(.body, design: .monospaced))
+        .textSelection(.enabled)
+        .task(id: currentSource) {
+            attributedText = AttributedString(currentSource)
+            if let highlighted = try? Self.format(currentSource) {
+                attributedText = highlighted
+            }
+        }
+    }
+
+    /// Adapts an `AttributedString` binding (what `TextEditor` shows) to/from
+    /// the underlying `String` binding (what the document holds). Each edit
+    /// writes back the plain characters and triggers a re-highlight.
+    private func attributedEditingBinding(plainTextBinding: Binding<String>) -> Binding<AttributedString> {
+        Binding(
+            get: { attributedText },
+            set: { newAttributed in
+                let newPlain = String(newAttributed.characters)
+                if newPlain != plainTextBinding.wrappedValue {
+                    plainTextBinding.wrappedValue = newPlain
                 }
             }
+        )
+    }
+
+    /// Active source string for the highlighter to observe.
+    private var currentSource: String {
+        switch storage {
+        case .readOnly(let text): return text
+        case .editable(let binding): return binding.wrappedValue
+        }
+    }
+
+    /// Binding adapter: `TextEditor` reads the live text and writes back
+    /// through the underlying binding.
+    private var editableBinding: Binding<String> {
+        switch storage {
+        case .editable(let binding): return binding
+        case .readOnly(let text):
+            return Binding(
+                get: { text },
+                set: { _ in }
+            )
+        }
     }
 
     /// Builds a syntax-highlighted AttributedString by walking the tree-sitter
