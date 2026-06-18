@@ -94,7 +94,7 @@ public struct PhosphorView: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(.black.opacity(0.6))
+                .background { Color.black.opacity(0.6) }
 
                 if showUniformsPanel {
                     VStack(alignment: .leading, spacing: 4) {
@@ -109,11 +109,10 @@ public struct PhosphorView: View {
                         }
                     }
                     .padding(8)
-                    .background(.black.opacity(0.5))
+                    .background { Color.black.opacity(0.5) }
                     .foregroundStyle(.white)
                 }
             }
-            .background(RoundedRectangle(cornerRadius: 6).fill(.clear))
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .frame(maxWidth: 320)
             .padding(8)
