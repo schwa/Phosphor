@@ -269,6 +269,22 @@ public struct ShaderGenerator {
         - Bad: `texture2d<float, access::read>(channels.iChannel0.resource, gid)`.
         - Good: `channels.iChannel0.read(gid)`.
 
+        MSL IS STRICTER THAN GLSL:
+        - No implicit vector-dimension conversions. `noise3D(vec.xz)` does NOT work —
+          `vec.xz` is a `float2` and `noise3D` takes a `float3`. You must explicitly
+          construct a `float3`: `noise3D(float3(vec.xz, 0.0))`.
+        - If you write a `noise3D` helper, call it ONLY with `float3` args. Write a
+          separate `noise2D` helper if you need 2D noise (e.g. for terrain height).
+        - Before calling any helper function, double-check the argument types match
+          the parameter types exactly. The Metal compiler does NOT auto-promote
+          float -> float2 -> float3 -> float4 the way GLSL does.
+        - Keep raymarching loops bounded with a small max iteration count (≤64 is
+          a safe upper bound). The GPU has a watchdog timer and will kill long
+          dispatches.
+        - Avoid producing NaN / inf in the output: clamp the final color to a
+          sensible range, guard against divide-by-zero and log/sqrt of negative
+          numbers.
+
         Keep kernels under ~80 lines. Do NOT write `#include` directives; the host adds them.
 
         MODIFICATION REQUESTS:
