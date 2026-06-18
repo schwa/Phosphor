@@ -17,7 +17,7 @@ struct GeneratePanel: View {
     }
 
     private var isModifying: Bool {
-        document.parsed.environment != nil
+        document.parsed.environment != nil && !document.isUntouchedTemplate
     }
 
     var body: some View {

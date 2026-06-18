@@ -51,6 +51,7 @@ struct PhosphorDocumentView: View {
                 } label: {
                     Label("Generate", systemImage: "sparkles")
                 }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
             }
         }
         .sheet(isPresented: $showGenerate) {

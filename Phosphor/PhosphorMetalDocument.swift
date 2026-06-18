@@ -36,6 +36,14 @@ final class PhosphorMetalDocument: ReadableDocument, WritableDocument {
         self.parsed = ParsedPhosphorSource(source: initialText)
     }
 
+    /// Returns true if `text` looks like the unmodified starter template that
+    /// `init(configuration:)` seeds into brand-new documents. Used by the
+    /// Generate panel to treat "hit Cmd-N, then generate" as a fresh
+    /// generation rather than a modification of the template.
+    var isUntouchedTemplate: Bool {
+        text == Self.template
+    }
+
     /// Minimal-viable shader used to seed brand-new documents.
     private static let template: String = """
         /* phosphor:environment
