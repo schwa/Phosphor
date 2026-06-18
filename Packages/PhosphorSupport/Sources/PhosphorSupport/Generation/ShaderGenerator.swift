@@ -2,23 +2,48 @@ import FoundationModels
 import FoundationModelBackends
 import Foundation
 
-/// Which Apple Intelligence backend to use for a generation request.
-public enum GenerationModel: String, CaseIterable, Hashable, Sendable {
+/// Which language model backend to use for a generation request.
+///
+/// `rawValue` is a stable string used by ``@AppStorage`` to persist the
+/// user's choice across launches.
+public enum GenerationModel: Hashable, Sendable {
     /// On-device foundation model (`SystemLanguageModel.default`).
     case onDevice
     /// Apple's Private Cloud Compute foundation model. Higher capability,
     /// requires Apple Intelligence sign-in and connectivity, subject to
     /// per-app quotas.
     case privateCloudCompute
-    /// Anthropic Claude Opus (via FoundationModelBackends). Requires an API
-    /// key stored in the Keychain (see `KeychainAccount.anthropicAPIKey`).
-    case anthropicClaudeOpus
+    /// Anthropic Claude (any released model id). Requires an API key stored
+    /// in the Keychain (see `KeychainAccount.anthropicAPIKey`).
+    case anthropic(AnthropicModel)
+
+    /// Stable string id for ``@AppStorage`` persistence.
+    public var rawValue: String {
+        switch self {
+        case .onDevice: return "onDevice"
+        case .privateCloudCompute: return "privateCloudCompute"
+        case .anthropic(let model): return "anthropic.\(model.id)"
+        }
+    }
+
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "onDevice": self = .onDevice
+        case "privateCloudCompute": self = .privateCloudCompute
+        default:
+            let prefix = "anthropic."
+            guard rawValue.hasPrefix(prefix) else { return nil }
+            let id = String(rawValue.dropFirst(prefix.count))
+            guard let model = AnthropicModel.all.first(where: { $0.id == id }) else { return nil }
+            self = .anthropic(model)
+        }
+    }
 
     public var displayName: String {
         switch self {
         case .onDevice: "On Device"
         case .privateCloudCompute: "Private Cloud Compute"
-        case .anthropicClaudeOpus: "Anthropic Claude Opus"
+        case .anthropic(let model): "Anthropic \(model.displayName)"
         }
     }
 
@@ -27,9 +52,33 @@ public enum GenerationModel: String, CaseIterable, Hashable, Sendable {
     public var requiresAPIKey: Bool {
         switch self {
         case .onDevice, .privateCloudCompute: return false
-        case .anthropicClaudeOpus: return true
+        case .anthropic: return true
         }
     }
+
+    /// All models the picker should offer, in display order.
+    public static let all: [GenerationModel] =
+        [.onDevice, .privateCloudCompute] + AnthropicModel.all.map { .anthropic($0) }
+}
+
+/// Curated catalogue of Anthropic models we offer through the Generate panel.
+///
+/// Anthropic releases and renames models frequently; keep this list up to
+/// date manually. (#19 tracks the idea of fetching dynamically.)
+public struct AnthropicModel: Hashable, Sendable {
+    public let id: String
+    public let displayName: String
+
+    public init(id: String, displayName: String) {
+        self.id = id
+        self.displayName = displayName
+    }
+
+    public static let opus = AnthropicModel(id: "claude-opus-4-5", displayName: "Claude Opus 4.5")
+    public static let sonnet = AnthropicModel(id: "claude-sonnet-4-5", displayName: "Claude Sonnet 4.5")
+    public static let haiku = AnthropicModel(id: "claude-haiku-4-5", displayName: "Claude Haiku 4.5")
+
+    public static let all: [AnthropicModel] = [.opus, .sonnet, .haiku]
 }
 
 /// Generates a Phosphor `.metal` source from a natural-language prompt via
@@ -60,14 +109,14 @@ public struct ShaderGenerator {
                 model: PrivateCloudComputeLanguageModel(),
                 instructions: Self.instructions
             )
-        case .anthropicClaudeOpus:
+        case .anthropic(let anthropicModel):
             guard let apiKey = KeychainStore.read(account: KeychainAccount.anthropicAPIKey),
                   !apiKey.isEmpty else {
-                throw ShaderGeneratorError.missingAPIKey(.anthropicClaudeOpus)
+                throw ShaderGeneratorError.missingAPIKey(model)
             }
             let anthropic = AnthropicLanguageModel(
                 apiKey: apiKey,
-                model: "claude-opus-4-5"
+                model: anthropicModel.id
             )
             session = LanguageModelSession(
                 model: anthropic,

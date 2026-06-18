@@ -525,12 +525,13 @@ Start with: Quad (current), Cube (planar-per-face), Sphere (equirectangular). Th
 ## 19: Show all Anthropic models in the Generate panel picker
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: effort:s
 created: 2026-06-18T21:54:20Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-18T22:58:13Z
+closed: 2026-06-18T22:58:13Z
 +++
 
 Today the Generate panel exposes a single Anthropic option (Claude Opus). We hardcoded `claude-opus-4-5` in the ShaderGenerator. Expose the other Anthropic models so the user can trade off quality vs. cost vs. latency per generation.
@@ -546,6 +547,14 @@ Notes:
 - Anthropic adds/renames models often; consider fetching the model list from the API at runtime rather than hardcoding, behind a "Refresh model list" button in Settings.
 - The model name string lives in our settings; the Anthropic key lives in the Keychain. Keep that split.
 - Token-usage display would be nice eventually \u2014 LanguageModelSession exposes a .usage property after each respond. Out of scope here.
+
+- `2026-06-18T22:58:13Z`: Done. GenerationModel.anthropicClaudeOpus replaced with a parameterized .anthropic(AnthropicModel) case. AnthropicModel is a tiny struct with id + displayName; the curated catalogue (Opus 4.5, Sonnet 4.5, Haiku 4.5) lives on AnthropicModel.all and is easy to update.
+
+GenerationModel.all returns the full list (on-device, PCC, three Anthropic models). The picker uses that. raw-value persistence migrates: 'anthropicClaudeOpus' from earlier builds doesn't decode anymore, falls back to On Device — acceptable hiccup since the user can pick again.
+
+ShaderGenerator routes the chosen AnthropicModel.id to FoundationModelBackends' AnthropicLanguageModel(apiKey:model:).
+
+Dynamic model-list fetching from the API and per-pickable model display under a submenu are still possible follow-ups but not blocking.
 
 ---
 
@@ -564,12 +573,12 @@ closed: 2026-06-18T22:46:32Z
 Today the uniforms panel (top-right overlay on the preview) has its own little switch toggle in its header. Move that toggle into the document window's main toolbar so it's discoverable next to Generate and Phosphor.h.
 
 Implementation:
-- PhosphorView currently owns @State showUniformsPanel: Bool. Pull it up to PhosphorDocumentView (or expose a binding) so the toolbar can drive it.
-- Add a ToolbarItem with a slider/sparkles/control-style icon \u2014 maybe slider.horizontal.3 \u2014 wired to that binding.
-- Remove the inline switch from the uniforms-panel header (the header still shows the 'Uniforms' label).
-- Disable the toolbar toggle when the current document has no uniforms declared, so it's not a dead control on those shaders.
-- Persist across documents via @AppStorage so muscle memory carries between windows.
 
+- `2026-06-18T21:57:15Z`: PhosphorView currently owns @State showUniformsPanel: Bool. Pull it up to PhosphorDocumentView (or expose a binding) so the toolbar can drive it.
+- `2026-06-18T21:57:15Z`: Add a ToolbarItem with a slider/sparkles/control-style icon \u2014 maybe slider.horizontal.3 \u2014 wired to that binding.
+- `2026-06-18T21:57:15Z`: Remove the inline switch from the uniforms-panel header (the header still shows the 'Uniforms' label).
+- `2026-06-18T21:57:15Z`: Disable the toolbar toggle when the current document has no uniforms declared, so it's not a dead control on those shaders.
+- `2026-06-18T21:57:15Z`: Persist across documents via @AppStorage so muscle memory carries between windows.
 - `2026-06-18T22:46:32Z`: Done. PhosphorView's showUniformsPanel state moved out as an @AppStorage value (phosphor.ui.showUniformsPanel) so it persists app-wide. The uniforms overlay no longer renders its own toggle in its header — there's just the 'Uniforms' label now. PhosphorDocumentView gained a Toolbar item bound to the same @AppStorage key with a slider.horizontal.3 icon; the toggle is disabled when the current shader has no uniforms declared, with an explanatory help tooltip.
 
 ---

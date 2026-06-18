@@ -40,7 +40,7 @@ struct GeneratePanel: View {
                 Text("Model:")
                     .foregroundStyle(.secondary)
                 Picker("Model", selection: $modelRawValue) {
-                    ForEach(GenerationModel.allCases, id: \.rawValue) { model in
+                    ForEach(GenerationModel.all, id: \.rawValue) { model in
                         Text(model.displayName).tag(model.rawValue)
                     }
                 }
