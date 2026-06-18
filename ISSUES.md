@@ -286,12 +286,13 @@ Add a picker UI to select and display any texture currently in use, not just the
 ## 12: Mouse uniforms (mouse/mouseButtons/mouseClickOrigin) are never updated
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: effort:s
 created: 2026-06-18T21:43:30Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-18T23:42:51Z
+closed: 2026-06-18T23:42:51Z
 +++
 
 The kernel sees `uniforms.mouse` (xy in pixels), `uniforms.mouseButtons` (bitmask), and `uniforms.mouseClickOrigin` (xy of last press). These are declared in the BuiltinUniforms struct and wired all the way through to the shader, but the host never assigns them — they are always zero.
@@ -304,6 +305,15 @@ To make them work:
 - The fade demo would be a good test: scrub the mouse around and see the column follow it.
 
 Shadertoy semantics for reference: iMouse.xy is the current position while held, iMouse.zw is the click origin with sign indicating button state. We chose to split this into 3 separate fields for clarity; preserve those semantics.
+
+- `2026-06-18T23:42:51Z`: Done. PhosphorView now tracks mouse state via @State (position, button mask, click origin) and feeds it into BuiltinUniforms each frame.
+
+Tracking:
+- onContinuousHover updates mousePosition (mouse-moved-with-no-button).
+- DragGesture(minimumDistance: 0) handles click+drag: on first press it records mouseClickOrigin, sets bit 0 of mouseButtons; on end it clears bit 0.
+- View-space points are converted to pixel coordinates matching uniforms.resolution by ratio of cached drawableSize / viewSize. onGeometryChange caches viewSize.
+
+Tests live in Examples/MouseProbe.metal: a soft white glow follows the cursor; background turns red while a button is held; a blue glow appears at the recorded click origin during a drag. Confirmed working.
 
 ---
 

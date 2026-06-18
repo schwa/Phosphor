@@ -23,6 +23,16 @@ public struct PhosphorView: View {
     @State private var uniformValues: [String: UniformValue] = [:]
     @AppStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
 
+    // Mouse state, in pixel coordinates (matching uniforms.resolution).
+    // Updated by gestures on the RenderView; passed into BuiltinUniforms
+    // each frame.
+    @State private var mousePosition: SIMD2<Float> = .zero
+    @State private var mouseButtons: UInt32 = 0
+    @State private var mouseClickOrigin: SIMD2<Float> = .zero
+    /// Logical view size (in points). Combined with the drawable size to
+    /// convert mouse coordinates from points to pixels.
+    @State private var viewSize: CGSize = .zero
+
     public init(environment: PhosphorEnvironment, source: String) {
         self.environment = environment
         self.source = source
@@ -53,7 +63,10 @@ public struct PhosphorView: View {
                         time: context.frameUniforms.time,
                         timeDelta: Float(context.frameUniforms.deltaTime),
                         frame: Float(context.frameUniforms.index),
-                        resolution: SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height))
+                        resolution: SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height)),
+                        mouse: mousePosition,
+                        mouseButtons: mouseButtons,
+                        mouseClickOrigin: mouseClickOrigin
                     )
                     PhosphorPipeline(
                         runtime: runtime,
@@ -62,6 +75,31 @@ public struct PhosphorView: View {
                         drawableSize: drawableSize
                     )
                 }
+                .onGeometryChange(for: CGSize.self, of: \.size) { newSize in
+                    viewSize = newSize
+                }
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let point):
+                        mousePosition = pixelCoordinate(from: point)
+                    case .ended:
+                        break
+                    }
+                }
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            mousePosition = pixelCoordinate(from: value.location)
+                            if mouseButtons & 0b1 == 0 {
+                                // First frame of the press: record click origin.
+                                mouseClickOrigin = pixelCoordinate(from: value.startLocation)
+                            }
+                            mouseButtons |= 0b1
+                        }
+                        .onEnded { _ in
+                            mouseButtons &= ~0b1
+                        }
+                )
                 .overlay(alignment: .topLeading) {
                     diagnosticsOverlay(diagnostics: frontMatterDiagnostics + runtime.diagnostics)
                 }
@@ -111,6 +149,20 @@ public struct PhosphorView: View {
             .frame(maxWidth: 320)
             .padding(8)
         }
+    }
+
+    /// Converts a point in PhosphorView's coordinate space to pixel
+    /// coordinates matching `uniforms.resolution`. Uses the cached `viewSize`
+    /// (in points) and assumes the drawable's aspect matches the view.
+    private func pixelCoordinate(from point: CGPoint) -> SIMD2<Float> {
+        guard viewSize.width > 0, viewSize.height > 0,
+              let drawableSize = runtime?.currentDrawableSize,
+              drawableSize.width > 0, drawableSize.height > 0 else {
+            return SIMD2<Float>(Float(point.x), Float(point.y))
+        }
+        let scaleX = Float(drawableSize.width / viewSize.width)
+        let scaleY = Float(drawableSize.height / viewSize.height)
+        return SIMD2<Float>(Float(point.x) * scaleX, Float(point.y) * scaleY)
     }
 
     @MainActor
