@@ -9,6 +9,12 @@ struct PhosphorDocumentView: View {
     @Bindable var document: PhosphorMetalDocument
     @State private var showHeader: Bool = false
     @State private var showGenerate: Bool = false
+    @AppStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
+
+    /// True if the current document has at least one declared uniform.
+    private var hasUniforms: Bool {
+        !(document.parsed.environment?.uniforms.isEmpty ?? true)
+    }
 
     var body: some View {
         HSplitView {
@@ -28,6 +34,16 @@ struct PhosphorDocumentView: View {
                 .popover(isPresented: $showHeader, arrowEdge: .top) {
                     headerPopover
                 }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Toggle(isOn: $showUniformsPanel) {
+                    Label("Uniforms", systemImage: "slider.horizontal.3")
+                }
+                .toggleStyle(.button)
+                .disabled(!hasUniforms)
+                .help(hasUniforms
+                    ? "Show or hide the uniforms panel"
+                    : "No uniforms declared in this shader")
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {

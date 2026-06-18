@@ -21,7 +21,7 @@ public struct PhosphorView: View {
     @State private var runtime: PhosphorRuntime?
     @State private var initError: Error?
     @State private var uniformValues: [String: UniformValue] = [:]
-    @State private var showUniformsPanel: Bool = true
+    @AppStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
 
     public init(environment: PhosphorEnvironment, source: String) {
         self.environment = environment
@@ -84,34 +84,28 @@ public struct PhosphorView: View {
 
     @ViewBuilder
     private var uniformsOverlay: some View {
-        if !environment.uniforms.isEmpty {
+        if !environment.uniforms.isEmpty, showUniformsPanel {
             VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Text("Uniforms").font(.caption).bold().foregroundStyle(.white)
-                    Spacer()
-                    Toggle("", isOn: $showUniformsPanel).labelsHidden()
-                        .toggleStyle(.switch)
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background { Color.black.opacity(0.6) }
+                Text("Uniforms").font(.caption).bold().foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background { Color.black.opacity(0.6) }
 
-                if showUniformsPanel {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(environment.uniforms, id: \.name) { uniform in
-                            UniformControl(
-                                uniform: uniform,
-                                value: Binding(
-                                    get: { uniformValues[uniform.name] ?? uniform.defaultValue },
-                                    set: { uniformValues[uniform.name] = $0 }
-                                )
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(environment.uniforms, id: \.name) { uniform in
+                        UniformControl(
+                            uniform: uniform,
+                            value: Binding(
+                                get: { uniformValues[uniform.name] ?? uniform.defaultValue },
+                                set: { uniformValues[uniform.name] = $0 }
                             )
-                        }
+                        )
                     }
-                    .padding(8)
-                    .background { Color.black.opacity(0.5) }
-                    .foregroundStyle(.white)
                 }
+                .padding(8)
+                .background { Color.black.opacity(0.5) }
+                .foregroundStyle(.white)
             }
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .frame(maxWidth: 320)

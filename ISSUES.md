@@ -552,12 +552,13 @@ Notes:
 ## 20: Move uniforms-panel toggle into the toolbar
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: effort:xs
 created: 2026-06-18T21:57:15Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-18T22:46:32Z
+closed: 2026-06-18T22:46:32Z
 +++
 
 Today the uniforms panel (top-right overlay on the preview) has its own little switch toggle in its header. Move that toggle into the document window's main toolbar so it's discoverable next to Generate and Phosphor.h.
@@ -568,6 +569,8 @@ Implementation:
 - Remove the inline switch from the uniforms-panel header (the header still shows the 'Uniforms' label).
 - Disable the toolbar toggle when the current document has no uniforms declared, so it's not a dead control on those shaders.
 - Persist across documents via @AppStorage so muscle memory carries between windows.
+
+- `2026-06-18T22:46:32Z`: Done. PhosphorView's showUniformsPanel state moved out as an @AppStorage value (phosphor.ui.showUniformsPanel) so it persists app-wide. The uniforms overlay no longer renders its own toggle in its header — there's just the 'Uniforms' label now. PhosphorDocumentView gained a Toolbar item bound to the same @AppStorage key with a slider.horizontal.3 icon; the toggle is disabled when the current shader has no uniforms declared, with an explanatory help tooltip.
 
 ---
 
