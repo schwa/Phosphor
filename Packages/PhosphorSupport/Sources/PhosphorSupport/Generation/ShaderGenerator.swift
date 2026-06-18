@@ -62,7 +62,15 @@ public struct ShaderGenerator {
           resource; the pass reads its own previous output via an `iChannel0` input bound to
           that same resource.
 
-        Example for "solid red shader":
+        WHEN TO USE `inputs`:
+        - Use `inputs` ONLY if your kernel calls `channels.iChannelN.read(...)` somewhere
+          in its body. If you don't sample channels, `inputs` MUST be empty.
+        - Procedural patterns (checkerboard, gradient, plasma, noise, fractals) do NOT need
+          inputs — they compute their color from `gid` and `uniforms` only.
+        - Feedback effects (Game of Life, fluid simulation, trails) DO need an input — the
+          pass reads its own previous frame via `iChannel0` bound to its own ping-pong output.
+
+        ===== EXAMPLE 1: solid red shader =====
         - resources: [{ id: "image", format: "rgba32Float", pingPong: false }]
         - passes:    [{ id: "image", output: "image", inputs: [] }]
         - uniforms:  []
@@ -78,6 +86,51 @@ public struct ShaderGenerator {
                 outTexture.write(float4(1.0, 0.0, 0.0, 1.0), gid);
             }
             ```
+
+        ===== EXAMPLE 2: checkerboard (procedural pattern, no inputs) =====
+        - resources: [{ id: "image", format: "rgba32Float", pingPong: false }]
+        - passes:    [{ id: "image", output: "image", inputs: [] }]
+        - uniforms:  []
+        - outputResourceID: "image"
+        - body: ```
+            kernel void image(
+                texture2d<float, access::write> outTexture     [[texture(0)]],
+                device const ChannelBindings&   channels       [[buffer(1)]],
+                constant Uniforms&              uniforms       [[buffer(0)]],
+                device const UserUniforms*      userUniforms   [[buffer(2)]],
+                uint2 gid                                      [[thread_position_in_grid]])
+            {
+                uint cell = (gid.x / 32u) + (gid.y / 32u);
+                float v = (cell % 2u == 0u) ? 1.0 : 0.0;
+                outTexture.write(float4(v, v, v, 1.0), gid);
+            }
+            ```
+
+        ===== EXAMPLE 3: animated gradient (uses uniforms.time, no inputs) =====
+        - resources: [{ id: "image", format: "rgba32Float", pingPong: false }]
+        - passes:    [{ id: "image", output: "image", inputs: [] }]
+        - uniforms:  []
+        - outputResourceID: "image"
+        - body: ```
+            kernel void image(
+                texture2d<float, access::write> outTexture     [[texture(0)]],
+                device const ChannelBindings&   channels       [[buffer(1)]],
+                constant Uniforms&              uniforms       [[buffer(0)]],
+                device const UserUniforms*      userUniforms   [[buffer(2)]],
+                uint2 gid                                      [[thread_position_in_grid]])
+            {
+                float2 uv = float2(gid) / uniforms.resolution;
+                float r = 0.5 + 0.5 * sin(uniforms.time + uv.x * 6.28);
+                float g = 0.5 + 0.5 * sin(uniforms.time + uv.y * 6.28);
+                outTexture.write(float4(r, g, 0.2, 1.0), gid);
+            }
+            ```
+
+        SAMPLING CHANNELS (only if you declared inputs):
+        - Use `channels.iChannel0.read(gid)` — returns a `float4`.
+        - There is NO `.resource` member, NO `texture2d<...>(...)` constructor call.
+        - Bad: `texture2d<float, access::read>(channels.iChannel0.resource, gid)`.
+        - Good: `channels.iChannel0.read(gid)`.
 
         Keep kernels under ~80 lines. Do NOT write `#include` directives; the host adds them.
     """

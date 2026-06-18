@@ -23,10 +23,43 @@ final class PhosphorMetalDocument: ReadableDocument, WritableDocument {
     private(set) var parsed: ParsedPhosphorSource
 
     init(configuration: URLDocumentConfiguration) {
-        self.text = ""
+        // For brand-new documents (no backing file yet), seed with a minimal
+        // working shader so the user has somewhere to start. Documents being
+        // read from disk get their text replaced by `apply(snapshot:previous:)`
+        // before the view ever sees it.
+        let initialText = configuration.fileURL == nil ? Self.template : ""
+        self.text = initialText
         self.configuration = configuration
-        self.parsed = ParsedPhosphorSource(source: "")
+        self.parsed = ParsedPhosphorSource(source: initialText)
     }
+
+    /// Minimal-viable shader used to seed brand-new documents.
+    private static let template: String = """
+        /* phosphor:environment
+        output = "image"
+
+        [[resources]]
+        kind = "texture2D"
+        id = "image"
+        spec = { size = "drawable", format = "rgba32Float", pingPong = false, initial = "zero" }
+
+        [[passes]]
+        id = "image"
+        output = "image"
+        */
+
+        kernel void image(
+            texture2d<float, access::write> outTexture     [[texture(0)]],
+            device const ChannelBindings&   channels       [[buffer(1)]],
+            constant Uniforms&              uniforms       [[buffer(0)]],
+            device const UserUniforms*      userUniforms   [[buffer(2)]],
+            uint2 gid                                      [[thread_position_in_grid]])
+        {
+            float2 uv = float2(gid) / uniforms.resolution;
+            outTexture.write(float4(uv.x, uv.y, 0.5 + 0.5 * sin(uniforms.time), 1.0), gid);
+        }
+
+        """
 
     /// Force a fresh parse from `text`. Call after any mutation that should
     /// be reflected in `parsed`.
