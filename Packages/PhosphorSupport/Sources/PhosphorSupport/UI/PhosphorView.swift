@@ -8,6 +8,11 @@ import SwiftUI
 ///
 /// Owns a ``PhosphorRuntime``, recompiling it whenever `environment` or
 /// `source` change. Drives the `RenderView` with per-frame ``BuiltinUniforms``.
+///
+/// Renders host controls for each ``UniformDecl`` declared by the environment
+/// (`PhosphorView` keeps a `[String: UniformValue]` of live values, seeded
+/// from the declared defaults; each frame the runtime packs them into the
+/// user-uniforms buffer).
 public struct PhosphorView: View {
     public let environment: PhosphorEnvironment
     public let source: String
@@ -15,6 +20,8 @@ public struct PhosphorView: View {
 
     @State private var runtime: PhosphorRuntime?
     @State private var initError: Error?
+    @State private var uniformValues: [String: UniformValue] = [:]
+    @State private var showUniformsPanel: Bool = true
 
     public init(environment: PhosphorEnvironment, source: String) {
         self.environment = environment
@@ -47,11 +54,15 @@ public struct PhosphorView: View {
                     PhosphorPipeline(
                         runtime: runtime,
                         uniforms: uniforms,
+                        userUniformValues: uniformValues,
                         drawableSize: drawableSize
                     )
                 }
                 .overlay(alignment: .topLeading) {
                     diagnosticsOverlay(diagnostics: frontMatterDiagnostics + runtime.diagnostics)
+                }
+                .overlay(alignment: .topTrailing) {
+                    uniformsOverlay
                 }
             } else if let initError {
                 errorView(message: "\(initError)")
@@ -61,6 +72,47 @@ public struct PhosphorView: View {
         }
         .task(id: SourceKey(environment: environment, source: source)) {
             await updateRuntime()
+            uniformValues = UserUniformsLayout.defaultsDictionary(environment.uniforms)
+        }
+    }
+
+    // MARK: - Uniforms panel
+
+    @ViewBuilder
+    private var uniformsOverlay: some View {
+        if !environment.uniforms.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text("Uniforms").font(.caption).bold().foregroundStyle(.white)
+                    Spacer()
+                    Toggle("", isOn: $showUniformsPanel).labelsHidden()
+                        .toggleStyle(.switch)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(.black.opacity(0.6))
+
+                if showUniformsPanel {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(environment.uniforms, id: \.name) { uniform in
+                            UniformControl(
+                                uniform: uniform,
+                                value: SwiftUI.Binding(
+                                    get: { uniformValues[uniform.name] ?? uniform.defaultValue },
+                                    set: { uniformValues[uniform.name] = $0 }
+                                )
+                            )
+                        }
+                    }
+                    .padding(8)
+                    .background(.black.opacity(0.5))
+                    .foregroundStyle(.white)
+                }
+            }
+            .background(RoundedRectangle(cornerRadius: 6).fill(.clear))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .frame(maxWidth: 320)
+            .padding(8)
         }
     }
 
@@ -82,6 +134,8 @@ public struct PhosphorView: View {
             initError = error
         }
     }
+
+    // MARK: - Diagnostics overlay
 
     @ViewBuilder
     private func diagnosticsOverlay(diagnostics: [PhosphorDiagnostic]) -> some View {

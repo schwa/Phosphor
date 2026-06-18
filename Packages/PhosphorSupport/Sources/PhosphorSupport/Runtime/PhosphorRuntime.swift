@@ -45,9 +45,14 @@ public final class PhosphorRuntime {
     /// Built-in uniforms buffer. One slot, written each frame.
     public private(set) var uniformsBuffer: MTLBuffer
 
-    /// User uniforms buffer. Sized once per environment; values memcpy'd
-    /// each frame.
+    /// User uniforms buffer. Sized to ``UserUniformsLayout/totalSize`` for
+    /// the current environment; allocated fresh per frame to dodge in-flight
+    /// races (see issue #6).
     public private(set) var userUniformsBuffer: MTLBuffer
+
+    /// Computed layout for `env.uniforms`. Used to pack values and to size
+    /// the per-frame `userUniformsBuffer`.
+    public private(set) var userUniformsLayout: UserUniformsLayout.Layout
 
     /// 1×1 zero texture used for unbound channel slots, so the GPU never
     /// dereferences a null `MTLResourceID`.
@@ -65,12 +70,14 @@ public final class PhosphorRuntime {
         uniformsBuffer.label = "Phosphor.Uniforms"
         self.uniformsBuffer = uniformsBuffer
 
-        let userUniformsLength = max(Self.userUniformsLength(for: environment.uniforms), 16)
+        let userUniformsLayout = UserUniformsLayout.compute(for: environment.uniforms)
+        let userUniformsLength = max(userUniformsLayout.totalSize, 16)
         guard let userUniformsBuffer = device.makeBuffer(length: userUniformsLength, options: .storageModeShared) else {
             throw PhosphorRuntimeError.allocationFailed("user uniforms buffer")
         }
         userUniformsBuffer.label = "Phosphor.UserUniforms"
         self.userUniformsBuffer = userUniformsBuffer
+        self.userUniformsLayout = userUniformsLayout
 
         self.fallbackTexture = try Self.makeFallbackTexture(device: device)
 
@@ -85,8 +92,9 @@ public final class PhosphorRuntime {
         self.environment = environment
         self.source = source
 
-        // User-uniforms layout may have changed — reallocate buffer.
-        let newLength = max(Self.userUniformsLength(for: environment.uniforms), 16)
+        // User-uniforms layout may have changed — recompute and reallocate.
+        let newLayout = UserUniformsLayout.compute(for: environment.uniforms)
+        let newLength = max(newLayout.totalSize, 16)
         if newLength != userUniformsBuffer.length {
             guard let newBuffer = device.makeBuffer(length: newLength, options: .storageModeShared) else {
                 throw PhosphorRuntimeError.allocationFailed("user uniforms buffer")
@@ -94,6 +102,7 @@ public final class PhosphorRuntime {
             newBuffer.label = "Phosphor.UserUniforms"
             self.userUniformsBuffer = newBuffer
         }
+        self.userUniformsLayout = newLayout
 
         try recompile()
     }
@@ -349,11 +358,22 @@ public final class PhosphorRuntime {
         }
     }
 
-    private static func userUniformsLength(for uniforms: [UniformDecl]) -> Int {
-        // Use an overestimate that covers MSL alignment. Fields are at most 16
-        // bytes (`float4`/`float3`), aligned to at most 16. 32 bytes per slot
-        // is conservative.
-        max(uniforms.count, 1) * 32
+    /// Allocates a fresh user-uniforms buffer and packs `values` into it via
+    /// ``UserUniformsLayout``. Falls back to declared defaults for any name
+    /// not present in `values`. Same per-frame-alloc dodge as the built-in
+    /// uniforms buffer; tracked by issue #6.
+    public func writeUserUniforms(_ values: [String: UniformValue]) {
+        let length = max(userUniformsLayout.totalSize, 16)
+        guard let buffer = device.makeBuffer(length: length, options: .storageModeShared) else { return }
+        buffer.label = "Phosphor.UserUniforms"
+        let defaults = UserUniformsLayout.defaultsDictionary(environment.uniforms)
+        UserUniformsLayout.pack(
+            values: values,
+            defaults: defaults,
+            layout: userUniformsLayout,
+            into: buffer.contents()
+        )
+        userUniformsBuffer = buffer
     }
 
     private static func makeFallbackTexture(device: MTLDevice) throws -> MTLTexture {

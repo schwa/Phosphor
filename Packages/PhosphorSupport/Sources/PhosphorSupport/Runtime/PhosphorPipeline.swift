@@ -18,11 +18,18 @@ public struct PhosphorPipeline: Element {
 
     let runtime: PhosphorRuntime
     let uniforms: BuiltinUniforms
+    let userUniformValues: [String: UniformValue]
     let drawableSize: CGSize
 
-    public init(runtime: PhosphorRuntime, uniforms: BuiltinUniforms, drawableSize: CGSize) {
+    public init(
+        runtime: PhosphorRuntime,
+        uniforms: BuiltinUniforms,
+        userUniformValues: [String: UniformValue] = [:],
+        drawableSize: CGSize
+    ) {
         self.runtime = runtime
         self.uniforms = uniforms
+        self.userUniformValues = userUniformValues
         self.drawableSize = drawableSize
     }
 
@@ -30,6 +37,7 @@ public struct PhosphorPipeline: Element {
         get throws {
             try? runtime.ensureTextures(drawableSize: drawableSize)
             runtime.writeBuiltinUniforms(uniforms)
+            runtime.writeUserUniforms(userUniformValues)
 
             // Parity for every ping-pong resource derived from the frame count.
             // Non-ping-pong resources still get a parity entry (always true) so

@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        if let view = PhosphorView(source: GameOfLife.source) {
+        if let view = PhosphorView(source: Plasma.source) {
             view.frame(minWidth: 640, minHeight: 480)
         } else {
             Text("Failed to parse Phosphor front-matter.")

@@ -28,10 +28,12 @@ Diagnostic case to handle: missing name -> emit a non-fatal `PhosphorDiagnostic`
 ## 2: Step 6: user uniforms — auto-generated struct + UI controls
 
 +++
-status: new
+status: closed
 priority: medium
 kind: none
 created: 2026-06-18T20:02:05Z
+updated: 2026-06-18T20:21:01Z
+closed: 2026-06-18T20:21:01Z
 +++
 
 The data model already defines `UniformDecl`, `UniformKind`, `UniformValue`, `UniformUIHint`. The header builder emits a `struct UserUniforms` typedef. But the values never flow:
@@ -45,6 +47,8 @@ Implementation:
 - Host UI: `PhosphorView` exposes a `@Binding values: [String: UniformValue]` (or owns its own `@State` keyed by name with defaults from the env). For each `UniformDecl`, render the right SwiftUI control by `UniformUIHint` (`Slider`, `ColorPicker`, `Toggle`, vector field).
 - `PhosphorRuntime.writeUserUniforms` packs values + memcpys into a fresh `MTLBuffer` each frame (same per-frame-alloc dodge as built-in Uniforms; cross-reference the latent race issue).
 - Test that round-trips a small uniform set through the GPU and reads back via a single-pixel render.
+
+- `2026-06-18T20:21:01Z`: Implemented. UserUniformsLayout computes MSL-correct field offsets/sizes/alignment for an ordered [UniformDecl] and packs a [String: UniformValue] dict into a buffer. PhosphorRuntime.writeUserUniforms allocates a fresh MTLBuffer per frame (same per-frame-alloc dodge as built-in uniforms; tracked by #6) and packs values + declared defaults. PhosphorView keeps a [String: UniformValue] state dict seeded from the env's defaults and renders a control per UniformDecl via UniformControl (Slider for .float/.int, ColorPicker for .color, Toggle for .bool, component-rows for .vector). Plasma demo wired up with two sliders + a color picker to prove the round trip works end-to-end. 6 new layout tests + existing test suite all pass (38 total).
 
 ---
 
