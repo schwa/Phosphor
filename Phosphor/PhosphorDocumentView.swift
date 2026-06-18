@@ -21,6 +21,16 @@ struct PhosphorDocumentView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
+                    showHeader.toggle()
+                } label: {
+                    Label("Phosphor.h", systemImage: "doc.text.magnifyingglass")
+                }
+                .popover(isPresented: $showHeader, arrowEdge: .top) {
+                    headerPopover
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
                     showGenerate = true
                 } label: {
                     Label("Generate", systemImage: "sparkles")
@@ -35,30 +45,12 @@ struct PhosphorDocumentView: View {
 
     @ViewBuilder
     private var codePane: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Spacer()
-                Button {
-                    showHeader.toggle()
-                } label: {
-                    Label("Show Phosphor.h", systemImage: "doc.text.magnifyingglass")
-                }
-                .popover(isPresented: $showHeader, arrowEdge: .top) {
-                    headerPopover
-                }
+        MetalSourceView(text: $document.text)
+            .padding(12)
+            .background(Color(.textBackgroundColor))
+            .onChange(of: document.text) { _, _ in
+                document.refreshParsed()
             }
-            .padding(8)
-            .background(Color(.windowBackgroundColor))
-
-            Divider()
-
-            MetalSourceView(text: $document.text)
-                .padding(12)
-                .background(Color(.textBackgroundColor))
-                .onChange(of: document.text) { _, _ in
-                    document.refreshParsed()
-                }
-        }
     }
 
     @ViewBuilder
