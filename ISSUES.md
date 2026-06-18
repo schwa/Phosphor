@@ -398,10 +398,10 @@ kernel void image(...) { ... }
 ```
 
 UX details to decide:
-- Single short comment vs. structured doc block? Probably let the model choose, but show one structured example in the system prompt.
-- Should multi-pass shaders document each kernel separately? Yes \u2014 they're often quite different.
-- Trade-off: more comments = more output tokens = slower + costlier generation. Probably worth it.
 
+- `2026-06-18T21:49:10Z`: Single short comment vs. structured doc block? Probably let the model choose, but show one structured example in the system prompt.
+- `2026-06-18T21:49:10Z`: Should multi-pass shaders document each kernel separately? Yes \u2014 they're often quite different.
+- `2026-06-18T21:49:10Z`: Trade-off: more comments = more output tokens = slower + costlier generation. Probably worth it.
 - `2026-06-18T23:14:31Z`: Done. Added a DOCUMENT EACH KERNEL section to the ShaderGenerator system prompt instructing the model to write a 1-3 sentence doc comment above every kernel void declaration describing what it does, which channels it reads, and what it writes. Includes a /// example. Multi-pass shaders document each kernel separately. No runtime/code changes — just the prompt.
 
 ---
@@ -955,5 +955,41 @@ Stretch:
 - Record/playback time as a video.
 - 'Slow motion' multiplier.
 - 'Step back' is impossible without snapshotting feedback state \u2014 don't promise it.
+
+---
+
+## 32: Import Shader from Shadertoy URL or paste
+
++++
+status: new
+priority: low
+kind: none
+created: 2026-06-18T23:20:38Z
+updated: 2026-06-18T23:22:39Z
++++
+
+Add a File-menu command (and matching toolbar button?) that imports a Shadertoy shader into Phosphor, translating the GLSL to MSL on the way.
+
+**Open question: how do we get the shader text?** I (Claude) initially claimed Shadertoy has a documented public API at `/api/v1/shaders/<id>` with an API-key system. I'm no longer confident any of that is real. Before designing anything, verify:
+
+- Is there an official Shadertoy API at all?
+- If yes, what's the endpoint shape and how does authentication work?
+- If no, is there an alternative source for shader JSON / source (scraping the HTML page, an unofficial API, an existing third-party mirror, etc)?
+- What does the rate limit / TOS allow for a desktop developer tool?
+
+If a usable API exists, the import flow looks like:
+1. User pastes a URL (or just a shader id).
+2. Fetch the shader JSON.
+3. Translate GLSL renderpasses to Phosphor passes (depends on #27, the GLSL→MSL compatibility layer).
+4. Build a new Phosphor document with the result (once we have a clean New-from-X flow; deferred).
+
+If no API exists, fall back to paste-only: user pastes the Shadertoy source into a text area, we run the same translator, document opens. Less convenient but unblocks the whole feature.
+
+Either way, things to figure out:
+- License + attribution. Shadertoy shaders are typically CC-BY-NC-SA-3.0 by default. Preserve the original author + URL as a header comment in the imported source.
+- Multi-pass support. Shadertoy has Image / Buffer A-D / Common / Sound / Cubemap. Map each to a Phosphor pass with appropriate ping-pong config.
+- iChannelN bindings. Shadertoy channels can be buffers, textures, cubemaps, video, audio, keyboard, microphone. For v1 only handle Buffer A-D and the 'no input' case; everything else turns into a TODO comment.
+
+Related: #27 (Shadertoy compat layer), #26 (Shadertoy audit).
 
 ---
