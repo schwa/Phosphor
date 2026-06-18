@@ -1,11 +1,14 @@
 import Foundation
+import PhosphorSupport
 
-/// One demo: a name + a source string loaded from a `.metal.txt` resource in
-/// the app bundle.
+/// One demo: a name + an already-parsed Phosphor source loaded from a
+/// `.metal.txt` resource in the app bundle.
 struct Demo: Identifiable, Hashable {
     var id: String { name }
     var name: String
-    var source: String
+    var parsed: ParsedPhosphorSource
+
+    var source: String { parsed.originalSource }
 
     /// All shipped demos, in display order.
     static let all: [Demo] = {
@@ -24,7 +27,7 @@ struct Demo: Identifiable, Hashable {
             else {
                 return nil
             }
-            return Demo(name: name, source: source)
+            return Demo(name: name, parsed: ParsedPhosphorSource(source: source))
         }
     }()
 }

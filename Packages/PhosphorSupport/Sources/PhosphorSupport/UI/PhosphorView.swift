@@ -30,15 +30,19 @@ public struct PhosphorView: View {
     }
 
     /// Convenience: parses front-matter from `source`, then constructs as
-    /// usual. If the source has no front-matter or parsing fails, the
-    /// diagnostics are surfaced through the runtime overlay; the runtime
-    /// itself will fail to materialize without an environment.
+    /// usual. If the source has no front-matter or parsing fails, returns
+    /// `nil`; the parsed diagnostics flow through `parsed.diagnostics`.
     public init?(source: String) {
-        let result = PhosphorFrontMatter.parse(source)
-        guard let environment = result.environment else { return nil }
+        self.init(parsed: ParsedPhosphorSource(source: source))
+    }
+
+    /// Construct from an already-parsed source, e.g. when the caller wants to
+    /// inspect diagnostics or environment before deciding to render.
+    public init?(parsed: ParsedPhosphorSource) {
+        guard let environment = parsed.environment else { return nil }
         self.environment = environment
-        self.source = result.body
-        self.frontMatterDiagnostics = result.diagnostics
+        self.source = parsed.body
+        self.frontMatterDiagnostics = parsed.diagnostics
     }
 
     public var body: some View {

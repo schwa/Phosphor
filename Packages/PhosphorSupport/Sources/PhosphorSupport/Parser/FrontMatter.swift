@@ -1,32 +1,70 @@
 import Foundation
 import TOMLKit
 
+/// A source string plus its parsed front-matter environment and any
+/// diagnostics emitted during parsing or validation.
+///
+/// Construct with ``ParsedPhosphorSource/init(source:)`` (delegates to
+/// ``PhosphorFrontMatter/parse(_:)``).
+public struct ParsedPhosphorSource: Hashable, Sendable {
+    /// The original, unmodified source string.
+    public var originalSource: String
+    /// The source with the front-matter block stripped, suitable for passing
+    /// to the compiler / assembler.
+    public var body: String
+    /// The decoded environment, or `nil` if the source has no front-matter
+    /// or the TOML failed to parse.
+    public var environment: PhosphorEnvironment?
+    /// Front-matter parse and validation diagnostics. Empty when the source
+    /// has no front-matter at all.
+    public var diagnostics: [PhosphorDiagnostic]
+
+    public init(
+        originalSource: String,
+        body: String,
+        environment: PhosphorEnvironment?,
+        diagnostics: [PhosphorDiagnostic]
+    ) {
+        self.originalSource = originalSource
+        self.body = body
+        self.environment = environment
+        self.diagnostics = diagnostics
+    }
+
+    /// Convenience: parse a source string in one step.
+    public init(source: String) {
+        self = PhosphorFrontMatter.parse(source)
+    }
+
+    /// `true` if the source had no front-matter block at all.
+    public var hasFrontMatter: Bool { environment != nil || diagnostics.contains { diagnostic in
+        if case .frontMatterParse = diagnostic { return true } else { return false }
+    } }
+}
+
 /// Extracts and parses the `/* phosphor:environment ... */` TOML front-matter
 /// block from a Phosphor source string.
-///
-/// Returns the parsed environment, the source string with the front-matter
-/// stripped, and any diagnostics produced along the way.
 ///
 /// The split is deliberate: callers may want to feed the cleaned source to
 /// ``SourceAssembler/assemble(environment:userSource:)`` separately, so we
 /// don't bake the assembly step in here.
 public enum PhosphorFrontMatter {
-    /// Parses a source string into an environment plus the user-source body.
-    ///
-    /// - Returns a tuple of `(environment, body, diagnostics)`. `environment`
-    ///   is `nil` if the source has no front-matter, or if the TOML failed to
-    ///   parse / validate. `body` is the source with the front-matter block
-    ///   stripped (so it can be fed to the compiler / assembler).
-    public static func parse(_ source: String) -> (environment: PhosphorEnvironment?, body: String, diagnostics: [PhosphorDiagnostic]) {
+    /// Parses a source string into a ``ParsedPhosphorSource``.
+    public static func parse(_ source: String) -> ParsedPhosphorSource {
         guard let (block, body) = extractBlock(source) else {
-            return (nil, source, [])
+            return ParsedPhosphorSource(originalSource: source, body: source, environment: nil, diagnostics: [])
         }
 
         let toml: TOMLTable
         do {
             toml = try TOMLTable(string: block)
         } catch {
-            return (nil, body, [.frontMatterParse(extractTOMLErrorMessage(error), line: extractTOMLErrorLine(error))])
+            return ParsedPhosphorSource(
+                originalSource: source,
+                body: body,
+                environment: nil,
+                diagnostics: [.frontMatterParse(extractTOMLErrorMessage(error), line: extractTOMLErrorLine(error))]
+            )
         }
 
         let environment: PhosphorEnvironment
@@ -34,11 +72,21 @@ public enum PhosphorFrontMatter {
             let decoder = TOMLDecoder()
             environment = try decoder.decode(PhosphorEnvironment.self, from: toml)
         } catch {
-            return (nil, body, [.frontMatterParse("decode failed: \(error)", line: nil)])
+            return ParsedPhosphorSource(
+                originalSource: source,
+                body: body,
+                environment: nil,
+                diagnostics: [.frontMatterParse("decode failed: \(error)", line: nil)]
+            )
         }
 
         let validationDiagnostics = validate(environment)
-        return (environment, body, validationDiagnostics)
+        return ParsedPhosphorSource(
+            originalSource: source,
+            body: body,
+            environment: environment,
+            diagnostics: validationDiagnostics
+        )
     }
 
     /// Finds a `/* phosphor:environment ... */` block at the top of the file.

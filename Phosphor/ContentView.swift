@@ -55,8 +55,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var headerPopover: some View {
-        let parsed = PhosphorFrontMatter.parse(selected.source)
-        let env = parsed.environment ?? PhosphorEnvironment(output: "image")
+        let env = selected.parsed.environment ?? PhosphorEnvironment(output: "image")
         let header = PhosphorHeader.source(for: env)
         ScrollView([.horizontal, .vertical]) {
             MetalSourceView(text: header)
@@ -67,7 +66,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var previewPane: some View {
-        if let view = PhosphorView(source: selected.source) {
+        if let view = PhosphorView(parsed: selected.parsed) {
             view
         } else {
             ContentUnavailableView {
