@@ -72,15 +72,20 @@ public struct PhosphorView: View {
     @ViewBuilder
     private func diagnosticsOverlay(diagnostics: [PhosphorDiagnostic]) -> some View {
         if !diagnostics.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(Array(diagnostics.enumerated()), id: \.offset) { _, diagnostic in
-                    Text(verbatim: diagnosticString(diagnostic))
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(.white)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(diagnostics.enumerated()), id: \.offset) { _, diagnostic in
+                        Text(verbatim: diagnosticString(diagnostic))
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(.white)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
+                .padding(8)
             }
-            .padding(8)
             .background(.red.opacity(0.85), in: RoundedRectangle(cornerRadius: 6))
+            .frame(maxWidth: 720, maxHeight: 400)
             .padding(8)
         }
     }

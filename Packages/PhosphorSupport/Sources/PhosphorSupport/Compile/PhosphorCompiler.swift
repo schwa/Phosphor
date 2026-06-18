@@ -17,7 +17,11 @@ public struct PhosphorCompiler {
     /// returned library contains every kernel declared in the user source.
     public func compileLibrary(environment: PhosphorEnvironment, userSource: String) throws -> MTLLibrary {
         let assembled = SourceAssembler.assemble(environment: environment, userSource: userSource)
-        return try device.makeLibrary(source: assembled, options: nil)
+        let options = MTLCompileOptions()
+        // Allow runtime-compiled kernels to use `os_log_default` for debugging.
+        // Pairs with `MS_METAL_LOGGING=1` at app launch.
+        options.enableLogging = true
+        return try device.makeLibrary(source: assembled, options: options)
     }
 
     /// Looks up the `MTLFunction` for a pass by its kernel name.

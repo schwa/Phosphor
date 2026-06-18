@@ -7,12 +7,12 @@ public struct PingPongTexture {
     public let pingPong: Bool
     public var a: MTLTexture
     public var b: MTLTexture
-    public var currentIsA: Bool = true
 
-    public var writeTexture: MTLTexture { currentIsA ? a : b }
-    public var readTexture: MTLTexture { pingPong ? (currentIsA ? b : a) : a }
+    /// Returns the write target for the given parity.
+    public func writeTexture(currentIsA: Bool) -> MTLTexture { currentIsA ? a : b }
 
-    public mutating func flip() {
-        if pingPong { currentIsA.toggle() }
+    /// Returns the read source for the given parity.
+    public func readTexture(currentIsA: Bool) -> MTLTexture {
+        pingPong ? (currentIsA ? b : a) : a
     }
 }

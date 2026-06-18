@@ -14,7 +14,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		45C80D312E84475800136D6D /* Phosphor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Phosphor.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		45C80D312E84475800136D6D /* Phosphor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Phosphor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -40,7 +40,7 @@
 		45PKGEXC2F64AAA7005F944D /* Exceptions for "Packages" folder in "Phosphor" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				"PhosphorSupport",
+				PhosphorSupport,
 			);
 			target = 45C80D302E84475800136D6D /* Phosphor */;
 		};
@@ -52,7 +52,7 @@
 			exceptions = (
 				4528E8B42EF5FDDB00EC19C3 /* Exceptions for "Phosphor" folder in "Phosphor" target */,
 			);
-			path = "Phosphor";
+			path = Phosphor;
 			sourceTree = "<group>";
 		};
 		45CFGGRP2F64AA9A005F944D /* Configuration */ = {
@@ -126,14 +126,14 @@
 				45CFGGRP2F64AA9A005F944D /* Configuration */,
 				45PKGGRP2F64AAA6005F944D /* Packages */,
 			);
-			name = "Phosphor";
+			name = Phosphor;
 			packageProductDependencies = (
 				4569B9FC2F6CC65200A54965 /* MetalSprockets */,
 				4569B9FE2F6CC65200A54965 /* MetalSprocketsUI */,
 				45D0A1002F80000000000001 /* MetalSprocketsSupport */,
 				45D0A1022F80000000000001 /* PhosphorSupport */,
 			);
-			productName = "Phosphor";
+			productName = Phosphor;
 			productReference = 45C80D312E84475800136D6D /* Phosphor.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -279,7 +279,7 @@
 		};
 		45D0A1022F80000000000001 /* PhosphorSupport */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = "PhosphorSupport";
+			productName = PhosphorSupport;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

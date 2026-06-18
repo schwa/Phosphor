@@ -1,6 +1,7 @@
 import Foundation
 import Metal
 import Observation
+import os
 
 /// Holds the GPU-side state derived from a ``PhosphorEnvironment`` plus a
 /// user-supplied source string.
@@ -22,16 +23,24 @@ public final class PhosphorRuntime {
 
     /// Cached textures keyed by ``Resource`` id. Allocated lazily by
     /// ``ensureTextures(drawableSize:)``.
-    public internal(set) var textures: [ResourceID: PingPongTexture] = [:]
+    public private(set) var textures: [ResourceID: PingPongTexture] = [:]
 
     /// Drawable size used the last time textures were allocated. If the
     /// drawable size changes, all `.drawable`/`.scaledDrawable` resources
     /// are reallocated and zero-filled.
     public private(set) var currentDrawableSize: CGSize = .zero
 
-    /// Per-pass channel argument buffer (Metal 3 bindless). Rebuilt every
-    /// frame in ``rebuildChannelBuffers()`` — they're tiny.
-    public private(set) var channelBuffers: [ResourceID: MTLBuffer] = [:]
+    /// Per-pass channel argument buffers (Metal 3 bindless). Two variants
+    /// per pass — one for each ping-pong parity. Built once when textures
+    /// are allocated; selected at draw time by parity. See
+    /// ``channelBuffer(for:parity:)``.
+    private var channelBuffersA: [ResourceID: MTLBuffer] = [:]
+    private var channelBuffersB: [ResourceID: MTLBuffer] = [:]
+
+    /// Returns the channel argument buffer for `pass` at the given parity.
+    public func channelBuffer(for pass: ResourceID, parity: Bool) -> MTLBuffer? {
+        parity ? channelBuffersA[pass] : channelBuffersB[pass]
+    }
 
     /// Built-in uniforms buffer. One slot, written each frame.
     public private(set) var uniformsBuffer: MTLBuffer
@@ -126,7 +135,22 @@ public final class PhosphorRuntime {
             self.passFunctions = [:]
         }
         self.diagnostics = diagnostics
+        logDiagnostics(diagnostics)
     }
+
+    private func logDiagnostics(_ diagnostics: [PhosphorDiagnostic]) {
+        guard !diagnostics.isEmpty else { return }
+        for diagnostic in diagnostics {
+            switch diagnostic {
+            case .compile(let error):
+                Self.logger.error("[Phosphor] compile error in '\(error.passID.raw, privacy: .public)':\n\(error.rawError, privacy: .public)")
+            default:
+                Self.logger.error("[Phosphor] \(String(describing: diagnostic), privacy: .public)")
+            }
+        }
+    }
+
+    private static let logger = Logger(subsystem: "io.schwa.PhosphorSupport", category: "runtime")
 
     // MARK: - Per-frame state
 
@@ -138,12 +162,13 @@ public final class PhosphorRuntime {
         currentDrawableSize = drawableSize
 
         var textures = self.textures
+        var anyResized = false
         for resource in environment.resources {
             guard case let .texture2D(id, spec) = resource else { continue }
             let (width, height) = pixelDimensions(for: spec.size, drawableSize: drawableSize)
             let existing = textures[id]
-            let dimensionsChanged = existing?.a.width != width || existing?.a.height != height
-            let pingPongChanged = existing?.pingPong != spec.pingPong
+            let dimensionsChanged = (existing != nil) && (existing!.a.width != width || existing!.a.height != height)
+            let pingPongChanged = (existing != nil) && (existing!.pingPong != spec.pingPong)
             let resizeRequired = (drawableChanged && dimensionDependsOnDrawable(spec.size))
                 || existing == nil
                 || dimensionsChanged
@@ -151,6 +176,7 @@ public final class PhosphorRuntime {
             guard resizeRequired else { continue }
 
             textures[id] = try allocate(id: id, spec: spec, width: width, height: height)
+            anyResized = true
         }
 
         // Drop textures for resources that no longer exist.
@@ -160,6 +186,13 @@ public final class PhosphorRuntime {
         }
 
         self.textures = textures
+
+        // Channel buffers reference texture handles; only rebuild when
+        // textures are actually (re)allocated. Per-frame rebuilding causes
+        // GPU page faults (the previous frame's buffer is still in flight).
+        if anyResized {
+            rebuildChannelBuffers()
+        }
     }
 
     /// Write the built-in uniforms into a fresh ``uniformsBuffer``.
@@ -177,44 +210,81 @@ public final class PhosphorRuntime {
         uniformsBuffer = buffer
     }
 
-    /// Build per-pass channel argument buffers. Tiny — one MTLResourceID per
-    /// channel slot — so we rebuild every frame instead of diffing.
-    ///
-    /// Returns the set of textures the encoder must call `useResource` on for
-    /// each pass (so they're resident when the GPU dereferences the argument
-    /// buffer).
-    public func rebuildChannelBuffers() -> [ResourceID: [MTLTexture]] {
-        var resourceUseLists: [ResourceID: [MTLTexture]] = [:]
-        var newBuffers: [ResourceID: MTLBuffer] = [:]
+    /// Returns the textures that each pass references through its channel
+    /// argument buffer at the given parities. The compute encoder must call
+    /// `useResource` on each so they're resident when the GPU dereferences
+    /// the argument buffer.
+    public func useResources(parity: [ResourceID: Bool]) -> [ResourceID: [MTLTexture]] {
         let slotCount = channelCount(for: environment)
-        let bufferLength = max(slotCount * MemoryLayout<MTLResourceID>.stride, 16)
-
+        var resourceUseLists: [ResourceID: [MTLTexture]] = [:]
         for pass in environment.passes where pass.enabled {
-            // Always allocate a fresh buffer per frame. The previous frame's
-            // buffer may still be in flight on the GPU and overwriting it
-            // mid-flight causes intermittent GPU page faults. These buffers
-            // are tiny (a handful of MTLResourceIDs) so the allocation cost
-            // is negligible.
-            guard let buffer = device.makeBuffer(length: bufferLength, options: .storageModeShared) else { continue }
-            buffer.label = "Phosphor.Channels.\(pass.id.raw)"
-
-            let ptr = buffer.contents().bindMemory(to: MTLResourceID.self, capacity: max(slotCount, 1))
-            var useList: [MTLTexture] = []
-
+            var list: [MTLTexture] = []
             for slot in 0..<slotCount {
                 let channelName = "iChannel\(slot)"
                 let resourceID = pass.inputs.first { $0.name == channelName }?.resource
-                let texture = resourceID.flatMap { textures[$0]?.readTexture } ?? fallbackTexture
-                ptr[slot] = texture.gpuResourceID
-                useList.append(texture)
+                if let resourceID, let ping = textures[resourceID] {
+                    list.append(ping.readTexture(currentIsA: parity[resourceID] ?? true))
+                } else {
+                    list.append(fallbackTexture)
+                }
             }
+            resourceUseLists[pass.id] = list
+        }
+        return resourceUseLists
+    }
 
-            newBuffers[pass.id] = buffer
-            resourceUseLists[pass.id] = useList
+    /// Builds (or rebuilds) the two parity variants of each pass's channel
+    /// argument buffer. Called from ``ensureTextures(drawableSize:)`` after
+    /// any texture (re)allocation, plus on environment swap.
+    ///
+    /// One write at allocation time, zero per-frame rewriting — so the GPU
+    /// can keep reading from these buffers across frames without races.
+    ///
+    /// Limitation: the parity in the variant name refers to the *pass's own
+    /// output resource* parity, and we assume sampled resources share that
+    /// parity. This is correct for self-feedback (one pass, one resource,
+    /// sampling its own output — the Game-of-Life case). Multi-resource
+    /// pipelines where pass A writes resource X and pass B reads resource X
+    /// will need a more complete per-resource parity table; revisit when
+    /// the first such example demands it.
+    private func rebuildChannelBuffers() {
+        let slotCount = channelCount(for: environment)
+        let bufferLength = max(slotCount * MemoryLayout<MTLResourceID>.stride, 16)
+
+        var newA: [ResourceID: MTLBuffer] = [:]
+        var newB: [ResourceID: MTLBuffer] = [:]
+
+        for pass in environment.passes where pass.enabled {
+            for parity in [true, false] {
+                guard let buffer = device.makeBuffer(length: bufferLength, options: .storageModeShared) else { continue }
+                buffer.label = "Phosphor.Channels.\(pass.id.raw).\(parity ? "A" : "B")"
+                let ptr = buffer.contents().bindMemory(to: MTLResourceID.self, capacity: max(slotCount, 1))
+                for slot in 0..<slotCount {
+                    let channelName = "iChannel\(slot)"
+                    let resourceID = pass.inputs.first { $0.name == channelName }?.resource
+                    let texture: MTLTexture
+                    if let resourceID, let ping = textures[resourceID] {
+                        // When this pass reads its own ping-pong output, it should sample
+                        // the *other* half of the pair — i.e. last frame's data when
+                        // parity == this-frame's-parity for that resource. For any other
+                        // sampled resource, we use the resource's own parity (which is
+                        // tracked separately by the element).
+                        texture = ping.readTexture(currentIsA: parity)
+                    } else {
+                        texture = fallbackTexture
+                    }
+                    ptr[slot] = texture.gpuResourceID
+                }
+                if parity {
+                    newA[pass.id] = buffer
+                } else {
+                    newB[pass.id] = buffer
+                }
+            }
         }
 
-        self.channelBuffers = newBuffers
-        return resourceUseLists
+        self.channelBuffersA = newA
+        self.channelBuffersB = newB
     }
 
     // MARK: - Helpers

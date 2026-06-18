@@ -40,7 +40,7 @@
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
-      enableGPUShaderValidationMode = "2"
+      enableGPUValidationMode = "1"
       allowLocationSimulation = "YES"
       disablePerformanceAntipatternChecker = "YES">
       <BuildableProductRunnable
@@ -62,7 +62,7 @@
          <EnvironmentVariable
             key = "MS_VERBOSE"
             value = "YES"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "MS_FATALERROR_ON_THROW"
@@ -72,17 +72,19 @@
          <EnvironmentVariable
             key = "MS_METAL_LOGGING"
             value = "YES"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "MS_RENDERVIEW_LOG_FRAME"
             value = "YES"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </EnvironmentVariable>
       </EnvironmentVariables>
-      <MetalShaderValidationSettings
-         isEnabled = "Yes">
-      </MetalShaderValidationSettings>
+      <MetalAPIValidationSettings
+         isEnabled = "No"
+         validateLoadAndStoreActions = "Yes"
+         logNonFatalActions = "Yes">
+      </MetalAPIValidationSettings>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
