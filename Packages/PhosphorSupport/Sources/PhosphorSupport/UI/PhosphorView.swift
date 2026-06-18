@@ -101,7 +101,7 @@ public struct PhosphorView: View {
                         ForEach(environment.uniforms, id: \.name) { uniform in
                             UniformControl(
                                 uniform: uniform,
-                                value: SwiftUI.Binding(
+                                value: Binding(
                                     get: { uniformValues[uniform.name] ?? uniform.defaultValue },
                                     set: { uniformValues[uniform.name] = $0 }
                                 )

@@ -4,13 +4,13 @@ import Foundation
 /// function that the runtime looks up after compilation.
 public struct Pass: Hashable, Sendable, Codable {
     public var id: ResourceID
-    public var inputs: [Binding]
+    public var inputs: [Input]
     public var output: ResourceID
     public var enabled: Bool
 
     public init(
         id: ResourceID,
-        inputs: [Binding] = [],
+        inputs: [Input] = [],
         output: ResourceID,
         enabled: Bool = true
     ) {
@@ -30,7 +30,7 @@ public struct Pass: Hashable, Sendable, Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.id = try container.decode(ResourceID.self, forKey: .id)
-        self.inputs = try container.decodeIfPresent([Binding].self, forKey: .inputs) ?? []
+        self.inputs = try container.decodeIfPresent([Input].self, forKey: .inputs) ?? []
         self.output = try container.decode(ResourceID.self, forKey: .output)
         self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
     }
@@ -42,18 +42,21 @@ public struct Pass: Hashable, Sendable, Codable {
         try container.encode(output, forKey: .output)
         try container.encode(enabled, forKey: .enabled)
     }
-}
 
-/// Binds one of the auto-generated ``ChannelBindings`` slots to a resource.
-///
-/// `name` must be of the form `"iChannelN"`; the inferred channel count is
-/// derived from the highest `N` referenced across all passes.
-public struct Binding: Hashable, Codable, Sendable {
-    public var name: String
-    public var resource: ResourceID
+    /// Binds one of the auto-generated ``ChannelBindings`` slots to a resource.
+    ///
+    /// `name` must be of the form `"iChannelN"`; the inferred channel count is
+    /// derived from the highest `N` referenced across all passes.
+    ///
+    /// Nested in ``Pass`` to keep the name out of the top-level namespace,
+    /// where it collides with SwiftUI's `Binding`.
+    public struct Input: Hashable, Codable, Sendable {
+        public var name: String
+        public var resource: ResourceID
 
-    public init(name: String, resource: ResourceID) {
-        self.name = name
-        self.resource = resource
+        public init(name: String, resource: ResourceID) {
+            self.name = name
+            self.resource = resource
+        }
     }
 }

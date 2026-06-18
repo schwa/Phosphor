@@ -89,23 +89,58 @@ public enum PhosphorFrontMatter {
         )
     }
 
-    /// Finds a `/* phosphor:environment ... */` block at the top of the file.
+    /// Finds a `/* phosphor:environment ... */` block near the top of the file.
     ///
     /// Returns the TOML body (between marker and closing `*/`) plus the source
-    /// with the block removed, or `nil` if no block is present at the top.
+    /// with the block removed, or `nil` if no block is found.
     ///
-    /// "At the top" means: zero or more whitespace-only / blank lines may
-    /// precede the block, but no other content.
+    /// "Near the top" means: whitespace, line comments (`// ...`), and other
+    /// C-style block comments (`/* ... */` that are NOT the environment
+    /// marker) may appear before the front-matter block. This lets generated
+    /// shaders prepend a `/* prompt: ... */` comment without breaking parsing.
     static func extractBlock(_ source: String) -> (block: String, body: String)? {
-        let leadingWhitespace = source.prefix { $0.isWhitespace }
-        let afterWhitespace = source[leadingWhitespace.endIndex...]
+        var index = source.startIndex
         let openMarker = "/* phosphor:environment"
-        guard afterWhitespace.hasPrefix(openMarker) else { return nil }
-        let afterOpen = afterWhitespace.dropFirst(openMarker.count)
-        guard let closeRange = afterOpen.range(of: "*/") else { return nil }
-        let blockText = afterOpen[..<closeRange.lowerBound]
-        let afterClose = afterOpen[closeRange.upperBound...]
-        return (String(blockText), String(afterClose))
+        while index < source.endIndex {
+            // Skip whitespace.
+            while index < source.endIndex, source[index].isWhitespace {
+                index = source.index(after: index)
+            }
+            guard index < source.endIndex else { return nil }
+
+            let remainder = source[index...]
+
+            // Is this the front-matter marker?
+            if remainder.hasPrefix(openMarker) {
+                let afterOpen = remainder.dropFirst(openMarker.count)
+                guard let closeRange = afterOpen.range(of: "*/") else { return nil }
+                let blockText = afterOpen[..<closeRange.lowerBound]
+                let afterClose = afterOpen[closeRange.upperBound...]
+                return (String(blockText), String(afterClose))
+            }
+
+            // Skip a leading line comment.
+            if remainder.hasPrefix("//") {
+                if let newlineIndex = remainder.firstIndex(of: "\n") {
+                    index = source.index(after: newlineIndex)
+                    continue
+                } else {
+                    return nil
+                }
+            }
+
+            // Skip a leading block comment that isn't the marker.
+            if remainder.hasPrefix("/*") {
+                let afterOpen = remainder.dropFirst(2)
+                guard let closeRange = afterOpen.range(of: "*/") else { return nil }
+                index = closeRange.upperBound
+                continue
+            }
+
+            // Hit non-comment, non-whitespace content. No front-matter here.
+            return nil
+        }
+        return nil
     }
 
     /// Best-effort extraction of a human-readable error message from a TOMLKit

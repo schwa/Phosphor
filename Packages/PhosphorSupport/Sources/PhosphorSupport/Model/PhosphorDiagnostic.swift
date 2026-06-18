@@ -10,7 +10,7 @@ import Foundation
 public enum PhosphorDiagnostic: Hashable, Sendable {
     /// Front-matter TOML failed to parse.
     case frontMatterParse(String, line: Int?)
-    /// A `Binding` or `Pass.output` or `Environment.output` references a
+    /// A `Pass.Input` or `Pass.output` or `Environment.output` references a
     /// resource ID that isn't declared in ``PhosphorEnvironment/resources``.
     case unknownResource(ResourceID, in: String)
     /// Two resources share the same ID.

@@ -2,10 +2,6 @@ import SwiftUI
 
 /// Renders a single SwiftUI control for one ``UniformDecl``.
 ///
-/// Uses fully-qualified `SwiftUI.Binding<T>` everywhere because we have a
-/// `Binding` model type elsewhere (channel input binding) that shadows the
-/// SwiftUI one inside this module.
-///
 /// The shape of the control is chosen by ``UniformDecl/ui``:
 /// - `.slider(min, max)`: `Slider` for `.float` / `.int`.
 /// - `.color`: `ColorPicker` for `.color` / `.float4`.
@@ -14,7 +10,7 @@ import SwiftUI
 /// - `nil`: a sensible default per kind.
 struct UniformControl: View {
     let uniform: UniformDecl
-    let value: SwiftUI.Binding<UniformValue>
+    @Binding var value: UniformValue
 
     var body: some View {
         HStack {
@@ -27,7 +23,7 @@ struct UniformControl: View {
 
     @ViewBuilder
     private var controlBody: some View {
-        switch (uniform.ui, value.wrappedValue) {
+        switch (uniform.ui, value) {
         case (.slider(let lo, let hi), .float(let scalar)):
             Slider(value: floatBinding(scalar), in: Double(lo)...Double(hi))
             Text(String(format: "%.2f", scalar))
@@ -46,15 +42,15 @@ struct UniformControl: View {
                 .labelsHidden()
         case (.vector, .float2(let vector)):
             vectorRow(values: [vector.x, vector.y]) { newValues in
-                value.wrappedValue = .float2(.init(newValues[0], newValues[1]))
+                value = .float2(.init(newValues[0], newValues[1]))
             }
         case (.vector, .float3(let vector)):
             vectorRow(values: [vector.x, vector.y, vector.z]) { newValues in
-                value.wrappedValue = .float3(.init(newValues[0], newValues[1], newValues[2]))
+                value = .float3(.init(newValues[0], newValues[1], newValues[2]))
             }
         case (.vector, .float4(let vector)):
             vectorRow(values: [vector.x, vector.y, vector.z, vector.w]) { newValues in
-                value.wrappedValue = .float4(.init(newValues[0], newValues[1], newValues[2], newValues[3]))
+                value = .float4(.init(newValues[0], newValues[1], newValues[2], newValues[3]))
             }
         default:
             Text("(unsupported)").foregroundStyle(.secondary)
@@ -66,7 +62,7 @@ struct UniformControl: View {
         HStack(spacing: 4) {
             ForEach(values.indices, id: \.self) { index in
                 Slider(
-                    value: SwiftUI.Binding<Double>(
+                    value: Binding(
                         get: { Double(values[index]) },
                         set: { newValue in
                             var updated = values
@@ -82,33 +78,33 @@ struct UniformControl: View {
 
     // MARK: - Binding adapters
 
-    private func floatBinding(_ initial: Float) -> SwiftUI.Binding<Double> {
-        SwiftUI.Binding<Double>(
+    private func floatBinding(_ initial: Float) -> Binding<Double> {
+        Binding(
             get: { Double(initial) },
-            set: { newValue in value.wrappedValue = .float(Float(newValue)) }
+            set: { newValue in value = .float(Float(newValue)) }
         )
     }
 
-    private func intBinding(_ initial: Int32) -> SwiftUI.Binding<Double> {
-        SwiftUI.Binding<Double>(
+    private func intBinding(_ initial: Int32) -> Binding<Double> {
+        Binding(
             get: { Double(initial) },
-            set: { newValue in value.wrappedValue = .int(Int32(newValue.rounded())) }
+            set: { newValue in value = .int(Int32(newValue.rounded())) }
         )
     }
 
-    private func boolBinding(_ initial: Bool) -> SwiftUI.Binding<Bool> {
-        SwiftUI.Binding<Bool>(
+    private func boolBinding(_ initial: Bool) -> Binding<Bool> {
+        Binding(
             get: { initial },
-            set: { value.wrappedValue = .bool($0) }
+            set: { value = .bool($0) }
         )
     }
 
-    private func colorBinding(_ rgba: SIMD4<Float>) -> SwiftUI.Binding<Color> {
-        SwiftUI.Binding<Color>(
+    private func colorBinding(_ rgba: SIMD4<Float>) -> Binding<Color> {
+        Binding(
             get: { Color(red: Double(rgba.x), green: Double(rgba.y), blue: Double(rgba.z), opacity: Double(rgba.w)) },
             set: { newColor in
                 let resolved = newColor.resolve(in: .init())
-                value.wrappedValue = .float4(.init(resolved.red, resolved.green, resolved.blue, resolved.opacity))
+                value = .float4(.init(resolved.red, resolved.green, resolved.blue, resolved.opacity))
             }
         )
     }

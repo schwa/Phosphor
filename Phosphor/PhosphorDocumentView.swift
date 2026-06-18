@@ -8,6 +8,7 @@ import SwiftUI
 struct PhosphorDocumentView: View {
     @Bindable var document: PhosphorMetalDocument
     @State private var showHeader: Bool = false
+    @State private var showGenerate: Bool = false
 
     var body: some View {
         HSplitView {
@@ -17,6 +18,19 @@ struct PhosphorDocumentView: View {
                 .frame(minWidth: 360, idealWidth: 640)
         }
         .frame(minWidth: 800, minHeight: 500)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showGenerate = true
+                } label: {
+                    Label("Generate", systemImage: "sparkles")
+                }
+            }
+        }
+        .sheet(isPresented: $showGenerate) {
+            GeneratePanel(isPresented: $showGenerate, document: document)
+                .frame(minWidth: 480, minHeight: 240)
+        }
     }
 
     @ViewBuilder
