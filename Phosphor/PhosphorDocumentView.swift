@@ -62,7 +62,6 @@ struct PhosphorDocumentView: View {
     @ViewBuilder
     private var codePane: some View {
         MetalSourceView(text: $document.text)
-            .padding(12)
             .background(Color(.textBackgroundColor))
             .onChange(of: document.text) { _, _ in
                 document.refreshParsed()
@@ -88,8 +87,23 @@ struct PhosphorDocumentView: View {
             ContentUnavailableView {
                 Label("No front-matter", systemImage: "doc.text.magnifyingglass")
             } description: {
-                Text("This file has no /* phosphor:environment ... */ block, or it failed to parse.")
+                if document.parsed.diagnostics.isEmpty {
+                    Text("This file has no /* phosphor:environment ... */ block.")
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Failed to parse front-matter:")
+                        ForEach(Array(document.parsed.diagnostics.enumerated()), id: \.offset) { _, diagnostic in
+                            Text(verbatim: String(describing: diagnostic))
+                                .font(.system(.callout, design: .monospaced))
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(8)
+                }
             }
+            .frame(maxHeight: .infinity)
         }
     }
 }
+

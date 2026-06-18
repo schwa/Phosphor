@@ -30,22 +30,28 @@ public struct MetalSourceView: View {
     }
 
     public var body: some View {
-        Group {
-            switch storage {
-            case .readOnly:
+        content
+            .font(.system(.body, design: .monospaced))
+            .textSelection(.enabled)
+            .task(id: currentSource) {
+                attributedText = AttributedString(currentSource)
+                if let highlighted = try? Self.format(currentSource) {
+                    attributedText = highlighted
+                }
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch storage {
+        case .readOnly:
+            ScrollView {
                 Text(attributedText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            case .editable(let binding):
-                TextEditor(text: attributedEditingBinding(plainTextBinding: binding))
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding(.horizontal, 4)
             }
-        }
-        .font(.system(.body, design: .monospaced))
-        .textSelection(.enabled)
-        .task(id: currentSource) {
-            attributedText = AttributedString(currentSource)
-            if let highlighted = try? Self.format(currentSource) {
-                attributedText = highlighted
-            }
+        case .editable(let binding):
+            TextEditor(text: attributedEditingBinding(plainTextBinding: binding))
         }
     }
 

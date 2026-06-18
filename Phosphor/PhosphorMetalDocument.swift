@@ -14,7 +14,10 @@ final class PhosphorMetalDocument: ReadableDocument, WritableDocument {
     static let writableContentTypes: [UTType] = [.metalSource]
 
     var text: String
-    var configuration: URLDocumentConfiguration
+
+    /// Backing file URL when the document is opened from / saved to disk.
+    /// Brand-new documents and preview instances have `nil`.
+    var fileURL: URL?
 
     /// Cached parse of `text`. Rebuilt by ``refreshParsed()`` whenever `text`
     /// changes. Stored, not computed, so the parse cost is amortized across
@@ -29,7 +32,7 @@ final class PhosphorMetalDocument: ReadableDocument, WritableDocument {
         // before the view ever sees it.
         let initialText = configuration.fileURL == nil ? Self.template : ""
         self.text = initialText
-        self.configuration = configuration
+        self.fileURL = configuration.fileURL
         self.parsed = ParsedPhosphorSource(source: initialText)
     }
 
