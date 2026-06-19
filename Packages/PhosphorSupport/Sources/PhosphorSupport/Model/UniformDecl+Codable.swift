@@ -44,26 +44,31 @@ extension UniformDecl: Codable {
         switch kind {
         case .float:
             return .float(try container.decode(Float.self, forKey: key))
+
         case .float2:
             let values = try container.decode([Float].self, forKey: key)
             guard values.count == 2 else {
                 throw DecodingError.dataCorruptedError(forKey: key, in: container, debugDescription: "float2 requires 2 components, got \(values.count)")
             }
             return .float2(.init(values[0], values[1]))
+
         case .float3:
             let values = try container.decode([Float].self, forKey: key)
             guard values.count == 3 else {
                 throw DecodingError.dataCorruptedError(forKey: key, in: container, debugDescription: "float3 requires 3 components, got \(values.count)")
             }
             return .float3(.init(values[0], values[1], values[2]))
+
         case .float4, .color:
             let values = try container.decode([Float].self, forKey: key)
             guard values.count == 4 else {
                 throw DecodingError.dataCorruptedError(forKey: key, in: container, debugDescription: "\(kind.rawValue) requires 4 components, got \(values.count)")
             }
             return .float4(.init(values[0], values[1], values[2], values[3]))
+
         case .int:
             return .int(try container.decode(Int32.self, forKey: key))
+
         case .bool:
             return .bool(try container.decode(Bool.self, forKey: key))
         }
@@ -78,14 +83,19 @@ extension UniformValue: Codable {
         switch self {
         case .float(let value):
             try container.encode(value)
+
         case .float2(let value):
             try container.encode([value.x, value.y])
+
         case .float3(let value):
             try container.encode([value.x, value.y, value.z])
+
         case .float4(let value):
             try container.encode([value.x, value.y, value.z, value.w])
+
         case .int(let value):
             try container.encode(value)
+
         case .bool(let value):
             try container.encode(value)
         }
@@ -124,10 +134,13 @@ extension UniformUIHint: Codable {
         switch self {
         case .color:
             try container.encode("color")
+
         case .toggle:
             try container.encode("toggle")
+
         case .vector:
             try container.encode("vector")
+
         case .slider(let minValue, let maxValue):
             try container.encode(Wrapped(slider: SliderPayload(min: minValue, max: maxValue)))
         }
@@ -140,6 +153,7 @@ extension UniformUIHint: Codable {
             case "color": self = .color; return
             case "toggle": self = .toggle; return
             case "vector": self = .vector; return
+
             default:
                 throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unknown UniformUIHint string '\(string)'")
             }

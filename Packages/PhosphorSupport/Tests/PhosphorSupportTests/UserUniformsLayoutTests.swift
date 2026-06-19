@@ -1,7 +1,7 @@
 import Foundation
+@testable import PhosphorSupport
 import simd
 import Testing
-@testable import PhosphorSupport
 
 @Suite("UserUniformsLayout")
 struct UserUniformsLayoutTests {

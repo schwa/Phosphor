@@ -27,8 +27,8 @@ struct GeneratePanel: View {
                 .font(.headline)
 
             Text(isModifying
-                ? "Describe how to change the current shader, e.g. \"make it pulse with the time\" or \"add a red tint\"."
-                : "Describe the effect you want, e.g. \"a swirling galaxy\" or \"falling Matrix code\".")
+                    ? "Describe how to change the current shader, e.g. \"make it pulse with the time\" or \"add a red tint\"."
+                    : "Describe the effect you want, e.g. \"a swirling galaxy\" or \"falling Matrix code\".")
                 .foregroundStyle(.secondary)
                 .font(.callout)
 
@@ -100,11 +100,10 @@ struct GeneratePanel: View {
             let source = try await ShaderGenerator().generate(
                 prompt: prompt,
                 model: selectedModel,
-                existingSource: isModifying ? document.text : "",
-                progress: { phase in
+                existingSource: isModifying ? document.text : ""
+            )                { phase in
                     statusMessage = phaseMessage(phase)
                 }
-            )
             document.text = source
             document.refreshParsed()
             isPresented = false
@@ -117,6 +116,7 @@ struct GeneratePanel: View {
         switch phase {
         case .generating:
             return "Generating…"
+
         case .retrying:
             return "Compile failed, retrying with feedback…"
         }

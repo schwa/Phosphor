@@ -38,7 +38,7 @@ public struct ParsedPhosphorSource: Hashable, Sendable {
 
     /// `true` if the source had no front-matter block at all.
     public var hasFrontMatter: Bool { environment != nil || diagnostics.contains { diagnostic in
-        if case .frontMatterParse = diagnostic { return true } else { return false }
+        if case .frontMatterParse = diagnostic { return true }return false
     } }
 }
 
@@ -124,9 +124,8 @@ public enum PhosphorFrontMatter {
                 if let newlineIndex = remainder.firstIndex(of: "\n") {
                     index = source.index(after: newlineIndex)
                     continue
-                } else {
-                    return nil
                 }
+                return nil
             }
 
             // Skip a leading block comment that isn't the marker.

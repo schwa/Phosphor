@@ -1,7 +1,7 @@
 import Foundation
 import Metal
-import Testing
 @testable import PhosphorSupport
+import Testing
 
 @Suite("Compile against MTLDevice")
 struct CompileTests {
@@ -46,7 +46,7 @@ struct CompileTests {
         let env = PhosphorEnvironment(
             resources: [
                 .texture2D(id: "bufA", spec: .init(pingPong: true)),
-                .texture2D(id: "image", spec: .init(pingPong: false)),
+                .texture2D(id: "image", spec: .init(pingPong: false))
             ],
             passes: [
                 Pass(
@@ -58,11 +58,11 @@ struct CompileTests {
                     id: "image",
                     inputs: [.init(name: "iChannel0", resource: "bufA")],
                     output: "image"
-                ),
+                )
             ],
             output: "image",
             uniforms: [
-                .init(name: "intensity", kind: .float, defaultValue: .float(1.0)),
+                .init(name: "intensity", kind: .float, defaultValue: .float(1.0))
             ]
         )
         let source = """

@@ -37,7 +37,7 @@ public struct PhosphorView: View {
     @State private var frameBase: UInt32 = 0
     /// Snapshot of (time, frame) emitted while paused. Captured from the
     /// renderer the moment the user pauses.
-    @State private var pausedSnapshot: (time: Float, frame: Float)? = nil
+    @State private var pausedSnapshot: (time: Float, frame: Float)?
     /// On the next frame, pull a fresh snapshot from the live values. Set when
     /// the user pauses; cleared once the snapshot is captured.
     @State private var capturePauseSnapshot: Bool = false
@@ -116,6 +116,7 @@ public struct PhosphorView: View {
                     switch phase {
                     case .active(let point):
                         mousePosition = pixelCoordinate(from: point)
+
                     case .ended:
                         break
                     }
@@ -213,7 +214,7 @@ public struct PhosphorView: View {
     }
 
     @MainActor
-    private func updateRuntime() async {
+    private func updateRuntime() {
         do {
             if let runtime {
                 try runtime.update(environment: environment, source: source)
@@ -232,7 +233,6 @@ public struct PhosphorView: View {
             initError = error
         }
     }
-
 }
 
 /// Translucent panel listing every declared user-uniform with live controls.
@@ -302,22 +302,31 @@ private struct DiagnosticsOverlay: View {
         switch diagnostic {
         case .frontMatterParse(let msg, let line):
             return "frontmatter: \(msg)\(line.map { " (line \($0))" } ?? "")"
+
         case .unknownResource(let id, let context):
             return "unknown resource '\(id)' in \(context)"
+
         case .duplicateResource(let id):
             return "duplicate resource '\(id)'"
+
         case .duplicatePass(let id):
             return "duplicate pass '\(id)'"
+
         case .unknownChannelName(let name, let pass):
             return "unknown channel '\(name)' in pass '\(pass)'"
+
         case .channelOutOfRange(let name, let inferred):
             return "channel '\(name)' out of range (inferred \(inferred))"
+
         case .duplicateBinding(let name, let pass):
             return "duplicate binding '\(name)' in pass '\(pass)'"
+
         case .readWriteHazard(let pass, let resource):
             return "read/write hazard: pass '\(pass)' reads + writes '\(resource)'"
+
         case .missingOutput(let id):
             return "missing output resource '\(id)'"
+
         case .compile(let error):
             return "compile error in '\(error.passID)':\n\(error.rawError)"
         }

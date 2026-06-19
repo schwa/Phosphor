@@ -93,7 +93,7 @@ final class PhosphorMetalDocument: ReadableDocument, WritableDocument {
     }
 
     @MainActor
-    func apply(snapshot: String, previous: String?) async throws {
+    func apply(snapshot: String, previous _: String?) {
         self.text = snapshot
         refreshParsed()
     }
@@ -109,7 +109,7 @@ final class PhosphorMetalDocument: ReadableDocument, WritableDocument {
     }
 
     @MainActor
-    func snapshot(contentType: UTType) async throws -> String { text }
+    func snapshot(contentType _: UTType) -> String { text }
 }
 
 extension UTType {

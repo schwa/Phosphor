@@ -58,6 +58,7 @@ extension PhosphorDiagnostic {
              .readWriteHazard,
              .missingOutput:
             return true
+
         case .compile:
             return false
         }

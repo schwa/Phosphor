@@ -50,6 +50,7 @@ public struct MetalSourceView: View {
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .padding(.horizontal, 4)
             }
+
         case .editable(let binding):
             TextEditor(text: attributedEditingBinding(plainTextBinding: binding))
         }
@@ -98,16 +99,22 @@ public struct MetalSourceView: View {
             switch node.nodeType {
             case "comment":
                 attributed[characterRange].foregroundColor = .green
+
             case "identifier":
                 attributed[characterRange].foregroundColor = .blue
+
             case "number_literal":
                 attributed[characterRange].foregroundColor = .orange
+
             case "primitive_type", "type_identifier", "template_type":
                 attributed[characterRange].foregroundColor = .purple
+
             case "return", "if":
                 attributed[characterRange].foregroundColor = .pink
+
             case "call_expression":
                 attributed[characterRange].foregroundColor = .teal
+
             default:
                 break
             }
@@ -143,7 +150,7 @@ private extension Range where Bound == AttributedString.Index {
         if (gid.x > 100) { v = 1.0; }
     }
     """)
-    .frame(width: 480, height: 240)
+        .frame(width: 480, height: 240)
 }
 
 #Preview("Editable") {

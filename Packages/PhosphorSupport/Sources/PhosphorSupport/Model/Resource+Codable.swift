@@ -51,8 +51,10 @@ extension TextureSize: Codable {
         switch self {
         case .drawable:
             try container.encode("drawable")
+
         case .fixed(let width, let height):
             try container.encode(Sized(fixed: .init(width: width, height: height)))
+
         case .scaledDrawable(let scale):
             try container.encode(Scaled(scaledDrawable: scale))
         }
@@ -66,6 +68,7 @@ extension TextureSize: Codable {
             case "drawable":
                 self = .drawable
                 return
+
             default:
                 throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unknown TextureSize string '\(string)'")
             }
@@ -108,10 +111,13 @@ extension TextureInit: Codable {
         switch self {
         case .zero:
             try container.encode("zero")
+
         case .color(let rgba):
             try container.encode(Wrapped(color: [rgba.x, rgba.y, rgba.z, rgba.w]))
+
         case .image(let name):
             try container.encode(Wrapped(image: ImagePayload(name: name)))
+
         case .noise(let seed):
             try container.encode(Wrapped(noise: NoisePayload(seed: seed)))
         }
@@ -124,6 +130,7 @@ extension TextureInit: Codable {
             case "zero":
                 self = .zero
                 return
+
             default:
                 throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unknown TextureInit string '\(string)'")
             }

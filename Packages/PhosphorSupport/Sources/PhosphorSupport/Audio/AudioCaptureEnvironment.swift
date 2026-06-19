@@ -6,5 +6,5 @@ import SwiftUI
 /// by ``PhosphorView`` to wire the engine into its ``PhosphorRuntime``, and
 /// by any toolbar / settings UI that needs to drive the enabled state.
 public extension EnvironmentValues {
-    @Entry var audioCapture: AudioCaptureEngine? = nil
+    @Entry var audioCapture: AudioCaptureEngine?
 }

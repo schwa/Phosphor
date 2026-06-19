@@ -1,8 +1,8 @@
 import Foundation
 import Metal
 import MetalSprockets
-import Testing
 @testable import PhosphorSupport
+import Testing
 
 /// Headless smoke test: runs a single frame of every shipped Examples/*.metal
 /// through the runtime to catch front-matter regressions, compile errors,
@@ -25,7 +25,7 @@ struct RenderSmokeTests {
             .filter { $0.pathExtension == "metal" }
             .map { $0.deletingPathExtension().lastPathComponent }
             .sorted()
-        ?? []
+            ?? []
     }()
 
     @Test("Examples directory exists and is non-empty")

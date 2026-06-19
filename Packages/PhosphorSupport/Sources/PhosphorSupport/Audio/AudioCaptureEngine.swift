@@ -10,6 +10,7 @@ import os
 ///
 /// One instance per app — provided via the SwiftUI environment so the
 /// document UI can drive the toggle from a toolbar item.
+@preconcurrency
 @MainActor
 @Observable
 public final class AudioCaptureEngine {
@@ -53,7 +54,7 @@ public final class AudioCaptureEngine {
 
     private static let logger = Logger(subsystem: "io.schwa.PhosphorSupport", category: "audio")
 
-    public init(sampleCount: Int = 1024) {
+    public init(sampleCount: Int = 1_024) {
         self.sampleCount = sampleCount
         self.storage = AudioRingStorage(sampleCount: sampleCount)
     }
@@ -86,13 +87,16 @@ public final class AudioCaptureEngine {
                 isPermissionDenied = true
                 isEnabled = false
             }
+
         case .authorized:
             Self.logger.info("microphone already authorized")
             start()
+
         case .denied, .restricted:
             Self.logger.error("microphone permission denied or restricted at system level")
             isPermissionDenied = true
             isEnabled = false
+
         @unknown default:
             Self.logger.error("microphone permission unknown status")
             isPermissionDenied = true
@@ -135,7 +139,6 @@ public final class AudioCaptureEngine {
         storage.isRunning = false
         storage.reset()
     }
-
 }
 
 /// Installs the AVAudioEngine tap block as a free, fully-nonisolated function
@@ -145,7 +148,7 @@ public final class AudioCaptureEngine {
 /// Concurrency's executor-check would fire and crash the process.
 // TODO: switch to the macOS 27 variant once it's exposed in Swift.
 private func installNonisolatedTap(on inputNode: AVAudioInputNode, format: AVAudioFormat, storage: AudioRingStorage) {
-    inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+    inputNode.installTap(onBus: 0, bufferSize: 1_024, format: format) { buffer, _ in
         storage.append(buffer: buffer)
     }
 }

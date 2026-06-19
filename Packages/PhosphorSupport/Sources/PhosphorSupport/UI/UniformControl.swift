@@ -35,29 +35,36 @@ private struct UniformControlBody: View {
             Text(String(format: "%.2f", scalar))
                 .font(.system(.caption, design: .monospaced))
                 .frame(width: 50, alignment: .trailing)
+
         case (.slider(let lo, let hi), .int(let scalar)):
             Slider(value: intBinding(scalar), in: Double(lo)...Double(hi), step: 1)
             Text("\(scalar)")
                 .font(.system(.caption, design: .monospaced))
                 .frame(width: 50, alignment: .trailing)
+
         case (.color, .float4(let rgba)):
             ColorPicker("", selection: colorBinding(rgba))
                 .labelsHidden()
+
         case (.toggle, .bool(let flag)):
             Toggle("", isOn: boolBinding(flag))
                 .labelsHidden()
+
         case (.vector, .float2(let vector)):
             VectorSliderRow(values: [vector.x, vector.y]) { new in
                 value = .float2(.init(new[0], new[1]))
             }
+
         case (.vector, .float3(let vector)):
             VectorSliderRow(values: [vector.x, vector.y, vector.z]) { new in
                 value = .float3(.init(new[0], new[1], new[2]))
             }
+
         case (.vector, .float4(let vector)):
             VectorSliderRow(values: [vector.x, vector.y, vector.z, vector.w]) { new in
                 value = .float4(.init(new[0], new[1], new[2], new[3]))
             }
+
         default:
             Text("(unsupported)").foregroundStyle(.secondary)
         }

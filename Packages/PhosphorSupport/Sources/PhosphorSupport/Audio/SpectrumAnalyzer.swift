@@ -25,7 +25,7 @@ public final class SpectrumAnalyzer {
     /// `0.0` = use only previous (locked), `1.0` = no smoothing.
     public var smoothing: Float = 0.4
 
-    public init(sampleCount: Int = 1024, binCount: Int = 512) {
+    public init(sampleCount: Int = 1_024, binCount: Int = 512) {
         precondition(sampleCount.nonzeroBitCount == 1, "sampleCount must be a power of two")
         precondition(binCount == sampleCount / 2, "binCount must equal sampleCount/2")
         self.sampleCount = sampleCount

@@ -1,6 +1,6 @@
-import FoundationModels
-import FoundationModelBackends
 import Foundation
+import FoundationModelBackends
+import FoundationModels
 import Metal
 import os
 
@@ -32,6 +32,7 @@ public enum GenerationModel: Hashable, Sendable {
         switch rawValue {
         case "onDevice": self = .onDevice
         case "privateCloudCompute": self = .privateCloudCompute
+
         default:
             let prefix = "anthropic."
             guard rawValue.hasPrefix(prefix) else { return nil }
@@ -59,7 +60,7 @@ public enum GenerationModel: Hashable, Sendable {
     }
 
     /// All models the picker should offer, in display order.
-    public static let all: [GenerationModel] =
+    public static let all: [Self] =
         [.onDevice, .privateCloudCompute] + AnthropicModel.all.map { .anthropic($0) }
 }
 
@@ -76,11 +77,11 @@ public struct AnthropicModel: Hashable, Sendable {
         self.displayName = displayName
     }
 
-    public static let opus = AnthropicModel(id: "claude-opus-4-5", displayName: "Claude Opus 4.5")
-    public static let sonnet = AnthropicModel(id: "claude-sonnet-4-5", displayName: "Claude Sonnet 4.5")
-    public static let haiku = AnthropicModel(id: "claude-haiku-4-5", displayName: "Claude Haiku 4.5")
+    public static let opus = Self(id: "claude-opus-4-5", displayName: "Claude Opus 4.5")
+    public static let sonnet = Self(id: "claude-sonnet-4-5", displayName: "Claude Sonnet 4.5")
+    public static let haiku = Self(id: "claude-haiku-4-5", displayName: "Claude Haiku 4.5")
 
-    public static let all: [AnthropicModel] = [.opus, .sonnet, .haiku]
+    public static let all: [Self] = [.opus, .sonnet, .haiku]
 }
 
 /// Generates a Phosphor `.metal` source from a natural-language prompt via
@@ -103,6 +104,7 @@ public struct ShaderGenerator {
     ///
     /// `progress`, if provided, is called on the main actor with phase
     /// updates so the UI can show what the generator is doing.
+    @preconcurrency
     public func generate(
         prompt: String,
         model: GenerationModel = .onDevice,
@@ -186,11 +188,13 @@ public struct ShaderGenerator {
                 model: SystemLanguageModel.default,
                 instructions: Self.instructions
             )
+
         case .privateCloudCompute:
             return LanguageModelSession(
                 model: PrivateCloudComputeLanguageModel(),
                 instructions: Self.instructions
             )
+
         case .anthropic(let anthropicModel):
             guard let apiKey = KeychainStore.read(account: KeychainAccount.anthropicAPIKey),
                   !apiKey.isEmpty else {
@@ -448,8 +452,10 @@ public enum ShaderGeneratorError: Error, LocalizedError {
         switch self {
         case .missingAPIKey(let model):
             return "Missing API key for \(model.displayName). Set it in Settings → Models."
+
         case .emptyBody(let model):
             return "\(model.displayName) returned a response with no kernel body. Try a different model or rephrase your prompt."
+
         case .malformedResponse(let model, let underlying):
             return "\(model.displayName) returned an incomplete response — try a different model or rephrase. (Details: \(underlying))"
         }

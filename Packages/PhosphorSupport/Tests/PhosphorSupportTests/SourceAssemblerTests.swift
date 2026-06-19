@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import PhosphorSupport
+import Testing
 
 @Suite("PhosphorHeader")
 struct PhosphorHeaderTests {
@@ -24,7 +24,7 @@ struct PhosphorHeaderTests {
                     id: "image",
                     inputs: [.init(name: "iChannel2", resource: "image")],
                     output: "image"
-                ),
+                )
             ],
             output: "image"
         )
@@ -44,7 +44,7 @@ struct PhosphorHeaderTests {
             uniforms: [
                 .init(name: "intensity", kind: .float, defaultValue: .float(1)),
                 .init(name: "tint", kind: .float3, defaultValue: .float3(.init(1, 0.5, 0.2))),
-                .init(name: "enabled", kind: .bool, defaultValue: .bool(true)),
+                .init(name: "enabled", kind: .bool, defaultValue: .bool(true))
             ]
         )
         let header = PhosphorHeader.source(for: env)

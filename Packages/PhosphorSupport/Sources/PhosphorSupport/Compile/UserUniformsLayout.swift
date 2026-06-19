@@ -104,18 +104,24 @@ public enum UserUniformsLayout {
         switch (kind, value) {
         case (.float, .float(let scalar)):
             ptr.assumingMemoryBound(to: Float.self).pointee = scalar
+
         case (.int, .int(let scalar)):
             ptr.assumingMemoryBound(to: Int32.self).pointee = scalar
+
         case (.bool, .bool(let flag)):
             ptr.assumingMemoryBound(to: UInt8.self).pointee = flag ? 1 : 0
+
         case (.float2, .float2(let vector)):
             ptr.assumingMemoryBound(to: SIMD2<Float>.self).pointee = vector
+
         case (.float3, .float3(let vector)):
             // Store as float4 to satisfy MSL float3 stride; w stays zero.
             ptr.assumingMemoryBound(to: SIMD4<Float>.self).pointee = SIMD4<Float>(vector.x, vector.y, vector.z, 0)
+
         case (.float4, .float4(let vector)),
              (.color, .float4(let vector)):
             ptr.assumingMemoryBound(to: SIMD4<Float>.self).pointee = vector
+
         default:
             // Kind/value mismatch — leave zero. Caller's responsibility to
             // ensure consistency at construction time.

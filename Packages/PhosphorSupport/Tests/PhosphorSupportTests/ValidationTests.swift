@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import PhosphorSupport
+import Testing
 
 @Suite("Validation")
 struct ValidationTests {
@@ -15,10 +15,10 @@ struct ValidationTests {
     func singlePassClean() {
         let env = PhosphorEnvironment(
             resources: [
-                .texture2D(id: "image", spec: .init(pingPong: true)),
+                .texture2D(id: "image", spec: .init(pingPong: true))
             ],
             passes: [
-                Pass(id: "image", inputs: [.init(name: "iChannel0", resource: "image")], output: "image"),
+                Pass(id: "image", inputs: [.init(name: "iChannel0", resource: "image")], output: "image")
             ],
             output: "image"
         )
@@ -30,7 +30,7 @@ struct ValidationTests {
         let env = PhosphorEnvironment(
             resources: [
                 .texture2D(id: "image", spec: .init()),
-                .texture2D(id: "image", spec: .init()),
+                .texture2D(id: "image", spec: .init())
             ],
             output: "image"
         )
@@ -43,7 +43,7 @@ struct ValidationTests {
             resources: [.texture2D(id: "image", spec: .init())],
             passes: [
                 Pass(id: "a", output: "image"),
-                Pass(id: "a", output: "image"),
+                Pass(id: "a", output: "image")
             ],
             output: "image"
         )
@@ -59,13 +59,13 @@ struct ValidationTests {
                     id: "image",
                     inputs: [.init(name: "iChannel0", resource: "missing")],
                     output: "image"
-                ),
+                )
             ],
             output: "image"
         )
         let diagnostics = validate(env)
         #expect(diagnostics.contains { diagnostic in
-            if case .unknownResource("missing", _) = diagnostic { return true } else { return false }
+            if case .unknownResource("missing", _) = diagnostic { return true }return false
         })
     }
 
@@ -78,7 +78,7 @@ struct ValidationTests {
                     id: "image",
                     inputs: [.init(name: "feedback", resource: "image")],
                     output: "image"
-                ),
+                )
             ],
             output: "image"
         )
@@ -94,7 +94,7 @@ struct ValidationTests {
                     id: "image",
                     inputs: [.init(name: "iChannel0", resource: "image")],
                     output: "image"
-                ),
+                )
             ],
             output: "image"
         )
@@ -110,7 +110,7 @@ struct ValidationTests {
                     id: "image",
                     inputs: [.init(name: "iChannel0", resource: "image")],
                     output: "image"
-                ),
+                )
             ],
             output: "image"
         )
@@ -126,10 +126,10 @@ struct ValidationTests {
                     id: "image",
                     inputs: [
                         .init(name: "iChannel0", resource: "image"),
-                        .init(name: "iChannel0", resource: "image"),
+                        .init(name: "iChannel0", resource: "image")
                     ],
                     output: "image"
-                ),
+                )
             ],
             output: "image"
         )
@@ -158,7 +158,7 @@ struct ChannelInferenceTests {
                     id: "image",
                     inputs: [.init(name: "iChannel0", resource: "image")],
                     output: "image"
-                ),
+                )
             ],
             output: "image"
         )
@@ -174,7 +174,7 @@ struct ChannelInferenceTests {
                     id: "image",
                     inputs: [.init(name: "iChannel3", resource: "image")],
                     output: "image"
-                ),
+                )
             ],
             output: "image"
         )
@@ -203,14 +203,14 @@ struct CodableTests {
                     pingPong: true,
                     flipTiming: .endOfFrame,
                     initial: .zero
-                )),
+                ))
             ],
             passes: [
                 Pass(
                     id: "bufA",
                     inputs: [.init(name: "iChannel0", resource: "bufA")],
                     output: "bufA"
-                ),
+                )
             ],
             output: "bufA",
             uniforms: [
@@ -219,7 +219,7 @@ struct CodableTests {
                     kind: .float,
                     defaultValue: .float(1.0),
                     ui: .slider(min: 0.0, max: 4.0)
-                ),
+                )
             ]
         )
 

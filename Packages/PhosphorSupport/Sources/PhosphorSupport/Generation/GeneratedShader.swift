@@ -1,5 +1,5 @@
-import FoundationModels
 import Foundation
+import FoundationModels
 import TOMLKit
 
 /// Schema the Foundation Model produces when the user asks for a generated
@@ -209,6 +209,7 @@ public extension GeneratedShader {
         switch uniform.kind {
         case .color: return .color
         case .bool: return .toggle
+
         case .float, .int:
             if uniform.sliderMin < uniform.sliderMax {
                 return .slider(min: uniform.sliderMin, max: uniform.sliderMax)
