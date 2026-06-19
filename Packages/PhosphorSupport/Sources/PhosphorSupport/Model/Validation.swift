@@ -8,14 +8,14 @@ import Foundation
 public func validate(_ env: PhosphorEnvironment) -> [PhosphorDiagnostic] {
     var diagnostics: [PhosphorDiagnostic] = []
 
-    // Duplicate resources.
-    var seenResourceIDs: Set<ResourceID> = []
-    for resource in env.resources {
-        if !seenResourceIDs.insert(resource.id).inserted {
-            diagnostics.append(.duplicateResource(resource.id))
+    // Duplicate textures.
+    var seenTextureIDs: Set<ResourceID> = []
+    for texture in env.textures {
+        if !seenTextureIDs.insert(texture.id).inserted {
+            diagnostics.append(.duplicateResource(texture.id))
         }
     }
-    let resourceIDs = Set(env.resources.map(\.id))
+    let textureIDs = Set(env.textures.map(\.id))
 
     // Duplicate passes.
     var seenPassIDs: Set<ResourceID> = []
@@ -25,82 +25,48 @@ public func validate(_ env: PhosphorEnvironment) -> [PhosphorDiagnostic] {
         }
     }
 
-    // Output resource exists.
-    if !resourceIDs.contains(env.output) {
+    // Env-level output must reference a declared texture.
+    if !textureIDs.contains(env.output) {
         diagnostics.append(.missingOutput(env.output))
     }
 
-    // Inferred channel count, for range checks. Errors don't update the inferred
-    // count; only valid `iChannelN` names contribute.
-    let inferredCount = channelCount(for: env)
-
     for pass in env.passes {
-        if !resourceIDs.contains(pass.output) {
-            diagnostics.append(.unknownResource(pass.output, in: "pass \"\(pass.id)\" output"))
+        var seenBindingIDs: Set<ResourceID> = []
+        var writeBindings: [Pass.TextureBinding] = []
+        var readBindings: [Pass.TextureBinding] = []
+
+        for binding in pass.textures {
+            if !seenBindingIDs.insert(binding.id).inserted {
+                diagnostics.append(.duplicateBinding(name: binding.id.raw, in: pass.id))
+            }
+            if !textureIDs.contains(binding.id) {
+                diagnostics.append(.unknownResource(binding.id, in: "pass \"\(pass.id)\" binding"))
+            }
+            switch binding.access {
+            case .write, .readWrite:
+                writeBindings.append(binding)
+            case .read, .sample:
+                readBindings.append(binding)
+            }
         }
 
-        var seenBindingNames: Set<String> = []
-        for binding in pass.inputs {
-            if !seenBindingNames.insert(binding.name).inserted {
-                diagnostics.append(.duplicateBinding(name: binding.name, in: pass.id))
-            }
-            if let index = channelIndex(from: binding.name) {
-                if index >= inferredCount {
-                    // Should be impossible: if this binding referenced an index
-                    // beyond inferredCount, inferredCount would be at least
-                    // index+1. Keep the case for defense-in-depth.
-                    diagnostics.append(.channelOutOfRange(name: binding.name, inferred: inferredCount))
+        // Every pass must declare at least one write-capable binding.
+        // Otherwise it has nowhere to put its output.
+        if writeBindings.isEmpty {
+            diagnostics.append(.passHasNoOutput(pass: pass.id))
+        }
+
+        // Read/write hazard: writing AND reading the same texture in the
+        // same pass without ping-pong is undefined.
+        for write in writeBindings {
+            for read in readBindings where read.id == write.id {
+                let texture = env.texture(write.id)
+                if texture?.swap == SwapTiming.none {
+                    diagnostics.append(.readWriteHazard(pass: pass.id, resource: write.id))
                 }
-            } else {
-                diagnostics.append(.unknownChannelName(binding.name, in: pass.id))
-            }
-            if !resourceIDs.contains(binding.resource) {
-                diagnostics.append(.unknownResource(binding.resource, in: "pass \"\(pass.id)\" input \"\(binding.name)\""))
-            }
-        }
-
-        // A pass can't write to a read-only `.image` resource.
-        if case .image = env.resource(pass.output) {
-            diagnostics.append(.readWriteHazard(pass: pass.id, resource: pass.output))
-        }
-
-        // Read/write hazard: writing to a non-ping-pong resource that is also
-        // sampled as an input. (Sampling the same ping-pong resource is fine —
-        // that's the standard feedback pattern.)
-        for binding in pass.inputs where binding.resource == pass.output {
-            if case .texture2D(_, let spec) = env.resource(pass.output) ?? .texture2D(id: pass.output, spec: .init()),
-               !spec.pingPong {
-                diagnostics.append(.readWriteHazard(pass: pass.id, resource: pass.output))
             }
         }
     }
 
     return diagnostics
-}
-
-/// The inferred channel-rack size for an environment.
-///
-/// Equal to `max(N referenced in any pass binding's "iChannelN") + 1`, or `0`
-/// if no pass references any channel.
-public func channelCount(for env: PhosphorEnvironment) -> Int {
-    var maxIndex: Int = -1
-    for pass in env.passes {
-        for binding in pass.inputs {
-            if let index = channelIndex(from: binding.name) {
-                maxIndex = max(maxIndex, index)
-            }
-        }
-    }
-    return maxIndex + 1
-}
-
-/// Parses `"iChannelN"` and returns `N`, or nil if the string isn't of that form.
-public func channelIndex(from name: String) -> Int? {
-    let prefix = "iChannel"
-    guard name.hasPrefix(prefix) else { return nil }
-    let suffix = name.dropFirst(prefix.count)
-    guard !suffix.isEmpty, suffix.allSatisfy(\.isASCII), suffix.allSatisfy(\.isNumber) else {
-        return nil
-    }
-    return Int(suffix)
 }

@@ -1,90 +1,31 @@
 import Foundation
 import simd
 
-/// A named GPU resource declared by a ``PhosphorEnvironment``.
+/// A named texture resource declared by a ``PhosphorEnvironment``.
 ///
-/// Phosphor 2.0 only supports 2D textures. The enum exists so future versions
-/// can add buffers, cubemaps, etc. without changing call sites.
-public enum Resource: Hashable, Sendable {
-    case texture2D(id: ResourceID, spec: Texture2DSpec)
-    /// A read-only image asset bound by name. Format and size are
-    /// determined by the decoded image — callers don't pre-declare them.
-    case image(id: ResourceID, name: String, access: TextureAccess)
-
-    public var id: ResourceID {
-        switch self {
-        case .texture2D(let id, _): return id
-        case .image(let id, _, _): return id
-        }
-    }
-
-    /// The MSL access qualifier the kernel-side `iChannelN` binding should
-    /// use for this resource. Texture2D resources default to `.read` (the
-    /// historical behavior); image resources can opt into `.sample` via
-    /// front-matter.
-    public var access: TextureAccess {
-        switch self {
-        case .texture2D: return .read
-        case .image(_, _, let access): return access
-        }
-    }
-}
-
-/// MSL access qualifier for a channel binding's `texture2d<float, ...>`.
-///
-/// `.read` is integer-pixel access via `.read(coord)`; `.sample` is
-/// `.sample(sampler, uv)` with optional filtering.
-public enum TextureAccess: String, Hashable, Codable, Sendable {
-    case read
-    case sample
-}
-
-/// Describes a 2D texture resource: size, format, ping-pong behavior, initial contents.
-public struct Texture2DSpec: Hashable, Sendable, Codable {
+/// Phosphor's runtime only deals in 2D textures, so there's no enum to
+/// distinguish kinds. Properties cover sizing, format, swap (ping-pong)
+/// timing, and an init action describing initial contents. Per-pass
+/// usage (the access mode) lives on ``Pass/TextureBinding``, not here.
+public struct Texture: Hashable, Sendable {
+    public var id: ResourceID
     public var size: TextureSize
     public var format: PhosphorPixelFormat
-    public var pingPong: Bool
-    public var flipTiming: FlipTiming
-    public var initial: TextureInit
+    public var swap: SwapTiming
+    public var initialContents: TextureInit
 
     public init(
+        id: ResourceID,
         size: TextureSize = .drawable,
         format: PhosphorPixelFormat = .rgba32Float,
-        pingPong: Bool = false,
-        flipTiming: FlipTiming = .endOfFrame,
-        initial: TextureInit = .zero
+        swap: SwapTiming = .none,
+        initialContents: TextureInit = .zero
     ) {
+        self.id = id
         self.size = size
         self.format = format
-        self.pingPong = pingPong
-        self.flipTiming = flipTiming
-        self.initial = initial
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case size
-        case format
-        case pingPong
-        case flipTiming
-        case initial
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.size = try container.decodeIfPresent(TextureSize.self, forKey: .size) ?? .drawable
-        self.format = try container.decodeIfPresent(PhosphorPixelFormat.self, forKey: .format) ?? .rgba32Float
-        self.pingPong = try container.decodeIfPresent(Bool.self, forKey: .pingPong) ?? false
-        self.flipTiming = try container.decodeIfPresent(FlipTiming.self, forKey: .flipTiming) ?? .endOfFrame
-        self.initial = try container.decodeIfPresent(TextureInit.self, forKey: .initial) ?? .zero
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(size, forKey: .size)
-        try container.encode(format, forKey: .format)
-        try container.encode(pingPong, forKey: .pingPong)
-        try container.encode(flipTiming, forKey: .flipTiming)
-        try container.encode(initial, forKey: .initial)
+        self.swap = swap
+        self.initialContents = initialContents
     }
 }
 
@@ -106,24 +47,47 @@ public enum PhosphorPixelFormat: String, Hashable, Codable, Sendable {
     case rgba32Float
 }
 
-/// When the ping-pong swap happens for a ``Texture2DSpec`` with `pingPong == true`.
+/// When the ping-pong swap happens for a texture.
 ///
-/// - `.endOfFrame`: flip once at end of frame; later passes in the same frame
-///   see *last* frame's contents. Shadertoy semantics.
-/// - `.immediate`: flip right after the writing pass; later passes in the same
-///   frame see *this* frame's just-written contents. Requires inter-dispatch
-///   synchronization; not implemented until a later milestone.
-public enum FlipTiming: String, Hashable, Codable, Sendable {
+/// - `.none`: no ping-pong. Single texture; the same handle is bound for
+///   read and write.
+/// - `.endOfFrame`: ping-pong, flip once at end of frame; later passes in
+///   the same frame see *last* frame's contents at the read parity.
+///   Shadertoy semantics.
+/// - `.immediate`: flip parity right after the writing pass; later passes
+///   in the same frame see the just-written data at the read parity.
+///   Modeled but not yet implemented (see #4 / #54).
+public enum SwapTiming: String, Hashable, Codable, Sendable {
+    case none
     case endOfFrame
     case immediate
 }
 
 /// Initial contents for a texture, applied once at materialization (and on
 /// reallocation after resize).
+///
+/// `.zero` is a shortcut for `.fill([0, 0, 0, 0])`. They round-trip
+/// identically at the GPU level but the TOML distinguishes them so authors
+/// can write `init = { kind = "zero" }` for the common case.
 public enum TextureInit: Hashable, Sendable {
     case zero
-    case color(SIMD4<Float>)
-    /// Resolved through the host-injected asset registry by string key.
-    case image(name: String)
+    case fill(SIMD4<Float>)
+    /// Looks up an asset by filename (with extension) in the host-injected
+    /// asset registry and decodes it as the texture's initial contents.
+    case image(file: String)
     case noise(seed: UInt64)
+}
+
+/// MSL access qualifier for a per-pass texture binding.
+///
+/// - `.read`: integer-pixel access via `.read(coord)`.
+/// - `.sample`: filtered sampling via `.sample(sampler, uv)` (also supports `.read`).
+/// - `.write`: kernel writes through this binding.
+/// - `.readWrite`: simultaneous read and write. Modeled but currently
+///   unsupported at runtime; passes that declare it will fail validation.
+public enum TextureAccess: String, Hashable, Codable, Sendable {
+    case read
+    case sample
+    case write
+    case readWrite
 }

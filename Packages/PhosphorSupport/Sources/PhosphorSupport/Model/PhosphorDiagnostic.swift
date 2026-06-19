@@ -10,29 +10,28 @@ import Foundation
 public enum PhosphorDiagnostic: Hashable, Sendable {
     /// Front-matter TOML failed to parse.
     case frontMatterParse(String, line: Int?)
-    /// A `Pass.Input` or `Pass.output` or `Environment.output` references a
-    /// resource ID that isn't declared in ``PhosphorEnvironment/resources``.
+    /// A `Pass.TextureBinding` references a texture id that isn't declared
+    /// in ``PhosphorEnvironment/textures``.
     case unknownResource(ResourceID, in: String)
-    /// Two resources share the same ID.
+    /// Two textures share the same id.
     case duplicateResource(ResourceID)
-    /// Two passes share the same ID (and thus kernel name).
+    /// Two passes share the same id (and thus kernel name).
     case duplicatePass(ResourceID)
-    /// A binding name isn't of the form `iChannelN`.
-    case unknownChannelName(String, in: ResourceID)
-    /// A binding references a channel index >= the inferred channel count.
-    /// Only emitted if the index is something other than what would set the
-    /// count (so e.g. duplicate iChannel0 bindings catch as `duplicateBinding`).
-    case channelOutOfRange(name: String, inferred: Int)
-    /// Two bindings on the same pass use the same channel name.
+    /// Two bindings on the same pass reference the same texture id.
     case duplicateBinding(name: String, in: ResourceID)
-    /// A pass writes to a non-ping-pong resource that it also reads.
+    /// A pass writes to a non-swap texture that it also reads. The result
+    /// is undefined — the kernel could read either pre- or post-write
+    /// pixels.
     case readWriteHazard(pass: ResourceID, resource: ResourceID)
-    /// The environment's `output` doesn't refer to any declared resource.
+    /// A pass declared no write-capable binding. It has nowhere to put
+    /// its output.
+    case passHasNoOutput(pass: ResourceID)
+    /// The environment's `output` doesn't refer to any declared texture.
     case missingOutput(ResourceID)
     /// A pass kernel failed to compile.
     case compile(PhosphorCompileError)
-    /// A texture resource references an image asset by name, but no asset
-    /// with that name was supplied by the host. The texture is zero-filled
+    /// A texture's `init = { kind = "image", file = "..." }` references an
+    /// asset that wasn't supplied by the host. The texture is zero-filled
     /// as a fallback so the shader can still render.
     case missingAsset(name: String, in: ResourceID)
 }
@@ -56,10 +55,9 @@ extension PhosphorDiagnostic {
              .unknownResource,
              .duplicateResource,
              .duplicatePass,
-             .unknownChannelName,
-             .channelOutOfRange,
              .duplicateBinding,
              .readWriteHazard,
+             .passHasNoOutput,
              .missingOutput:
             return true
 

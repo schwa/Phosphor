@@ -1,60 +1,40 @@
 import Foundation
 
-// Custom Codable for the model enums so the TOML front-matter shape matches
+// Custom Codable for the model types so the TOML front-matter shape matches
 // what authors actually want to write.
 //
 // Conventions:
 // - Unit enum cases (no payload) encode as a bare string.
-// - Cases with one labeled payload encode as a nested table under the case name.
-// - The `Resource` enum is flattened: `kind = "texture2D"`, `id = ...`, `spec = {...}`.
+// - Discriminated enums use `kind = "..."` plus the case's fields side by side.
+// - Everything else uses the default keyed-container Codable.
 
-// MARK: - Resource
+// MARK: - Texture
 
-extension Resource: Codable {
+extension Texture: Codable {
     private enum CodingKeys: String, CodingKey {
-        case kind
         case id
-        case spec
-        case name
-        case access
-    }
-
-    private enum Kind: String, Codable {
-        case texture2D
-        case image
+        case size
+        case format
+        case swap
+        case initialContents = "init"
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .texture2D(let id, let spec):
-            try container.encode(Kind.texture2D, forKey: .kind)
-            try container.encode(id, forKey: .id)
-            try container.encode(spec, forKey: .spec)
-        case .image(let id, let name, let access):
-            try container.encode(Kind.image, forKey: .kind)
-            try container.encode(id, forKey: .id)
-            try container.encode(name, forKey: .name)
-            if access != .read {
-                try container.encode(access, forKey: .access)
-            }
-        }
+        try container.encode(id, forKey: .id)
+        try container.encode(size, forKey: .size)
+        try container.encode(format, forKey: .format)
+        try container.encode(swap, forKey: .swap)
+        try container.encode(initialContents, forKey: .initialContents)
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let kind = try container.decode(Kind.self, forKey: .kind)
-        switch kind {
-        case .texture2D:
-            let id = try container.decode(ResourceID.self, forKey: .id)
-            let spec = try container.decode(Texture2DSpec.self, forKey: .spec)
-            self = .texture2D(id: id, spec: spec)
-        case .image:
-            let id = try container.decode(ResourceID.self, forKey: .id)
-            let name = try container.decode(String.self, forKey: .name)
-            let access = try container.decodeIfPresent(TextureAccess.self, forKey: .access) ?? .read
-            self = .image(id: id, name: name, access: access)
-        }
+        self.id = try container.decode(ResourceID.self, forKey: .id)
+        self.size = try container.decodeIfPresent(TextureSize.self, forKey: .size) ?? .drawable
+        self.format = try container.decodeIfPresent(PhosphorPixelFormat.self, forKey: .format) ?? .rgba32Float
+        self.swap = try container.decodeIfPresent(SwapTiming.self, forKey: .swap) ?? .none
+        self.initialContents = try container.decodeIfPresent(TextureInit.self, forKey: .initialContents) ?? .zero
     }
 }
 
@@ -76,7 +56,6 @@ extension TextureSize: Codable {
     }
 
     public init(from decoder: Decoder) throws {
-        // Try string first.
         if let container = try? decoder.singleValueContainer(),
            let string = try? container.decode(String.self) {
             switch string {
@@ -88,7 +67,6 @@ extension TextureSize: Codable {
                 throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unknown TextureSize string '\(string)'")
             }
         }
-        // Fall back to keyed shapes.
         let container = try decoder.container(keyedBy: KeyedKey.self)
         if let fixed = try? container.decode(FixedSize.self, forKey: .fixed) {
             self = .fixed(width: fixed.width, height: fixed.height)
@@ -121,68 +99,61 @@ extension TextureSize: Codable {
 // MARK: - TextureInit
 
 extension TextureInit: Codable {
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch self {
-        case .zero:
-            try container.encode("zero")
-
-        case .color(let rgba):
-            try container.encode(Wrapped(color: [rgba.x, rgba.y, rgba.z, rgba.w]))
-
-        case .image(let name):
-            try container.encode(Wrapped(image: ImagePayload(name: name)))
-
-        case .noise(let seed):
-            try container.encode(Wrapped(noise: NoisePayload(seed: seed)))
-        }
-    }
-
-    public init(from decoder: Decoder) throws {
-        if let container = try? decoder.singleValueContainer(),
-           let string = try? container.decode(String.self) {
-            switch string {
-            case "zero":
-                self = .zero
-                return
-
-            default:
-                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unknown TextureInit string '\(string)'")
-            }
-        }
-        let container = try decoder.container(keyedBy: KeyedKey.self)
-        if let rgba = try? container.decode([Float].self, forKey: .color), rgba.count == 4 {
-            self = .color(.init(rgba[0], rgba[1], rgba[2], rgba[3]))
-        } else if let image = try? container.decode(ImagePayload.self, forKey: .image) {
-            self = .image(name: image.name)
-        } else if let noise = try? container.decode(NoisePayload.self, forKey: .noise) {
-            self = .noise(seed: noise.seed)
-        } else {
-            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Unknown TextureInit shape"))
-        }
-    }
-
-    private enum KeyedKey: String, CodingKey {
+    private enum CodingKeys: String, CodingKey {
+        case kind
         case color
+        case file
+        case seed
+    }
+
+    private enum Kind: String, Codable {
+        case zero
+        case fill
         case image
         case noise
     }
 
-    private struct ImagePayload: Codable {
-        var name: String
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .zero:
+            try container.encode(Kind.zero, forKey: .kind)
+
+        case .fill(let rgba):
+            try container.encode(Kind.fill, forKey: .kind)
+            try container.encode([rgba.x, rgba.y, rgba.z, rgba.w], forKey: .color)
+
+        case .image(let file):
+            try container.encode(Kind.image, forKey: .kind)
+            try container.encode(file, forKey: .file)
+
+        case .noise(let seed):
+            try container.encode(Kind.noise, forKey: .kind)
+            try container.encode(seed, forKey: .seed)
+        }
     }
 
-    private struct NoisePayload: Codable {
-        var seed: UInt64
-    }
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let kind = try container.decode(Kind.self, forKey: .kind)
+        switch kind {
+        case .zero:
+            self = .zero
 
-    private struct Wrapped: Encodable {
-        var color: [Float]?
-        var image: ImagePayload?
-        var noise: NoisePayload?
+        case .fill:
+            let rgba = try container.decode([Float].self, forKey: .color)
+            guard rgba.count == 4 else {
+                throw DecodingError.dataCorruptedError(forKey: .color, in: container, debugDescription: "fill color must have 4 components")
+            }
+            self = .fill(.init(rgba[0], rgba[1], rgba[2], rgba[3]))
 
-        init(color: [Float]) { self.color = color }
-        init(image: ImagePayload) { self.image = image }
-        init(noise: NoisePayload) { self.noise = noise }
+        case .image:
+            let file = try container.decode(String.self, forKey: .file)
+            self = .image(file: file)
+
+        case .noise:
+            let seed = try container.decode(UInt64.self, forKey: .seed)
+            self = .noise(seed: seed)
+        }
     }
 }
