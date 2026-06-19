@@ -158,7 +158,15 @@ public extension GeneratedShader {
     /// at the top so the user can see how the shader evolved.
     func toMetalSource(prompts: [String] = []) throws -> String {
         let (env, _) = toPhosphorEnvironment()
-        let toml = try TOMLEncoder().encode(env)
+        // Style choices to match hand-written examples:
+        // - Drop `.allowLiteralStrings` so strings come out double-quoted.
+        // - Add `.relaxedFloatPrecision` so 0.6 doesn't serialize as
+        //   0.60000002384185791.
+        // Inline-tables-for-leaf-records is not configurable via FormatOptions
+        // and would require our own encoding pass (tracked in #38).
+        var encoder = TOMLEncoder()
+        encoder.options = [.allowMultilineStrings, .relaxedFloatPrecision, .indentations]
+        let toml = try encoder.encode(env)
         var output = ""
         for prompt in prompts where !prompt.isEmpty {
             output += "/* prompt: \(prompt) */\n"
