@@ -5,7 +5,10 @@ import SwiftUI
 /// ``ShaderGenerator``, and replaces the document's text on success.
 struct GeneratePanel: View {
     @Binding var isPresented: Bool
-    @Bindable var document: PhosphorMetalDocument
+    @Binding var text: String
+    let parsed: ParsedPhosphorSource
+    let isUntouchedTemplate: Bool
+    let onTextChange: () -> Void
 
     @State private var prompt: String = ""
     @State private var isGenerating: Bool = false
@@ -18,7 +21,7 @@ struct GeneratePanel: View {
     }
 
     private var isModifying: Bool {
-        document.parsed.environment != nil && !document.isUntouchedTemplate
+        parsed.environment != nil && !isUntouchedTemplate
     }
 
     var body: some View {
@@ -100,12 +103,12 @@ struct GeneratePanel: View {
             let source = try await ShaderGenerator().generate(
                 prompt: prompt,
                 model: selectedModel,
-                existingSource: isModifying ? document.text : ""
+                existingSource: isModifying ? text : ""
             ) { phase in
                 statusMessage = phaseMessage(phase)
             }
-            document.text = source
-            document.refreshParsed()
+            text = source
+            onTextChange()
             isPresented = false
         } catch {
             errorMessage = "\(error)"
@@ -123,6 +126,22 @@ struct GeneratePanel: View {
     }
 }
 
-// `GeneratePanel` needs a `PhosphorMetalDocument`, which requires a
-// `URLDocumentConfiguration` (no public init). Not previewable standalone
-// until/unless we extract the prompt UI into its own document-less subview.
+#Preview("Fresh") {
+    GeneratePanel(
+        isPresented: .constant(true),
+        text: .constant(""),
+        parsed: ParsedPhosphorSource(source: ""),
+        isUntouchedTemplate: true,
+        onTextChange: {}
+    )
+}
+
+#Preview("Modify") {
+    GeneratePanel(
+        isPresented: .constant(true),
+        text: .constant("// existing kernel\nkernel void image() {}"),
+        parsed: ParsedPhosphorSource(source: ""),
+        isUntouchedTemplate: false,
+        onTextChange: {}
+    )
+}
