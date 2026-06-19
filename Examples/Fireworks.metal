@@ -18,6 +18,7 @@ textures = [
 uint2 gid [[thread_position_in_grid]];
 
 
+
 /// Helper: pseudo-random hash function
 float hash(float2 p) {
     return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);
@@ -112,4 +113,5 @@ kernel void image(
     col = clamp(col, 0.0, 1.0);
     uniforms.textures.image.write(float4(col, 1.0), gid);
 }
+
 

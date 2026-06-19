@@ -1,17 +1,20 @@
 /* phosphor:environment
 output = "image"
 
-[[resources]]
-kind = "texture2D"
+[[textures]]
 id = "image"
-spec = { size = "drawable", format = "rgba32Float", pingPong = false, initial = "zero" }
 
 [[passes]]
 id = "image"
-output = "image"
+textures = [
+    { id = "image", access = "write" },
+]
 */
 
 #include "Phosphor.h"
+
+uint2 gid [[thread_position_in_grid]];
+
 
 // Ported from Phosphor 1's example library. mainImage is the legacy entry
 // point; the kernel below wraps it with Phosphor 2's canonical signature.
@@ -53,14 +56,11 @@ float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, f
 }
 
 kernel void image(
-    texture2d<float, access::write> outTexture     [[texture(0)]],
-    device const ChannelBindings&   channels       [[buffer(1)]],
-    device const Uniforms*          uniforms       [[buffer(0)]],
-    device const UserUniforms*      userUniforms   [[buffer(2)]],
-    uint2 gid                                      [[thread_position_in_grid]])
+    device const Uniforms&     uniforms     [[buffer(0)]],
+    device const UserUniforms& userUniforms [[buffer(1)]])
 {
-    float4 color = mainImage(float2(gid), uniforms->resolution, uniforms->mouse,
-                             uniforms->time, uniforms->frame);
+    float4 color = mainImage(float2(gid), uniforms.resolution, uniforms.mouse,
+                             uniforms.time, uniforms.frame);
     color.a = 1.0;
-    outTexture.write(color, gid);
+    uniforms.textures.image.write(color, gid);
 }

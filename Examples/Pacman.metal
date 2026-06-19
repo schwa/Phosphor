@@ -34,6 +34,7 @@ ui = "color"
 uint2 gid [[thread_position_in_grid]];
 
 
+
 // Signed distance function for a circle
 float sdCircle(float2 p, float r) {
     return length(p) - r;
@@ -61,7 +62,7 @@ float sdDot(float2 p, float r) {
 }
 
 kernel void image(
-    constant Uniforms&              uniforms       [[buffer(0)]],
+    device const Uniforms&     uniforms     [[buffer(0)]],
     device const UserUniforms& userUniforms [[buffer(1)]])
 {
     float2 uv = float2(gid) / uniforms.resolution;
@@ -132,3 +133,4 @@ kernel void image(
     
     uniforms.textures.image.write(float4(col, 1.0), gid);
 }
+

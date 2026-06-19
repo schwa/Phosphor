@@ -16,6 +16,7 @@ textures = [
 uint2 gid [[thread_position_in_grid]];
 
 
+
 /// Renders a smiley face that opens and closes its mouth based on audio input.
 /// Uses uniforms.spectrum[] for bass energy to control mouth opening,
 /// and uniforms.waveform[] for subtle eye animation.
@@ -187,3 +188,4 @@ kernel void image(
     
     uniforms.textures.image.write(float4(col, 1.0), gid);
 }
+

@@ -29,6 +29,7 @@ uint2 gid [[thread_position_in_grid]];
 
 
 
+
 // Super Mario inspired pixel art shader
 
 float hash(float2 p) {
@@ -110,7 +111,7 @@ float coin(float2 uv, float2 pos, float time) {
 }
 
 kernel void image(
-    constant Uniforms&              uniforms       [[buffer(0)]],
+    device const Uniforms&     uniforms     [[buffer(0)]],
     device const UserUniforms& userUniforms [[buffer(1)]])
 {
     // Flip the Y coordinate to fix upside-down rendering
@@ -171,4 +172,5 @@ kernel void image(
     
     uniforms.textures.image.write(float4(col, 1.0), gid);
 }
+
 

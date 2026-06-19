@@ -1,62 +1,50 @@
-/* prompt: a pelican on a bicycle */
-/* prompt: its flipped upside down */
-/* prompt: add some sliders */
-
 /* phosphor:environment
-output = 'image'
+output = "image"
+
+[[textures]]
+id = "image"
 
 [[passes]]
-enabled = true
-id = 'image'
-inputs = []
-output = 'image'
-
-[[resources]]
-id = 'image'
-kind = 'texture2D'
-
-[resources.spec]
-flipTiming = 'endOfFrame'
-format = 'rgba32Float'
-initial = 'zero'
-pingPong = false
-size = 'drawable'
+id = "image"
+textures = [
+    { id = "image", access = "write" },
+]
 
 [[uniforms]]
 default = 3.0
-kind = 'float'
-name = 'pedalSpeed'
-
-[uniforms.ui.slider]
-max = 10.0
-min = 0.5
+kind = "float"
+name = "pedalSpeed"
+ui = { slider = { min = 0.5, max = 10.0 } }
 
 [[uniforms]]
 default = 1.0
-kind = 'float'
-name = 'pelicanScale'
-
-[uniforms.ui.slider]
-max = 2.0
-min = 0.5
+kind = "float"
+name = "pelicanScale"
+ui = { slider = { min = 0.5, max = 2.0 } }
 
 [[uniforms]]
-default = [ 0.20000000298023224, 0.20000000298023224, 0.30000001192092896, 1.0 ]
-kind = 'color'
-name = 'bikeColor'
-ui = 'color'
+default = [ 0.2, 0.2, 0.3, 1.0 ]
+kind = "color"
+name = "bikeColor"
+ui = "color"
 
 [[uniforms]]
-default = [ 1.0, 0.94999998807907104, 0.89999997615814209, 1.0 ]
-kind = 'color'
-name = 'pelicanColor'
-ui = 'color'
+default = [ 1.0, 0.95, 0.9, 1.0 ]
+kind = "color"
+name = "pelicanColor"
+ui = "color"
 
 [[uniforms]]
-default = [ 1.0, 0.69999998807907104, 0.30000001192092896, 1.0 ]
-kind = 'color'
-name = 'beakColor'
-ui = 'color'*/
+default = [ 1.0, 0.7, 0.3, 1.0 ]
+kind = "color"
+name = "beakColor"
+ui = "color"
+*/
+
+#include "Phosphor.h"
+
+uint2 gid [[thread_position_in_grid]];
+
 
 // Signed distance functions for shapes
 float sdCircle(float2 p, float r) {
@@ -112,22 +100,19 @@ float opUnion(float d1, float d2) { return min(d1, d2); }
 float opSubtract(float d1, float d2) { return max(-d1, d2); }
 
 kernel void image(
-    texture2d<float, access::write> outTexture     [[texture(0)]],
-    device const ChannelBindings&   channels       [[buffer(1)]],
-    constant Uniforms&              uniforms       [[buffer(0)]],
-    device const UserUniforms*      userUniforms   [[buffer(2)]],
-    uint2 gid                                      [[thread_position_in_grid]])
+    device const Uniforms&     uniforms     [[buffer(0)]],
+    device const UserUniforms& userUniforms [[buffer(1)]])
 {
     float2 uv = (float2(gid) - 0.5 * uniforms.resolution) / uniforms.resolution.y;
     uv.y = -uv.y;
     float t = uniforms.time;
     
     // User uniforms
-    float pedalSpeed = userUniforms->pedalSpeed;
-    float scale = userUniforms->pelicanScale;
-    float3 bikeCol = userUniforms->bikeColor.rgb;
-    float3 pelCol = userUniforms->pelicanColor.rgb;
-    float3 beakCol = userUniforms->beakColor.rgb;
+    float pedalSpeed = userUniforms.pedalSpeed;
+    float scale = userUniforms.pelicanScale;
+    float3 bikeCol = userUniforms.bikeColor.rgb;
+    float3 pelCol = userUniforms.pelicanColor.rgb;
+    float3 beakCol = userUniforms.beakColor.rgb;
     
     // Animation - pedaling motion
     float pedal = sin(t * pedalSpeed) * 0.03;
@@ -211,5 +196,5 @@ kernel void image(
     col = mix(col, float3(0.0), 1.0 - smoothstep(0.0, 0.005, eye));
     col = mix(col, pelCol, 1.0 - smoothstep(0.0, 0.008, sdEllipse((uv - wingPos) / scale, float2(0.08, 0.04)) * scale));
     
-    outTexture.write(float4(col, 1.0), gid);
+    uniforms.textures.image.write(float4(col, 1.0), gid);
 }

@@ -1,55 +1,34 @@
-/* prompt: can we add a gain slider? */
-/* prompt: do the FFT bins work? */
-/* prompt: make the FFT bins more prominent */
-/* prompt: even more prominent FFT */
-/* prompt: make the wave form go around in circles */
-/* prompt: can we use ping ponging to render older traces and make it all fade away into background */
-/* prompt: have the top graph animate through raimbow over time */
-/* prompt: the rainbow in the top graph is over the time over the sample i want it to animate the rainbow over the frame time instead */
-/* prompt: add a slider to speed up/slow down the rainbow color change */
-/* prompt: there's too much white glare in the top ring */
-/* prompt: lets also take that top wave form and render it linearly underneath the ring */
-
 /* phosphor:environment
 output = "image"
 
+[[textures]]
+id = "image"
+swap = "endOfFrame"
+
 [[passes]]
-enabled = true
 id = "image"
-output = "image"
-
-    [[passes.inputs]]
-    name = "iChannel0"
-    resource = "image"
-
-[[resources]]
-id = "image"
-kind = "texture2D"
-
-    [resources.spec]
-    flipTiming = "endOfFrame"
-    format = "rgba32Float"
-    initial = "zero"
-    pingPong = true
-    size = "drawable"
+textures = [
+    { id = "image", access = "write" },
+    { id = "image", access = "read", name = "feedback" },
+]
 
 [[uniforms]]
 default = 1.0
 kind = "float"
 name = "gain"
-
-    [uniforms.ui.slider]
-    max = 5.0
-    min = 0.1
+ui = { slider = { min = 0.1, max = 5.0 } }
 
 [[uniforms]]
 default = 0.15
 kind = "float"
 name = "rainbowSpeed"
+ui = { slider = { min = 0.0, max = 2.0 } }
+*/
 
-    [uniforms.ui.slider]
-    max = 2.0
-    min = 0.0*/
+#include "Phosphor.h"
+
+uint2 gid [[thread_position_in_grid]];
+
 
 // Converts HSV to RGB. H in [0,1], S in [0,1], V in [0,1].
 float3 hsv2rgb(float h, float s, float v) {
@@ -72,25 +51,22 @@ float3 hsv2rgb(float h, float s, float v) {
 /// The gain uniform amplifies both the waveform and spectrum display.
 /// The rainbowSpeed uniform controls how fast the rainbow color cycles.
 kernel void image(
-    texture2d<float, access::write> outTexture     [[texture(0)]],
-    device const ChannelBindings&   channels       [[buffer(1)]],
-    device const Uniforms*          uniforms       [[buffer(0)]],
-    device const UserUniforms*      userUniforms   [[buffer(2)]],
-    uint2 gid                                      [[thread_position_in_grid]])
+    device const Uniforms&     uniforms     [[buffer(0)]],
+    device const UserUniforms& userUniforms [[buffer(1)]])
 {
     float2 p = float2(gid);
-    float2 res = uniforms->resolution;
+    float2 res = uniforms.resolution;
     float2 uv = p / res;
     
-    float gain = userUniforms->gain;
-    float rainbowSpeed = userUniforms->rainbowSpeed;
-    float time = uniforms->time;
+    float gain = userUniforms.gain;
+    float rainbowSpeed = userUniforms.rainbowSpeed;
+    float time = uniforms.time;
 
     // Background: subtle vertical gradient.
     float3 bg = mix(float3(0.02, 0.02, 0.06), float3(0.0, 0.0, 0.02), uv.y);
     
     // Read previous frame and fade it toward background.
-    float3 prevColor = channels.iChannel0.read(gid).rgb;
+    float3 prevColor = uniforms.textures.feedback.read(gid).rgb;
     
     // Fade factor: controls how quickly trails disappear.
     float fade = 0.92;
@@ -99,7 +75,7 @@ kernel void image(
     float3 color = mix(bg, prevColor, fade);
     
     // Reset on first frame or resize.
-    if (uniforms->frame < 1.0 || uniforms->resized != 0u) {
+    if (uniforms.frame < 1.0 || uniforms.resized != 0u) {
         color = bg;
     }
 
@@ -123,7 +99,7 @@ kernel void image(
         // Map angle from [-pi, pi] to [0, 1] for waveform index.
         float angleNorm = (angle + 3.14159265) / (2.0 * 3.14159265);
         uint idx = clamp(uint(angleNorm * 1024.0), 0u, 1023u);
-        float sample = uniforms->waveform[idx] * gain;
+        float sample = uniforms.waveform[idx] * gain;
         
         // Base radius of the circle, with waveform modulating it.
         float baseRadius = 0.12;
@@ -153,7 +129,7 @@ kernel void image(
     if (uv.y >= ringBottom && uv.y < linearBottom) {
         // Map x position to waveform sample index.
         uint idx = clamp(uint(uv.x * 1024.0), 0u, 1023u);
-        float sample = uniforms->waveform[idx] * gain;
+        float sample = uniforms.waveform[idx] * gain;
         
         // Normalize y within this section: 0 at top, 1 at bottom.
         float yInSection = (uv.y - ringBottom) / (linearBottom - ringBottom);
@@ -189,7 +165,7 @@ kernel void image(
         
         float xInHalf = uv.x;
         uint bin = clamp(uint(xInHalf * 512.0), 0u, 511u);
-        float mag = uniforms->spectrum[bin] * gain;
+        float mag = uniforms.spectrum[bin] * gain;
         
         // Aggressive power curve to massively boost weaker signals.
         float magBoosted = pow(mag, 0.25);
@@ -234,5 +210,5 @@ kernel void image(
         color = float3(0.3);
     }
 
-    outTexture.write(float4(color, 1.0), gid);
+    uniforms.textures.image.write(float4(color, 1.0), gid);
 }

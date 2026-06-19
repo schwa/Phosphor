@@ -1,54 +1,46 @@
-/* prompt: the landscape is in the sky? flipped? */
-
 /* phosphor:environment
-output = 'image'
+output = "image"
+
+[[textures]]
+id = "image"
+format = "rgba16Float"
 
 [[passes]]
-enabled = true
-id = 'image'
-inputs = []
-output = 'image'
-
-[[resources]]
-id = 'image'
-kind = 'texture2D'
-
-[resources.spec]
-flipTiming = 'endOfFrame'
-format = 'rgba16Float'
-initial = 'zero'
-pingPong = false
-size = 'drawable'
+id = "image"
+textures = [
+    { id = "image", access = "write" },
+]
 
 [[uniforms]]
-default = 0.30000001192092896
-kind = 'float'
-name = 'sunHeight'
-
-[uniforms.ui.slider]
-max = 1.0
-min = -0.20000000298023224
+default = 0.3
+kind = "float"
+name = "sunHeight"
+ui = { slider = { min = -0.2, max = 1.0 } }
 
 [[uniforms]]
 default = 0.5
-kind = 'float'
-name = 'fogDensity'
-
-[uniforms.ui.slider]
-max = 1.0
-min = 0.0
+kind = "float"
+name = "fogDensity"
+ui = { slider = { min = 0.0, max = 1.0 } }
 
 [[uniforms]]
-default = [ 0.40000000596046448, 0.60000002384185791, 0.89999997615814209, 1.0 ]
-kind = 'color'
-name = 'skyColor'
-ui = 'color'
+default = [ 0.4, 0.6, 0.9, 1.0 ]
+kind = "color"
+name = "skyColor"
+ui = "color"
 
 [[uniforms]]
-default = [ 0.20000000298023224, 0.5, 0.15000000596046448, 1.0 ]
-kind = 'color'
-name = 'terrainColor'
-ui = 'color'*/
+default = [ 0.2, 0.5, 0.15, 1.0 ]
+kind = "color"
+name = "terrainColor"
+ui = "color"
+*/
+
+#include "Phosphor.h"
+
+uint2 gid [[thread_position_in_grid]];
+
+
 
 
 // Simple hash for noise
@@ -112,20 +104,17 @@ float3 calcNormal(float3 p) {
 }
 
 kernel void image(
-    texture2d<float, access::write> outTexture     [[texture(0)]],
-    device const ChannelBindings&   channels       [[buffer(1)]],
-    constant Uniforms&              uniforms       [[buffer(0)]],
-    device const UserUniforms*      userUniforms   [[buffer(2)]],
-    uint2 gid                                      [[thread_position_in_grid]])
+    device const Uniforms&     uniforms     [[buffer(0)]],
+    device const UserUniforms& userUniforms [[buffer(1)]])
 {
     // Flip the Y coordinate to correct the upside-down rendering
     float2 flippedGid = float2(gid.x, uniforms.resolution.y - 1.0 - float(gid.y));
     float2 uv = (flippedGid - 0.5 * uniforms.resolution) / uniforms.resolution.y;
     
-    float sunH = userUniforms->sunHeight;
-    float fogD = userUniforms->fogDensity;
-    float3 skyCol = userUniforms->skyColor.rgb;
-    float3 terrainCol = userUniforms->terrainColor.rgb;
+    float sunH = userUniforms.sunHeight;
+    float fogD = userUniforms.fogDensity;
+    float3 skyCol = userUniforms.skyColor.rgb;
+    float3 terrainCol = userUniforms.terrainColor.rgb;
     
     // Camera setup - slowly moving forward
     float camTime = uniforms.time * 0.5;
@@ -181,6 +170,7 @@ kernel void image(
     col = col / (col + 1.0);
     col = pow(col, float3(0.45));
     
-    outTexture.write(float4(col, 1.0), gid);
+    uniforms.textures.image.write(float4(col, 1.0), gid);
 }
+
 

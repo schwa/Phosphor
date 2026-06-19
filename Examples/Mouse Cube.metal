@@ -16,6 +16,7 @@ textures = [
 uint2 gid [[thread_position_in_grid]];
 
 
+
 /// Renders a 3D wireframe cube that rotates based on mouse position.
 /// Moving the mouse horizontally rotates around Y, vertically rotates around X.
 /// No inputs needed - purely procedural.
@@ -114,3 +115,4 @@ kernel void image(
     col = clamp(col, 0.0, 1.0);
     uniforms.textures.image.write(float4(col, 1.0), gid);
 }
+
