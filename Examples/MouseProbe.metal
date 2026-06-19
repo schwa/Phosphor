@@ -28,14 +28,14 @@ size = 'drawable'*/
 kernel void image(
     texture2d<float, access::write> outTexture     [[texture(0)]],
     device const ChannelBindings&   channels       [[buffer(1)]],
-    constant Uniforms&              uniforms       [[buffer(0)]],
+    device const Uniforms*          uniforms       [[buffer(0)]],
     device const UserUniforms*      userUniforms   [[buffer(2)]],
     uint2 gid                                      [[thread_position_in_grid]])
 {
     float2 p = float2(gid);
-    float2 uv = p / uniforms.resolution;
-    float2 center = uniforms.resolution * 0.5;
-    float t = uniforms.time;
+    float2 uv = p / uniforms->resolution;
+    float2 center = uniforms->resolution * 0.5;
+    float t = uniforms->time;
     
     // Dark, cold spaceship interior background
     float3 bg = float3(0.02, 0.02, 0.03);
@@ -44,11 +44,11 @@ kernel void image(
     
     // HAL 9000 eye - tracks mouse slightly
     float2 eyeCenter = center;
-    float2 toMouse = uniforms.mouse - center;
+    float2 toMouse = uniforms->mouse - center;
     eyeCenter += toMouse * 0.05; // subtle tracking
     
     float distEye = length(p - eyeCenter);
-    float eyeRadius = min(uniforms.resolution.x, uniforms.resolution.y) * 0.15;
+    float eyeRadius = min(uniforms->resolution.x, uniforms->resolution.y) * 0.15;
     
     // Outer ring (silver/grey)
     float ring = smoothstep(eyeRadius * 1.1, eyeRadius * 1.05, distEye) *
@@ -69,8 +69,8 @@ kernel void image(
     
     // Pod bay doors - closing from top and bottom
     float doorProgress = clamp(t * 0.1, 0.0, 0.45); // slowly closing
-    float doorTop = uniforms.resolution.y * doorProgress;
-    float doorBottom = uniforms.resolution.y * (1.0 - doorProgress);
+    float doorTop = uniforms->resolution.y * doorProgress;
+    float doorBottom = uniforms->resolution.y * (1.0 - doorProgress);
     
     // Door panels with metallic look
     float3 doorColor = float3(0.15, 0.16, 0.18);
@@ -108,7 +108,7 @@ kernel void image(
     if (p.y > doorBottom) {
         color = doorColor;
         color += float3(0.1) * bottomEdge;
-        color += halRed * 0.1 * ((p.y - doorBottom) / (uniforms.resolution.y - doorBottom));
+        color += halRed * 0.1 * ((p.y - doorBottom) / (uniforms->resolution.y - doorBottom));
     }
     
     // Door seam lines

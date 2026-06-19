@@ -62,6 +62,20 @@ public final class PhosphorRuntime {
     /// dereferences a null `MTLResourceID`.
     public private(set) var fallbackTexture: MTLTexture
 
+    /// Audio waveform buffer (1024 floats). Always allocated; zero-filled
+    /// when the microphone is disabled. Referenced by `Uniforms.waveform`.
+    public private(set) var waveformBuffer: MTLBuffer
+
+    /// Audio spectrum buffer (512 floats). Always allocated; zero-filled
+    /// when the microphone is disabled. Referenced by `Uniforms.spectrum`.
+    public private(set) var spectrumBuffer: MTLBuffer
+
+    /// Length, in samples, of ``waveformBuffer``.
+    public static let waveformSampleCount: Int = 1024
+
+    /// Length, in bins, of ``spectrumBuffer``.
+    public static let spectrumBinCount: Int = 512
+
     public init(device: MTLDevice, environment: PhosphorEnvironment, source: String) throws {
         self.device = device
         self.environment = environment
@@ -84,6 +98,22 @@ public final class PhosphorRuntime {
         self.userUniformsLayout = userUniformsLayout
 
         self.fallbackTexture = try Self.makeFallbackTexture(device: device)
+
+        let waveformLength = Self.waveformSampleCount * MemoryLayout<Float>.stride
+        guard let waveformBuffer = device.makeBuffer(length: waveformLength, options: .storageModeShared) else {
+            throw PhosphorRuntimeError.allocationFailed("waveform buffer")
+        }
+        waveformBuffer.label = "Phosphor.AudioWaveform"
+        memset(waveformBuffer.contents(), 0, waveformLength)
+        self.waveformBuffer = waveformBuffer
+
+        let spectrumLength = Self.spectrumBinCount * MemoryLayout<Float>.stride
+        guard let spectrumBuffer = device.makeBuffer(length: spectrumLength, options: .storageModeShared) else {
+            throw PhosphorRuntimeError.allocationFailed("spectrum buffer")
+        }
+        spectrumBuffer.label = "Phosphor.AudioSpectrum"
+        memset(spectrumBuffer.contents(), 0, spectrumLength)
+        self.spectrumBuffer = spectrumBuffer
 
         try recompile()
     }
@@ -210,6 +240,8 @@ public final class PhosphorRuntime {
         copy.channelCount = UInt32(channelCount(for: environment))
         copy.resized = resizedFlag ? 1 : 0
         resizedFlag = false
+        copy.waveform = waveformBuffer.gpuAddress
+        copy.spectrum = spectrumBuffer.gpuAddress
         let length = MemoryLayout<BuiltinUniforms>.stride
         guard let buffer = device.makeBuffer(length: length, options: .storageModeShared) else { return }
         buffer.label = "Phosphor.Uniforms"

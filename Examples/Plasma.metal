@@ -34,16 +34,16 @@ ui = "color"
 kernel void image(
     texture2d<float, access::write> outTexture     [[texture(0)]],
     device const ChannelBindings&   channels       [[buffer(1)]],
-    constant Uniforms&              uniforms       [[buffer(0)]],
+    device const Uniforms*          uniforms       [[buffer(0)]],
     device const UserUniforms*      userUniforms   [[buffer(2)]],
     uint2 gid                                      [[thread_position_in_grid]])
 {
-    float2 uv = float2(gid) / uniforms.resolution;
+    float2 uv = float2(gid) / uniforms->resolution;
     uv = uv * 2.0 - 1.0;
-    uv.x *= uniforms.resolution.x / uniforms.resolution.y;
+    uv.x *= uniforms->resolution.x / uniforms->resolution.y;
 
     float freq = userUniforms->frequency;
-    float t = uniforms.time;
+    float t = uniforms->time;
 
     float v = sin(uv.x * freq + t);
     v += sin(uv.y * freq + t * 1.3);

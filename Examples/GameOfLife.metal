@@ -35,17 +35,17 @@ static inline bool isAlive(texture2d<float, access::read> tex, int2 coord, int2 
 kernel void image(
     texture2d<float, access::write> outTexture     [[texture(0)]],
     device const ChannelBindings&   channels       [[buffer(1)]],
-    constant Uniforms&              uniforms       [[buffer(0)]],
+    device const Uniforms*          uniforms       [[buffer(0)]],
     device const UserUniforms*      userUniforms   [[buffer(2)]],
     uint2 gid                                      [[thread_position_in_grid]])
 {
-    int2 size = int2(int(uniforms.resolution.x), int(uniforms.resolution.y));
+    int2 size = int2(int(uniforms->resolution.x), int(uniforms->resolution.y));
     if (int(gid.x) >= size.x || int(gid.y) >= size.y) {
         return;
     }
 
     // Seed on first frame, or whenever the view was just resized.
-    if (uniforms.frame < 1.0 || uniforms.resized != 0u) {
+    if (uniforms->frame < 1.0 || uniforms->resized != 0u) {
         uint seed = wangHash(gid.x * 1973u + gid.y * 9277u + 12345u);
         float r = float(seed & 0xffu) / 255.0;
         float alive = r < 0.35 ? 1.0 : 0.0;

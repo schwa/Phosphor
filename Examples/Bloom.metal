@@ -46,13 +46,13 @@ ui = { slider = { min = 0.01, max = 0.5 } }
 kernel void bufA(
     texture2d<float, access::write> outTexture     [[texture(0)]],
     device const ChannelBindings&   channels       [[buffer(1)]],
-    constant Uniforms&              uniforms       [[buffer(0)]],
+    device const Uniforms*          uniforms       [[buffer(0)]],
     device const UserUniforms*      userUniforms   [[buffer(2)]],
     uint2 gid                                      [[thread_position_in_grid]])
 {
     float2 uv = float2(gid);
-    float2 center = uniforms.resolution * 0.5;
-    float2 offset = float2(cos(uniforms.time * 0.7), sin(uniforms.time)) * uniforms.resolution.y * 0.3;
+    float2 center = uniforms->resolution * 0.5;
+    float2 offset = float2(cos(uniforms->time * 0.7), sin(uniforms->time)) * uniforms->resolution.y * 0.3;
     float2 dotCenter = center + offset;
     float dist = length(uv - dotCenter);
 
@@ -72,12 +72,12 @@ kernel void bufA(
 kernel void image(
     texture2d<float, access::write> outTexture     [[texture(0)]],
     device const ChannelBindings&   channels       [[buffer(1)]],
-    constant Uniforms&              uniforms       [[buffer(0)]],
+    device const Uniforms*          uniforms       [[buffer(0)]],
     device const UserUniforms*      userUniforms   [[buffer(2)]],
     uint2 gid                                      [[thread_position_in_grid]])
 {
     int radius = int(userUniforms->blurRadius);
-    int2 size = int2(int(uniforms.resolution.x), int(uniforms.resolution.y));
+    int2 size = int2(int(uniforms->resolution.x), int(uniforms->resolution.y));
     int2 coord = int2(gid);
     float4 sum = float4(0);
     int count = 0;

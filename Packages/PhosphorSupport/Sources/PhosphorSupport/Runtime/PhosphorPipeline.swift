@@ -98,11 +98,15 @@ public struct PhosphorPipeline: Element {
                     .parameter("channels", buffer: channelBuffer, offset: 0)
                     .parameter("uniforms", buffer: runtime.uniformsBuffer, offset: 0)
                     .parameter("userUniforms", buffer: runtime.userUniformsBuffer, offset: 0)
-                    .onWorkloadEnter { env in
+                    .onWorkloadEnter { [runtime] env in
                         guard let encoder = env.computeCommandEncoder else { return }
                         for tex in useResources {
                             encoder.useResource(tex, usage: .read)
                         }
+                        // The Uniforms argument buffer references the audio
+                        // buffers via their gpuAddress; mark them resident.
+                        encoder.useResource(runtime.waveformBuffer, usage: .read)
+                        encoder.useResource(runtime.spectrumBuffer, usage: .read)
                     }
                 }
             }

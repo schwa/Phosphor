@@ -43,6 +43,11 @@ public enum PhosphorHeader {
             uint mouseButtons;
             uint resized;
             float2 mouseClickOrigin;
+            // Audio. Always present; zero-filled when the mic is disabled.
+            // waveform: 1024 floats of time-domain samples in [-1, 1].
+            // spectrum: 512 floats of linear FFT magnitudes in [0, 1].
+            device const float* waveform;
+            device const float* spectrum;
         };
 
         """

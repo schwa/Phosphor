@@ -24,12 +24,12 @@ struct CompileTests {
         kernel void image(
             texture2d<float, access::write> outTexture     [[texture(0)]],
             device const ChannelBindings&   channels       [[buffer(1)]],
-            constant Uniforms&              uniforms       [[buffer(0)]],
+            device const Uniforms*          uniforms       [[buffer(0)]],
             device const UserUniforms*      userUniforms   [[buffer(2)]],
             uint2 gid                                      [[thread_position_in_grid]])
         {
-            float2 uv = float2(gid) / uniforms.resolution;
-            outTexture.write(float4(uv, sin(uniforms.time), 1), gid);
+            float2 uv = float2(gid) / uniforms->resolution;
+            outTexture.write(float4(uv, sin(uniforms->time), 1), gid);
         }
         """
         let compiler = PhosphorCompiler(device: device)
@@ -71,7 +71,7 @@ struct CompileTests {
         kernel void bufA(
             texture2d<float, access::write> outTexture     [[texture(0)]],
             device const ChannelBindings&   channels       [[buffer(1)]],
-            constant Uniforms&              uniforms       [[buffer(0)]],
+            device const Uniforms*          uniforms       [[buffer(0)]],
             device const UserUniforms*      userUniforms   [[buffer(2)]],
             uint2 gid                                      [[thread_position_in_grid]])
         {
@@ -82,7 +82,7 @@ struct CompileTests {
         kernel void image(
             texture2d<float, access::write> outTexture     [[texture(0)]],
             device const ChannelBindings&   channels       [[buffer(1)]],
-            constant Uniforms&              uniforms       [[buffer(0)]],
+            device const Uniforms*          uniforms       [[buffer(0)]],
             device const UserUniforms*      userUniforms   [[buffer(2)]],
             uint2 gid                                      [[thread_position_in_grid]])
         {
@@ -97,10 +97,10 @@ struct CompileTests {
 
     @Test("BuiltinUniforms size matches MSL struct (sanity)")
     func uniformsLayout() {
-        // float, float, float, uint, float2, float2, uint, _pad, float2 = 4*4 + 8*3 + 4 + 4 + 8 = 56
-        // = 4 + 4 + 4 + 4 + 8 + 8 + 4 + 4 + 8 = 48 bytes
-        #expect(MemoryLayout<BuiltinUniforms>.size == 48)
-        #expect(MemoryLayout<BuiltinUniforms>.stride == 48)
+        // float, float, float, uint, float2, float2, uint, uint, float2, ulong, ulong
+        // = 4 + 4 + 4 + 4 + 8 + 8 + 4 + 4 + 8 + 8 + 8 = 64 bytes
+        #expect(MemoryLayout<BuiltinUniforms>.size == 64)
+        #expect(MemoryLayout<BuiltinUniforms>.stride == 64)
     }
 }
 

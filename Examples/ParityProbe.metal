@@ -28,11 +28,11 @@ inputs = [{ name = "iChannel0", resource = "bufA" }]
 kernel void bufA(
     texture2d<float, access::write> outTexture     [[texture(0)]],
     device const ChannelBindings&   channels       [[buffer(1)]],
-    constant Uniforms&              uniforms       [[buffer(0)]],
+    device const Uniforms*          uniforms       [[buffer(0)]],
     device const UserUniforms*      userUniforms   [[buffer(2)]],
     uint2 gid                                      [[thread_position_in_grid]])
 {
-    uint parity = (uint(uniforms.frame) / 30u) % 2u;
+    uint parity = (uint(uniforms->frame) / 30u) % 2u;
     float4 color = parity == 0u
         ? float4(1.0, 0.0, 0.0, 1.0)
         : float4(0.0, 1.0, 0.0, 1.0);
@@ -51,19 +51,19 @@ kernel void bufA(
 kernel void image(
     texture2d<float, access::write> outTexture     [[texture(0)]],
     device const ChannelBindings&   channels       [[buffer(1)]],
-    constant Uniforms&              uniforms       [[buffer(0)]],
+    device const Uniforms*          uniforms       [[buffer(0)]],
     device const UserUniforms*      userUniforms   [[buffer(2)]],
     uint2 gid                                      [[thread_position_in_grid]])
 {
     float4 sampled = channels.iChannel0.read(gid);
-    uint parity = (uint(uniforms.frame) / 30u) % 2u;
+    uint parity = (uint(uniforms->frame) / 30u) % 2u;
     float4 expected = parity == 0u
         ? float4(1.0, 0.0, 0.0, 1.0)
         : float4(0.0, 1.0, 0.0, 1.0);
     bool matches = (sampled.r == expected.r) && (sampled.g == expected.g);
     // Left half of screen: actual sampled color (so eye can see strobing).
     // Right half: diagnostic — yellow if matches expected, blue otherwise.
-    if (gid.x < uint(uniforms.resolution.x) / 2u) {
+    if (gid.x < uint(uniforms->resolution.x) / 2u) {
         outTexture.write(sampled, gid);
     } else {
         float4 verdict = matches

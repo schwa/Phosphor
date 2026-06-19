@@ -1022,10 +1022,12 @@ Related: #27 (Shadertoy compat layer), #26 (Shadertoy audit).
 ## 33: Audio input v1: signature change to device const Uniforms*
 
 +++
-status: new
+status: closed
 priority: low
 kind: none
 created: 2026-06-18T23:49:45Z
+updated: 2026-06-19T00:08:16Z
+closed: 2026-06-19T00:08:16Z
 +++
 
 Pre-requisite step for #17 (microphone input). Migrate kernel signatures from `constant Uniforms&` to `device const Uniforms*` so the Uniforms struct can carry device pointers (needed for audio buffers).
@@ -1040,6 +1042,16 @@ Scope:
 No audio capture yet \u2014 buffers stay zero-filled. This issue is purely the structural break so we can land audio safely afterwards.
 
 Effort: small. ~30-45 min plus a couple build/test cycles.
+
+- `2026-06-19T00:08:16Z`: Done. Migrated kernels from `constant Uniforms&` to `device const Uniforms*` so the Uniforms struct can carry device pointers.
+
+- BuiltinUniforms gains two UInt64 fields (waveform, spectrum) holding GPU addresses. Struct grows from 48 to 64 bytes; layout test updated.
+- PhosphorRuntime allocates zero-filled waveformBuffer (1024 floats) and spectrumBuffer (512 floats) at init. writeBuiltinUniforms writes their gpuAddress into the uniforms struct each frame.
+- PhosphorPipeline calls useResource on both audio buffers in the compute encoder so they're resident when the kernel dereferences them via the Uniforms argument buffer.
+- PhosphorHeader.uniformsDecl() now emits two `device const float*` fields in the synthesized Uniforms MSL struct.
+- All 8 Examples/*.metal demos and CompileTests embedded sources updated: signature switch + every uniforms.x → uniforms->x.
+- ShaderGenerator system prompt and all 3 worked examples updated to the new signature.
+- All 39 tests pass; existing demos render unchanged.
 
 ---
 

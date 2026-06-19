@@ -272,7 +272,7 @@ public struct ShaderGenerator {
             kernel void <pass.id>(
                 texture2d<float, access::write> outTexture     [[texture(0)]],
                 device const ChannelBindings&   channels       [[buffer(1)]],
-                constant Uniforms&              uniforms       [[buffer(0)]],
+                device const Uniforms*          uniforms       [[buffer(0)]],
                 device const UserUniforms*      userUniforms   [[buffer(2)]],
                 uint2 gid                                      [[thread_position_in_grid]])
             {
@@ -281,9 +281,9 @@ public struct ShaderGenerator {
             }
 
         Available inside a kernel:
-        - `uniforms.time` (float seconds), `uniforms.frame` (float), `uniforms.resolution` (float2).
-        - `uniforms.resized` (uint) is 1 on the frame after the view resizes (textures are freshly
-          zeroed). Feedback effects should re-seed when `uniforms.frame < 1.0 || uniforms.resized != 0u`.
+        - `uniforms->time` (float seconds), `uniforms->frame` (float), `uniforms->resolution` (float2).
+        - `uniforms->resized` (uint) is 1 on the frame after the view resizes (textures are freshly
+          zeroed). Feedback effects should re-seed when `uniforms->frame < 1.0 || uniforms->resized != 0u`.
 
         COORDINATE SYSTEM:
         - In Phosphor, `gid.y = 0` is at the TOP of the screen and `gid.y = resolution.y - 1`
@@ -323,7 +323,7 @@ public struct ShaderGenerator {
             kernel void image(
                 texture2d<float, access::write> outTexture     [[texture(0)]],
                 device const ChannelBindings&   channels       [[buffer(1)]],
-                constant Uniforms&              uniforms       [[buffer(0)]],
+                device const Uniforms*          uniforms       [[buffer(0)]],
                 device const UserUniforms*      userUniforms   [[buffer(2)]],
                 uint2 gid                                      [[thread_position_in_grid]])
             {
@@ -340,7 +340,7 @@ public struct ShaderGenerator {
             kernel void image(
                 texture2d<float, access::write> outTexture     [[texture(0)]],
                 device const ChannelBindings&   channels       [[buffer(1)]],
-                constant Uniforms&              uniforms       [[buffer(0)]],
+                device const Uniforms*          uniforms       [[buffer(0)]],
                 device const UserUniforms*      userUniforms   [[buffer(2)]],
                 uint2 gid                                      [[thread_position_in_grid]])
             {
@@ -350,7 +350,7 @@ public struct ShaderGenerator {
             }
             ```
 
-        ===== EXAMPLE 3: animated gradient (uses uniforms.time, no inputs) =====
+        ===== EXAMPLE 3: animated gradient (uses uniforms->time, no inputs) =====
         - resources: [{ id: "image", format: "rgba32Float", pingPong: false }]
         - passes:    [{ id: "image", output: "image", inputs: [] }]
         - uniforms:  []
@@ -359,13 +359,13 @@ public struct ShaderGenerator {
             kernel void image(
                 texture2d<float, access::write> outTexture     [[texture(0)]],
                 device const ChannelBindings&   channels       [[buffer(1)]],
-                constant Uniforms&              uniforms       [[buffer(0)]],
+                device const Uniforms*          uniforms       [[buffer(0)]],
                 device const UserUniforms*      userUniforms   [[buffer(2)]],
                 uint2 gid                                      [[thread_position_in_grid]])
             {
-                float2 uv = float2(gid) / uniforms.resolution;
-                float r = 0.5 + 0.5 * sin(uniforms.time + uv.x * 6.28);
-                float g = 0.5 + 0.5 * sin(uniforms.time + uv.y * 6.28);
+                float2 uv = float2(gid) / uniforms->resolution;
+                float r = 0.5 + 0.5 * sin(uniforms->time + uv.x * 6.28);
+                float g = 0.5 + 0.5 * sin(uniforms->time + uv.y * 6.28);
                 outTexture.write(float4(r, g, 0.2, 1.0), gid);
             }
             ```
