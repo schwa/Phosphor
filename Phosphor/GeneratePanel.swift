@@ -101,9 +101,9 @@ struct GeneratePanel: View {
                 prompt: prompt,
                 model: selectedModel,
                 existingSource: isModifying ? document.text : ""
-            )                { phase in
-                    statusMessage = phaseMessage(phase)
-                }
+            ) { phase in
+                statusMessage = phaseMessage(phase)
+            }
             document.text = source
             document.refreshParsed()
             isPresented = false

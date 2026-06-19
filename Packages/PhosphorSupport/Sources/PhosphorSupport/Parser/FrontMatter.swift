@@ -37,9 +37,12 @@ public struct ParsedPhosphorSource: Hashable, Sendable {
     }
 
     /// `true` if the source had no front-matter block at all.
-    public var hasFrontMatter: Bool { environment != nil || diagnostics.contains { diagnostic in
-        if case .frontMatterParse = diagnostic { return true }return false
-    } }
+    public var hasFrontMatter: Bool {
+        environment != nil || diagnostics.contains { diagnostic in
+            if case .frontMatterParse = diagnostic { return true }
+            return false
+        }
+    }
 }
 
 /// Extracts and parses the `/* phosphor:environment ... */` TOML front-matter
