@@ -1,5 +1,6 @@
 import Foundation
 import Metal
+import MetalKit
 import Observation
 import os
 
@@ -135,10 +136,29 @@ public final class PhosphorRuntime {
     /// FFT helper. Lazily created on first audio frame; reused thereafter.
     private var spectrumAnalyzer: SpectrumAnalyzer?
 
-    public init(device: MTLDevice, environment: PhosphorEnvironment, source: String) throws {
+    /// Host-supplied binary assets keyed by name. Texture resources whose
+    /// ``Texture2DSpec/initial`` is `.image(name:)` are seeded from this
+    /// map at allocation time. Plain `.metal` documents pass an empty map;
+    /// `.phosphor` bundles populate it from the `assets/` subdirectory.
+    public private(set) var assets: [String: PhosphorAsset]
+
+    /// MetalKit texture loader. Used to decode bundled image assets into
+    /// MTLTextures that we then blit into our pre-allocated, shader-
+    /// writable target textures.
+    @ObservationIgnored
+    private let textureLoader: MTKTextureLoader
+
+    public init(
+        device: MTLDevice,
+        environment: PhosphorEnvironment,
+        source: String,
+        assets: [String: PhosphorAsset] = [:]
+    ) throws {
         self.device = device
         self.environment = environment
         self.source = source
+        self.assets = assets
+        self.textureLoader = MTKTextureLoader(device: device)
 
         let uniformsLength = max(MemoryLayout<BuiltinUniforms>.stride, 16)
         guard let uniformsBuffer = device.makeBuffer(length: uniformsLength, options: .storageModeShared) else {
@@ -181,9 +201,14 @@ public final class PhosphorRuntime {
 
     /// Replace the environment and/or source. Triggers a (synchronous, for now)
     /// recompile.
-    public func update(environment: PhosphorEnvironment, source: String) throws {
+    public func update(
+        environment: PhosphorEnvironment,
+        source: String,
+        assets: [String: PhosphorAsset] = [:]
+    ) throws {
         self.environment = environment
         self.source = source
+        self.assets = assets
 
         // User-uniforms layout may have changed — recompute and reallocate.
         let newLayout = UserUniformsLayout.compute(for: environment.uniforms)
@@ -424,10 +449,78 @@ public final class PhosphorRuntime {
             b = a
         }
 
-        // TODO: honor spec.initial. .zero is implicit (storage mode private +
-        // first compute write); .color / .image / .noise require an
-        // initialization pass. Not needed for step 5.
+        // Honor spec.initial. .zero is implicit (storage mode private +
+        // first compute write). .image is the main case: upload the asset
+        // into both halves of the ping-pong pair so feedback shaders read
+        // the seed image on frame 0.
+        // .color / .noise are still TODO.
+        if case let .image(name) = spec.initial {
+            do {
+                try seedTextureFromAsset(name: name, into: a, alsoInto: spec.pingPong ? b : nil)
+            } catch {
+                appendDiagnostic(.missingAsset(name: name, in: id))
+            }
+        }
+
         return PingPongTexture(pingPong: spec.pingPong, a: a, b: b)
+    }
+
+    /// Decodes the named asset and blits the decoded image into the given
+    /// target textures. Throws ``PhosphorRuntimeError/assetMissing(name:)``
+    /// if no asset by that name was supplied or it doesn't decode as an
+    /// image; the caller turns that into a non-fatal diagnostic.
+    private func seedTextureFromAsset(
+        name: String,
+        into primary: MTLTexture,
+        alsoInto secondary: MTLTexture?
+    ) throws {
+        guard let asset = assets[name] else {
+            throw PhosphorRuntimeError.assetMissing(name: name)
+        }
+
+        // MTKTextureLoader decodes any ImageIO format and gives us an
+        // MTLTexture. Force a shared storage mode and SRGB->linear so the
+        // bytes match what our compute shaders expect.
+        let options: [MTKTextureLoader.Option: Any] = [
+            .textureStorageMode: NSNumber(value: MTLStorageMode.shared.rawValue),
+            .SRGB: NSNumber(value: false)
+        ]
+        let decoded: MTLTexture
+        do {
+            decoded = try textureLoader.newTexture(data: asset.data, options: options)
+        } catch {
+            Self.logger.error("asset '\(name, privacy: .public)' failed to decode: \(error, privacy: .public)")
+            throw PhosphorRuntimeError.assetMissing(name: name)
+        }
+
+        // Blit decoded -> primary (and -> secondary for ping-pong).
+        guard let queue = device.makeCommandQueue(),
+              let commandBuffer = queue.makeCommandBuffer(),
+              let encoder = commandBuffer.makeBlitCommandEncoder() else {
+            throw PhosphorRuntimeError.assetMissing(name: name)
+        }
+
+        let copyWidth = min(decoded.width, primary.width)
+        let copyHeight = min(decoded.height, primary.height)
+        let sourceSize = MTLSize(width: copyWidth, height: copyHeight, depth: 1)
+        let origin = MTLOrigin(x: 0, y: 0, z: 0)
+
+        encoder.copy(
+            from: decoded, sourceSlice: 0, sourceLevel: 0, sourceOrigin: origin, sourceSize: sourceSize,
+            to: primary, destinationSlice: 0, destinationLevel: 0, destinationOrigin: origin
+        )
+        if let secondary {
+            encoder.copy(
+                from: decoded, sourceSlice: 0, sourceLevel: 0, sourceOrigin: origin, sourceSize: sourceSize,
+                to: secondary, destinationSlice: 0, destinationLevel: 0, destinationOrigin: origin
+            )
+        }
+        encoder.endEncoding()
+        commandBuffer.commit()
+    }
+
+    private func appendDiagnostic(_ diagnostic: PhosphorDiagnostic) {
+        diagnostics.append(diagnostic)
     }
 
     private func pixelDimensions(for size: TextureSize, drawableSize: CGSize) -> (Int, Int) {
@@ -501,10 +594,12 @@ public final class PhosphorRuntime {
 
 public enum PhosphorRuntimeError: Error, Hashable, Sendable, CustomStringConvertible {
     case allocationFailed(String)
+    case assetMissing(name: String)
 
     public var description: String {
         switch self {
         case .allocationFailed(let what): return "PhosphorRuntime: failed to allocate \(what)"
+        case .assetMissing(let name): return "PhosphorRuntime: asset '\(name)' missing or undecodable"
         }
     }
 }

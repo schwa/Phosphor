@@ -10,6 +10,7 @@ import SwiftUI
 struct PhosphorEditorBody: View {
     @Binding var text: String
     let parsed: ParsedPhosphorSource
+    let assets: [String: PhosphorAsset]
     let onTextChange: () -> Void
     let isUntouchedTemplate: Bool
 
@@ -44,6 +45,7 @@ struct PhosphorEditorBody: View {
                 .frame(minWidth: 280, idealWidth: 420)
             PreviewPane(
                 parsed: parsed,
+                assets: assets,
                 isPaused: $isPaused,
                 resetSignal: resetSignal
             )
@@ -155,12 +157,14 @@ private struct HeaderPopover: View {
 /// no-front-matter placeholder.
 private struct PreviewPane: View {
     let parsed: ParsedPhosphorSource
+    let assets: [String: PhosphorAsset]
     @Binding var isPaused: Bool
     let resetSignal: Int
 
     var body: some View {
         if let view = PhosphorView(
             parsed: parsed,
+            assets: assets,
             isPaused: $isPaused,
             resetSignal: resetSignal
         ) {

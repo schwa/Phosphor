@@ -11,6 +11,7 @@ struct PhosphorDocumentView: View {
         PhosphorEditorBody(
             text: $document.text,
             parsed: document.parsed,
+            assets: [:],
             onTextChange: { document.refreshParsed() },
             isUntouchedTemplate: document.isUntouchedTemplate
         )

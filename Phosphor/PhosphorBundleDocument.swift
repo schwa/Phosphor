@@ -27,6 +27,12 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
     @ObservationIgnored
     private(set) var parsed: ParsedPhosphorSource
 
+    /// Bundled image / audio assets keyed by name (filename without
+    /// extension). Populated from `assets/` at read time; surfaced to the
+    /// runtime so texture resources whose `initial = "image"` resolve
+    /// against this map.
+    var assets: [String: PhosphorAsset]
+
     /// Backing file URL when opened from / saved to disk.
     var fileURL: URL?
 
@@ -40,6 +46,7 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
     init(configuration: URLDocumentConfiguration) {
         let initialText = configuration.fileURL == nil ? Self.template : ""
         self.text = initialText
+        self.assets = [:]
         self.fileURL = configuration.fileURL
         self.parsed = ParsedPhosphorSource(source: initialText)
     }
@@ -53,6 +60,9 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
     /// Filename inside the bundle for the active shader source. Stable so
     /// future versions can locate it without a manifest.
     static let shaderFilename = "shader.metal"
+
+    /// Subdirectory inside the bundle that holds image / audio assets.
+    static let assetsDirectoryName = "assets"
 
     /// Minimal-viable shader used to seed brand-new bundles. Mirrors
     /// `PhosphorMetalDocument.template` so the two document types start
@@ -92,10 +102,11 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
 
     // MARK: - ReadableDocument
 
-    /// Snapshot type for the bundle: just the source text plus the prior
+    /// Snapshot type for the bundle: source text + assets, plus the prior
     /// directory `FileWrapper` so the writer can reuse unchanged children.
     struct Snapshot: @unchecked Sendable {
         var text: String
+        var assets: [String: PhosphorAsset]
         var previousFileWrapper: FileWrapper?
     }
 
@@ -118,12 +129,27 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
         } else {
             text = ""
         }
-        return Snapshot(text: text, previousFileWrapper: directory)
+
+        // Decode `assets/`. Each regular file becomes a PhosphorAsset
+        // keyed by its filename stem (drop extension). Subdirectories
+        // and non-regular wrappers are ignored.
+        var assets: [String: PhosphorAsset] = [:]
+        if let assetsDirectory = children[Self.assetsDirectoryName],
+           let assetChildren = assetsDirectory.fileWrappers {
+            for (filename, wrapper) in assetChildren where wrapper.isRegularFile {
+                guard let data = wrapper.regularFileContents else { continue }
+                let name = (filename as NSString).deletingPathExtension
+                assets[name] = PhosphorAsset(name: name, data: data)
+            }
+        }
+
+        return Snapshot(text: text, assets: assets, previousFileWrapper: directory)
     }
 
     @MainActor
     func apply(snapshot: Snapshot, previous _: Snapshot?) {
         self.text = snapshot.text
+        self.assets = snapshot.assets
         self.previousFileWrapper = snapshot.previousFileWrapper
         refreshParsed()
     }
@@ -160,7 +186,7 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
 
     @MainActor
     func snapshot(contentType _: UTType) -> Snapshot {
-        Snapshot(text: text, previousFileWrapper: previousFileWrapper)
+        Snapshot(text: text, assets: assets, previousFileWrapper: previousFileWrapper)
     }
 }
 

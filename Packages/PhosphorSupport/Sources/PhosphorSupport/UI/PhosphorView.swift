@@ -17,6 +17,11 @@ public struct PhosphorView: View {
     public let environment: PhosphorEnvironment
     public let source: String
     public let frontMatterDiagnostics: [PhosphorDiagnostic]
+    /// Host-supplied binary assets keyed by name. Texture resources whose
+    /// `initial = "image"` reference these by `name`. Empty for plain
+    /// `.metal` documents; populated from the `assets/` directory for
+    /// `.phosphor` bundles.
+    public let assets: [String: PhosphorAsset]
     /// External pause/play state. When `true`, the kernel sees frozen time
     /// and frame values. Optional so existing call sites (and the smoke
     /// tests) keep working without an explicit binding.
@@ -58,25 +63,43 @@ public struct PhosphorView: View {
     public init(
         environment: PhosphorEnvironment,
         source: String,
+        assets: [String: PhosphorAsset] = [:],
         isPaused: Binding<Bool>? = nil,
         resetSignal: Int = 0
     ) {
         self.environment = environment
         self.source = source
         self.frontMatterDiagnostics = []
+        self.assets = assets
         self.isPausedExternally = isPaused
         self.resetSignal = resetSignal
     }
 
-    public init?(source: String, isPaused: Binding<Bool>? = nil, resetSignal: Int = 0) {
-        self.init(parsed: ParsedPhosphorSource(source: source), isPaused: isPaused, resetSignal: resetSignal)
+    public init?(
+        source: String,
+        assets: [String: PhosphorAsset] = [:],
+        isPaused: Binding<Bool>? = nil,
+        resetSignal: Int = 0
+    ) {
+        self.init(
+            parsed: ParsedPhosphorSource(source: source),
+            assets: assets,
+            isPaused: isPaused,
+            resetSignal: resetSignal
+        )
     }
 
-    public init?(parsed: ParsedPhosphorSource, isPaused: Binding<Bool>? = nil, resetSignal: Int = 0) {
+    public init?(
+        parsed: ParsedPhosphorSource,
+        assets: [String: PhosphorAsset] = [:],
+        isPaused: Binding<Bool>? = nil,
+        resetSignal: Int = 0
+    ) {
         guard let environment = parsed.environment else { return nil }
         self.environment = environment
         self.source = parsed.body
         self.frontMatterDiagnostics = parsed.diagnostics
+        self.assets = assets
         self.isPausedExternally = isPaused
         self.resetSignal = resetSignal
     }
@@ -151,7 +174,7 @@ public struct PhosphorView: View {
                 Color.black
             }
         }
-        .task(id: SourceKey(environment: environment, source: source)) {
+        .task(id: SourceKey(environment: environment, source: source, assetNames: Set(assets.keys))) {
             await updateRuntime()
             uniformValues = UserUniformsLayout.defaultsDictionary(environment.uniforms)
         }
@@ -217,7 +240,7 @@ public struct PhosphorView: View {
     private func updateRuntime() {
         do {
             if let runtime {
-                try runtime.update(environment: environment, source: source)
+                try runtime.update(environment: environment, source: source, assets: assets)
             } else {
                 guard let device = MTLCreateSystemDefaultDevice() else {
                     initError = NSError(domain: "PhosphorView", code: 1, userInfo: [
@@ -225,7 +248,9 @@ public struct PhosphorView: View {
                     ])
                     return
                 }
-                let newRuntime = try PhosphorRuntime(device: device, environment: environment, source: source)
+                let newRuntime = try PhosphorRuntime(
+                    device: device, environment: environment, source: source, assets: assets
+                )
                 newRuntime.audioCapture = audioCapture
                 runtime = newRuntime
             }
@@ -329,6 +354,9 @@ private struct DiagnosticsOverlay: View {
 
         case .compile(let error):
             return "compile error in '\(error.passID)':\n\(error.rawError)"
+
+        case .missingAsset(let name, let resource):
+            return "asset '\(name)' missing (referenced by resource '\(resource)') — texture zero-filled"
         }
     }
 }
@@ -351,6 +379,9 @@ private struct PhosphorErrorView: View {
 private struct SourceKey: Hashable {
     var environment: PhosphorEnvironment
     var source: String
+    /// Just the asset names — enough to retrigger reload when the set of
+    /// assets changes, without hashing every asset's bytes on every keystroke.
+    var assetNames: Set<String>
 }
 
 // MARK: - Previews

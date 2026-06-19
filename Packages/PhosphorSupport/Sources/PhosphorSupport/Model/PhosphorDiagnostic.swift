@@ -31,6 +31,10 @@ public enum PhosphorDiagnostic: Hashable, Sendable {
     case missingOutput(ResourceID)
     /// A pass kernel failed to compile.
     case compile(PhosphorCompileError)
+    /// A texture resource references an image asset by name, but no asset
+    /// with that name was supplied by the host. The texture is zero-filled
+    /// as a fallback so the shader can still render.
+    case missingAsset(name: String, in: ResourceID)
 }
 
 /// Compile error for one pass's kernel.
@@ -59,7 +63,7 @@ extension PhosphorDiagnostic {
              .missingOutput:
             return true
 
-        case .compile:
+        case .compile, .missingAsset:
             return false
         }
     }

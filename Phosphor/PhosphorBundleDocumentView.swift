@@ -10,6 +10,7 @@ struct PhosphorBundleDocumentView: View {
         PhosphorEditorBody(
             text: $document.text,
             parsed: document.parsed,
+            assets: document.assets,
             onTextChange: { document.refreshParsed() },
             isUntouchedTemplate: document.isUntouchedTemplate
         )
