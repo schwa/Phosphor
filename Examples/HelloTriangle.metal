@@ -15,7 +15,7 @@ output = "image"
 
 // Ported from Phosphor 1's example library. mainImage is the legacy entry
 // point; the kernel below wraps it with Phosphor 2's canonical signature.
-float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame) {
     // Convert position to normalized device coordinates (-1 to 1)
     float2 ndc = (position * 2.0 - resolution) / min(resolution.x, resolution.y);
     
@@ -57,14 +57,8 @@ kernel void image(
     device const UserUniforms*      userUniforms   [[buffer(2)]],
     uint2 gid                                      [[thread_position_in_grid]])
 {
-    // mainImage expects a backbuffer; pass iChannel0 so the legacy code
-    // compiles even though this shader doesn't sample it. The channel
-    // arg buffer is sized to at least 1 slot whenever we have any input.
-    // For shaders with no inputs, we still synthesize a fallback texture
-    // (see PhosphorRuntime), so this call is always valid.
-    texture2d<float, access::read> backbuffer = channels.iChannel0;
     float4 color = mainImage(float2(gid), uniforms->resolution, uniforms->mouse,
-                             uniforms->time, uniforms->frame, backbuffer);
+                             uniforms->time, uniforms->frame);
     color.a = 1.0;
     outTexture.write(color, gid);
 }

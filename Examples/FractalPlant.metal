@@ -18,7 +18,7 @@ output = "image"
 // Fractal plant shader - SEMI-BROKEN: produces plant-like structures
 // Creates organic plant-like structures using fractal iterations and HSV coloring
 
-float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame) {
     float2 r = resolution;
     float2 FC = position;
     float4 o = float4(0);
@@ -62,14 +62,8 @@ kernel void image(
     device const UserUniforms*      userUniforms   [[buffer(2)]],
     uint2 gid                                      [[thread_position_in_grid]])
 {
-    // mainImage expects a backbuffer; pass iChannel0 so the legacy code
-    // compiles even though this shader doesn't sample it. The channel
-    // arg buffer is sized to at least 1 slot whenever we have any input.
-    // For shaders with no inputs, we still synthesize a fallback texture
-    // (see PhosphorRuntime), so this call is always valid.
-    texture2d<float, access::read> backbuffer = channels.iChannel0;
     float4 color = mainImage(float2(gid), uniforms->resolution, uniforms->mouse,
-                             uniforms->time, uniforms->frame, backbuffer);
+                             uniforms->time, uniforms->frame);
     color.a = 1.0;
     outTexture.write(color, gid);
 }

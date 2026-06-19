@@ -37,7 +37,10 @@ let package = Package(
         ),
         .testTarget(
             name: "PhosphorSupportTests",
-            dependencies: ["PhosphorSupport"]
+            dependencies: ["PhosphorSupport"],
+            resources: [
+                .copy("Resources"),
+            ]
         ),
     ],
     swiftLanguageModes: [.v6]

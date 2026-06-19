@@ -71,7 +71,7 @@ float3 voronoi(float2 p, float time) {
     return float3(minDist1, minDist2, cellID);
 }
 
-float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame) {
     // Normalize coordinates and scale
     float2 uv = position / resolution.y;
     uv *= 8.0;  // Scale to show multiple cells
@@ -120,14 +120,8 @@ kernel void image(
     device const UserUniforms*      userUniforms   [[buffer(2)]],
     uint2 gid                                      [[thread_position_in_grid]])
 {
-    // mainImage expects a backbuffer; pass iChannel0 so the legacy code
-    // compiles even though this shader doesn't sample it. The channel
-    // arg buffer is sized to at least 1 slot whenever we have any input.
-    // For shaders with no inputs, we still synthesize a fallback texture
-    // (see PhosphorRuntime), so this call is always valid.
-    texture2d<float, access::read> backbuffer = channels.iChannel0;
     float4 color = mainImage(float2(gid), uniforms->resolution, uniforms->mouse,
-                             uniforms->time, uniforms->frame, backbuffer);
+                             uniforms->time, uniforms->frame);
     color.a = 1.0;
     outTexture.write(color, gid);
 }

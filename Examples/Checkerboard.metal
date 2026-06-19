@@ -26,7 +26,7 @@ output = "image"
 /// @param frame The current frame number (increments by 1 each frame)
 /// @param backbuffer The texture containing the previous frame's output (for feedback effects)
 /// @return A float4 color value (red, green, blue, alpha) where each component is 0.0 to 1.0
-float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame) {
     // Base size of each checker square in pixels
     float baseSize = 50.0;
     
@@ -70,14 +70,8 @@ kernel void image(
     device const UserUniforms*      userUniforms   [[buffer(2)]],
     uint2 gid                                      [[thread_position_in_grid]])
 {
-    // mainImage expects a backbuffer; pass iChannel0 so the legacy code
-    // compiles even though this shader doesn't sample it. The channel
-    // arg buffer is sized to at least 1 slot whenever we have any input.
-    // For shaders with no inputs, we still synthesize a fallback texture
-    // (see PhosphorRuntime), so this call is always valid.
-    texture2d<float, access::read> backbuffer = channels.iChannel0;
     float4 color = mainImage(float2(gid), uniforms->resolution, uniforms->mouse,
-                             uniforms->time, uniforms->frame, backbuffer);
+                             uniforms->time, uniforms->frame);
     color.a = 1.0;
     outTexture.write(color, gid);
 }

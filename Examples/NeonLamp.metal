@@ -32,7 +32,7 @@ output = "image"
 // - Additive blending: Both neon colors are added together, allowing overlapping glows to brighten
 // - Ambient light: Adds float3(0.02, 0.01, 0.03) to prevent pure black background
 
-float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame, texture2d<float, access::read> backbuffer) {
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame) {
     float2 uv = position / resolution.xy;
     float2 center = float2(0.5, 0.5);
     
@@ -103,14 +103,8 @@ kernel void image(
     device const UserUniforms*      userUniforms   [[buffer(2)]],
     uint2 gid                                      [[thread_position_in_grid]])
 {
-    // mainImage expects a backbuffer; pass iChannel0 so the legacy code
-    // compiles even though this shader doesn't sample it. The channel
-    // arg buffer is sized to at least 1 slot whenever we have any input.
-    // For shaders with no inputs, we still synthesize a fallback texture
-    // (see PhosphorRuntime), so this call is always valid.
-    texture2d<float, access::read> backbuffer = channels.iChannel0;
     float4 color = mainImage(float2(gid), uniforms->resolution, uniforms->mouse,
-                             uniforms->time, uniforms->frame, backbuffer);
+                             uniforms->time, uniforms->frame);
     color.a = 1.0;
     outTexture.write(color, gid);
 }
