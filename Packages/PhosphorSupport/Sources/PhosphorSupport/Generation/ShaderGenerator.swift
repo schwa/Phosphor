@@ -261,6 +261,15 @@ public struct ShaderGenerator {
     }
 
     /// System prompt: explains what Phosphor is and what the model needs to produce.
+    ///
+    /// Schema note: the `@Generable` schema (resources / passes / inputs /
+    /// outputResourceID) is the *Foundation-Models-visible* contract. The
+    /// runtime model is different (textures + per-binding access). The host
+    /// adapter inside `GeneratedShader.toPhosphorEnvironment()` synthesizes
+    /// the binding list automatically: each pass gets a `write` binding for
+    /// its declared `output` plus a `read` binding for each declared input.
+    /// The model should keep producing the schema fields; the kernel-side
+    /// MSL is what changed.
     private static let instructions: String = """
         You generate Metal compute shaders for the Phosphor playground.
 
@@ -271,68 +280,66 @@ public struct ShaderGenerator {
         - If your kernel doesn't sample any channel inputs, the `inputs` array MUST be empty.
         - For every resource you declare, set the `id`, `format`, and `pingPong` fields.
 
-        Kernel signature (exact, copy verbatim, change only the name):
+        KERNEL SIGNATURE (exact — copy this and change only the function name):
+
+            uint2 gid [[thread_position_in_grid]];
 
             kernel void <pass.id>(
-                texture2d<float, access::write> outTexture     [[texture(0)]],
-                device const ChannelBindings&   channels       [[buffer(1)]],
-                device const Uniforms*          uniforms       [[buffer(0)]],
-                device const UserUniforms*      userUniforms   [[buffer(2)]],
-                uint2 gid                                      [[thread_position_in_grid]])
+                device const Uniforms&     uniforms     [[buffer(0)]],
+                device const UserUniforms& userUniforms [[buffer(1)]])
             {
                 // ... your code ...
-                outTexture.write(float4(red, green, blue, alpha), gid);
+                uniforms.textures.<output_id>.write(float4(r, g, b, a), gid);
             }
 
-        Available inside a kernel (all read via `uniforms->`):
+        Notes on the signature:
+        - `gid` is a FILE-SCOPE global with the `[[thread_position_in_grid]]` attribute,
+          declared ONCE at the top of the body — not a kernel parameter. Repeat the same
+          single declaration in your body.
+        - `Uniforms` is a per-pass argument buffer that carries built-in scalars/audio
+          AND a nested `textures` struct (one field per texture the pass declares).
+          Access fields with `uniforms.time`, `uniforms.resolution`, etc. — dot, not arrow.
+        - `UserUniforms` is a separate argument buffer at buffer(1). Access with
+          `userUniforms.<name>`, also dot, not arrow.
+        - The pass writes through `uniforms.textures.<output_id>.write(color, gid)`.
+          The field name inside `textures` matches the resource id (so if the output
+          resource is `image`, you write `uniforms.textures.image.write(...)`).
+
+        UNIFORMS FIELDS (read via `uniforms.<field>`):
         - `time` (float): seconds since the document opened.
         - `timeDelta` (float): seconds elapsed since the previous frame.
         - `frame` (float): frame counter, starts at 0.
         - `resolution` (float2): drawable size in pixels.
-        - `resized` (uint): 1 on the frame after the view resizes (textures freshly zeroed),
-          0 otherwise. Feedback effects should re-seed when
-          `uniforms->frame < 1.0 || uniforms->resized != 0u`.
-        - `mouse` (float2): current cursor position in pixels. Updates on hover and drag.
-        - `mouseButtons` (uint): bitmask of held buttons; bit 0 = left button. Use
-          `uniforms->mouseButtons != 0u` to detect any press.
-        - `mouseClickOrigin` (float2): cursor position in pixels at the start of the current
-          press. Equal to `mouse` outside a drag.
-        - `channelCount` (uint): how many `iChannelN` slots the environment declared.
-          Rarely needed; informational only.
-        - `waveform[i]` (i in 0..1023): live microphone audio samples in [-1, 1]. Zero when
-          the user hasn't enabled the mic.
-        - `spectrum[i]` (i in 0..511): linear FFT magnitudes in [0, 1], low frequencies first.
-          Zero when the mic is off. Use this for audio-reactive shaders (level meters,
-          beat-reactive glow, frequency-driven color).
+        - `resized` (uint): 1 on the frame after the view resizes; 0 otherwise. Feedback
+          effects should re-seed when `uniforms.frame < 1.0 || uniforms.resized != 0u`.
+        - `mouse` (float2): current cursor position in pixels.
+        - `mouseButtons` (uint): bitmask of held buttons; bit 0 = left button.
+        - `mouseClickOrigin` (float2): cursor position at the start of the current press.
+        - `waveform[i]` (float, i in 0..1023): live microphone time-domain samples in [-1, 1].
+          Access via `uniforms.waveform[i]`. Zero when the mic is off.
+        - `spectrum[i]` (float, i in 0..511): linear FFT magnitudes in [0, 1], low
+          frequencies first. Access via `uniforms.spectrum[i]`. Zero when the mic is off.
 
         COORDINATE SYSTEM:
-        - In Phosphor, `gid.y = 0` is at the TOP of the screen and `gid.y = resolution.y - 1`
-          is at the bottom. This is opposite to GLSL / Shadertoy / WebGL.
-        - If you write in the Phosphor convention (Y=0 at top), leave `flipY = false`.
-        - If you write in GLSL/Shadertoy convention (Y=0 at bottom), set `flipY = true` and the
-          runtime will flip the final blit vertically so the result is right-side up.
-        - Be consistent: don't mix conventions in one shader.
-        - `channels.iChannelN` (texture2d<float, access::read>) — only for channels you declared as inputs.
-          Sample with `channels.iChannel0.read(gid)`.
-        - `userUniforms->name` for each uniform you declared.
-        - Math: sin, cos, mix, smoothstep, length, normalize, dot, cross, exp, pow, abs, clamp.
+        - In Phosphor, `gid.y = 0` is at the TOP of the screen.
+        - If you write in Phosphor convention (Y=0 at top), leave `flipY = false`.
+        - If you write in GLSL/Shadertoy convention (Y=0 at bottom), set `flipY = true`.
+        - Be consistent within one shader.
+
+        SAMPLING CHANNEL INPUTS:
+        - The host synthesizes one `read`-access binding inside `uniforms.textures` for each
+          input you declare. The binding name is the resource id of the input.
+        - Read with `uniforms.textures.<input_id>.read(gid)` — returns a `float4`.
+          (NOT `channels.iChannel0` — that API is gone.)
+        - Procedural patterns (gradient, plasma, noise, fractals) do NOT need inputs.
+        - Feedback effects (Game of Life, trails) DO need an input that points at the
+          same resource as the pass's output, with the resource declared `pingPong = true`.
 
         Conventions:
-        - Use `image` as the final output resource id. Use `bufA`, `bufB`, ... for intermediates.
-        - `outputResourceID` must be the id of one of your resources (almost always `image`).
-        - For a single-pass effect (most cases), declare ONE resource named `image` and ONE pass
+        - Use `image` as the final output resource id.
+        - `outputResourceID` must match one of your resources (almost always `image`).
+        - For a single-pass effect, declare ONE resource named `image` and ONE pass
           named `image` that writes to it.
-        - For feedback effects (ping-pong, Game of Life style), set `pingPong = true` on the
-          resource; the pass reads its own previous output via an `iChannel0` input bound to
-          that same resource.
-
-        WHEN TO USE `inputs`:
-        - Use `inputs` ONLY if your kernel calls `channels.iChannelN.read(...)` somewhere
-          in its body. If you don't sample channels, `inputs` MUST be empty.
-        - Procedural patterns (checkerboard, gradient, plasma, noise, fractals) do NOT need
-          inputs — they compute their color from `gid` and `uniforms` only.
-        - Feedback effects (Game of Life, fluid simulation, trails) DO need an input — the
-          pass reads its own previous frame via `iChannel0` bound to its own ping-pong output.
 
         ===== EXAMPLE 1: solid red shader =====
         - resources: [{ id: "image", format: "rgba32Float", pingPong: false }]
@@ -340,96 +347,72 @@ public struct ShaderGenerator {
         - uniforms:  []
         - outputResourceID: "image"
         - body: ```
+            uint2 gid [[thread_position_in_grid]];
+
             kernel void image(
-                texture2d<float, access::write> outTexture     [[texture(0)]],
-                device const ChannelBindings&   channels       [[buffer(1)]],
-                device const Uniforms*          uniforms       [[buffer(0)]],
-                device const UserUniforms*      userUniforms   [[buffer(2)]],
-                uint2 gid                                      [[thread_position_in_grid]])
+                device const Uniforms&     uniforms     [[buffer(0)]],
+                device const UserUniforms& userUniforms [[buffer(1)]])
             {
-                outTexture.write(float4(1.0, 0.0, 0.0, 1.0), gid);
+                uniforms.textures.image.write(float4(1.0, 0.0, 0.0, 1.0), gid);
             }
             ```
 
-        ===== EXAMPLE 2: checkerboard (procedural pattern, no inputs) =====
+        ===== EXAMPLE 2: animated gradient (uses uniforms.time) =====
         - resources: [{ id: "image", format: "rgba32Float", pingPong: false }]
         - passes:    [{ id: "image", output: "image", inputs: [] }]
         - uniforms:  []
         - outputResourceID: "image"
         - body: ```
+            uint2 gid [[thread_position_in_grid]];
+
             kernel void image(
-                texture2d<float, access::write> outTexture     [[texture(0)]],
-                device const ChannelBindings&   channels       [[buffer(1)]],
-                device const Uniforms*          uniforms       [[buffer(0)]],
-                device const UserUniforms*      userUniforms   [[buffer(2)]],
-                uint2 gid                                      [[thread_position_in_grid]])
+                device const Uniforms&     uniforms     [[buffer(0)]],
+                device const UserUniforms& userUniforms [[buffer(1)]])
             {
-                uint cell = (gid.x / 32u) + (gid.y / 32u);
-                float v = (cell % 2u == 0u) ? 1.0 : 0.0;
-                outTexture.write(float4(v, v, v, 1.0), gid);
+                float2 uv = float2(gid) / uniforms.resolution;
+                float r = 0.5 + 0.5 * sin(uniforms.time + uv.x * 6.28);
+                float g = 0.5 + 0.5 * sin(uniforms.time + uv.y * 6.28);
+                uniforms.textures.image.write(float4(r, g, 0.2, 1.0), gid);
             }
             ```
 
-        ===== EXAMPLE 3: animated gradient (uses uniforms->time, no inputs) =====
-        - resources: [{ id: "image", format: "rgba32Float", pingPong: false }]
-        - passes:    [{ id: "image", output: "image", inputs: [] }]
+        ===== EXAMPLE 3: feedback (ping-pong with self-sample) =====
+        - resources: [{ id: "image", format: "rgba32Float", pingPong: true }]
+        - passes:    [{ id: "image", output: "image", inputs: [{ name: "iChannel0", resource: "image" }] }]
         - uniforms:  []
         - outputResourceID: "image"
         - body: ```
+            uint2 gid [[thread_position_in_grid]];
+
             kernel void image(
-                texture2d<float, access::write> outTexture     [[texture(0)]],
-                device const ChannelBindings&   channels       [[buffer(1)]],
-                device const Uniforms*          uniforms       [[buffer(0)]],
-                device const UserUniforms*      userUniforms   [[buffer(2)]],
-                uint2 gid                                      [[thread_position_in_grid]])
+                device const Uniforms&     uniforms     [[buffer(0)]],
+                device const UserUniforms& userUniforms [[buffer(1)]])
             {
-                float2 uv = float2(gid) / uniforms->resolution;
-                float r = 0.5 + 0.5 * sin(uniforms->time + uv.x * 6.28);
-                float g = 0.5 + 0.5 * sin(uniforms->time + uv.y * 6.28);
-                outTexture.write(float4(r, g, 0.2, 1.0), gid);
+                float4 prev = uniforms.textures.image.read(gid);
+                uniforms.textures.image.write(prev * 0.95, gid);
             }
             ```
-
-        SAMPLING CHANNELS (only if you declared inputs):
-        - Use `channels.iChannel0.read(gid)` — returns a `float4`.
-        - There is NO `.resource` member, NO `texture2d<...>(...)` constructor call.
-        - Bad: `texture2d<float, access::read>(channels.iChannel0.resource, gid)`.
-        - Good: `channels.iChannel0.read(gid)`.
+          (Note: even though `inputs` carries iChannel0-style names, in the MSL you
+          access by RESOURCE ID through `uniforms.textures.<resource_id>`.)
 
         MSL IS STRICTER THAN GLSL:
         - No implicit vector-dimension conversions. `noise3D(vec.xz)` does NOT work —
-          `vec.xz` is a `float2` and `noise3D` takes a `float3`. You must explicitly
-          construct a `float3`: `noise3D(float3(vec.xz, 0.0))`.
-        - If you write a `noise3D` helper, call it ONLY with `float3` args. Write a
-          separate `noise2D` helper if you need 2D noise (e.g. for terrain height).
-        - Before calling any helper function, double-check the argument types match
-          the parameter types exactly. The Metal compiler does NOT auto-promote
-          float -> float2 -> float3 -> float4 the way GLSL does.
-        - Keep raymarching loops bounded with a small max iteration count (≤64 is
-          a safe upper bound). The GPU has a watchdog timer and will kill long
-          dispatches.
-        - Avoid producing NaN / inf in the output: clamp the final color to a
-          sensible range, guard against divide-by-zero and log/sqrt of negative
-          numbers.
+          `vec.xz` is a `float2` and `noise3D` takes a `float3`. Explicitly construct:
+          `noise3D(float3(vec.xz, 0.0))`.
+        - Keep raymarching loops bounded with a small max iteration count (≤64).
+        - Avoid producing NaN / inf. Clamp final color, guard against divide-by-zero.
 
-        Keep kernels under ~80 lines. Do NOT write `#include` directives; the host adds them.
+        Keep kernels under ~80 lines. Do NOT write `#include` directives.
 
         DOCUMENT EACH KERNEL:
-        Before every `kernel void` declaration, write a short documentation comment
-        (one to three sentences) describing what the kernel does, which channels it
-        reads, and what it writes. Use a /// or /** ... */ comment block. Multi-pass
-        shaders document each kernel separately. Example:
-
-            /// Steps Conway's Game of Life by one generation: reads the previous
-            /// frame from iChannel0 and writes the next state into outTexture.
-            kernel void image(
-                ...
+        Before every `kernel void` declaration, write a short doc comment (one to three
+        sentences) describing what the kernel does and which textures it reads / writes.
+        Use /// or /** ... */.
 
         MODIFICATION REQUESTS:
-        If the user provides an existing shader together with their request, treat it as a
-        modification: keep the existing structure and approach, change only what the user asks
-        for. Output the complete updated shader (resources, passes, uniforms, full body) —
-        we cannot apply partial edits.
+        If the user provides an existing shader, treat it as a modification: keep the
+        existing structure and approach, change only what the user asks for. Output the
+        complete updated shader (resources, passes, uniforms, full body).
     """
 }
 

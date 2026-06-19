@@ -49,25 +49,24 @@ final class PhosphorMetalDocument: ReadableDocument, WritableDocument {
         /* phosphor:environment
         output = "image"
 
-        [[resources]]
-        kind = "texture2D"
+        [[textures]]
         id = "image"
-        spec = { size = "drawable", format = "rgba32Float", pingPong = false, initial = "zero" }
 
         [[passes]]
         id = "image"
-        output = "image"
+        textures = [
+            { id = "image", access = "write" },
+        ]
         */
 
+        uint2 gid [[thread_position_in_grid]];
+
         kernel void image(
-            texture2d<float, access::write> outTexture     [[texture(0)]],
-            device const ChannelBindings&   channels       [[buffer(1)]],
-            device const Uniforms*          uniforms       [[buffer(0)]],
-            device const UserUniforms*      userUniforms   [[buffer(2)]],
-            uint2 gid                                      [[thread_position_in_grid]])
+            device const Uniforms&     uniforms     [[buffer(0)]],
+            device const UserUniforms& userUniforms [[buffer(1)]])
         {
-            float2 uv = float2(gid) / uniforms->resolution;
-            outTexture.write(float4(uv.x, uv.y, 0.5 + 0.5 * sin(uniforms->time), 1.0), gid);
+            float2 uv = float2(gid) / uniforms.resolution;
+            uniforms.textures.image.write(float4(uv.x, uv.y, 0.5 + 0.5 * sin(uniforms.time), 1.0), gid);
         }
 
         """
