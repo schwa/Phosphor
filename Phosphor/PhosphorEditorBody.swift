@@ -63,6 +63,7 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
             .frame(minWidth: 360, idealWidth: 640)
         }
         .frame(minWidth: 800, minHeight: 500)
+        .focusedSceneValue(\.shaderText, $text)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 ResourcePicker(

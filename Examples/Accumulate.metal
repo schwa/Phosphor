@@ -1,16 +1,17 @@
 /* phosphor:environment
 output = "image"
-
-[[resources]]
-kind = "texture2D"
-id = "image"
-spec = { size = "drawable", format = "rgba32Float", pingPong = true, flipTiming = "endOfFrame", initial = "zero" }
+uniforms = []
 
 [[passes]]
+enabled = true
 id = "image"
+inputs = [ { name = "iChannel0", resource = "image" } ]
 output = "image"
-inputs = [{ name = "iChannel0", resource = "image" }]
-*/
+
+[[resources]]
+id = "image"
+kind = "texture2D"
+spec = { flipTiming = "endOfFrame", format = "rgba32Float", initial = "zero", pingPong = true, size = "drawable" }*/
 
 #include "Phosphor.h"
 

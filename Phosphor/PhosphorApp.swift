@@ -23,6 +23,9 @@ struct PhosphorApp: App {
                 MyNewDocumentButton(title: "New Phosphor Bundle", contentType: .phosphorBundle)
                     .keyboardShortcut("n", modifiers: [.command, .shift])
             }
+            CommandGroup(after: .pasteboard) {
+                ReformatFrontMatterButton()
+            }
         }
 
         DocumentGroup { document in
