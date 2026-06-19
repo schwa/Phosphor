@@ -14,12 +14,13 @@ output = "image"
 id = "image"
 kind = "texture2D"
 
-    [resources.spec]
-    flipTiming = "endOfFrame"
-    format = "rgba8Unorm"
-    initial = "zero"
-    pingPong = false
-    size = "drawable"*/
+[resources.spec]
+flipTiming = "endOfFrame"
+format = "rgba8Unorm"
+initial = "zero"
+pingPong = false
+size = "drawable"
+*/
 
 /// Renders animated falling confetti particles with various colors,
 /// sizes, and rotation. Each particle is procedurally generated using

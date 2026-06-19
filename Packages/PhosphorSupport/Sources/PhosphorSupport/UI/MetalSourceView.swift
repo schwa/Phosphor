@@ -2,6 +2,7 @@ import SwiftTreeSitter
 import SwiftTreeSitterLayer
 import SwiftUI
 import TreeSitterCPP
+import TreeSitterTOML
 
 /// Source view for Metal kernel text. Supports both read-only display and
 /// live editing (when given a binding); both modes are syntax-highlighted
@@ -80,17 +81,80 @@ public struct MetalSourceView: View {
     }
 
     /// Builds a syntax-highlighted AttributedString by walking the tree-sitter
-    /// parse tree and coloring node ranges.
+    /// parse tree and coloring node ranges. C++ pass first, then a TOML
+    /// re-color over the front-matter block (if present).
     static func format(_ source: String) throws -> AttributedString {
         var attributed = AttributedString(source)
-        let config = try LanguageConfiguration(tree_sitter_cpp(), name: "cpp")
-        let parser = Parser()
-        try parser.setLanguage(config.language)
-        guard let tree = parser.parse(source), let rootNode = tree.rootNode else {
-            return attributed
+
+        let cppConfig = try LanguageConfiguration(tree_sitter_cpp(), name: "cpp")
+        let cppParser = Parser()
+        try cppParser.setLanguage(cppConfig.language)
+        if let tree = cppParser.parse(source), let root = tree.rootNode {
+            walk(node: root, attributed: &attributed)
         }
-        walk(node: rootNode, attributed: &attributed)
+
+        // Locate the front-matter `/* phosphor:environment ... */` block
+        // (matches PhosphorFrontMatter.extractBlock's rules but as offsets
+        // in the original source, not the trimmed view). Re-highlight just
+        // the TOML body with the TOML grammar.
+        if let tomlRange = findFrontMatterTOMLRange(in: source) {
+            let tomlText = String(source[tomlRange])
+            let tomlConfig = try LanguageConfiguration(tree_sitter_toml(), name: "toml")
+            let tomlParser = Parser()
+            try tomlParser.setLanguage(tomlConfig.language)
+            if let tree = tomlParser.parse(tomlText), let root = tree.rootNode {
+                let baseOffset = source.utf16.distance(from: source.startIndex, to: tomlRange.lowerBound)
+                walkTOML(node: root, attributed: &attributed, baseUTF16Offset: baseOffset)
+            }
+        }
         return attributed
+    }
+
+    /// Returns the UTF-16 range, in `source`, of the TOML body inside the
+    /// `/* phosphor:environment ... */` block (i.e. just after the marker,
+    /// up to but not including the closing `*/`). nil if not found.
+    private static func findFrontMatterTOMLRange(in source: String) -> Range<String.Index>? {
+        let openMarker = "/* phosphor:environment"
+        guard let openRange = source.range(of: openMarker) else { return nil }
+        let afterMarker = openRange.upperBound
+        guard let closeRange = source.range(of: "*/", range: afterMarker..<source.endIndex) else {
+            return nil
+        }
+        return afterMarker..<closeRange.lowerBound
+    }
+
+    private static func walkTOML(node: Node, attributed: inout AttributedString, baseUTF16Offset: Int) {
+        let nsRange = NSRange(
+            location: node.range.location + baseUTF16Offset,
+            length: node.range.length
+        )
+        if let characterRange = Range(nsRange, in: attributed) {
+            switch node.nodeType {
+            case "comment":
+                attributed[characterRange].foregroundColor = .green
+
+            case "bare_key", "dotted_key":
+                attributed[characterRange].foregroundColor = .blue
+
+            case "string":
+                attributed[characterRange].foregroundColor = .red
+
+            case "integer", "float":
+                attributed[characterRange].foregroundColor = .orange
+
+            case "boolean":
+                attributed[characterRange].foregroundColor = .pink
+
+            case "table_header", "array_table_header":
+                attributed[characterRange].foregroundColor = .purple
+
+            default:
+                break
+            }
+        }
+        node.enumerateChildren { child in
+            walkTOML(node: child, attributed: &attributed, baseUTF16Offset: baseUTF16Offset)
+        }
     }
 
     private static func walk(node: Node, attributed: inout AttributedString) {
@@ -99,6 +163,7 @@ public struct MetalSourceView: View {
             switch node.nodeType {
             case "comment":
                 attributed[characterRange].foregroundColor = .green
+                attributed[characterRange].font = .system(.body, design: .monospaced).italic()
 
             case "identifier":
                 attributed[characterRange].foregroundColor = .blue

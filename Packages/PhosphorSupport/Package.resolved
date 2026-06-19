@@ -1,5 +1,5 @@
 {
-  "originHash" : "b426c177b3c4e98d2078dcdd629d4810198e742b19d583604dc737f864411338",
+  "originHash" : "0f95010c6481a9313655089b0fdc7d4a5accd4dbd316817dc2d2795d9dc7d7d6",
   "pins" : [
     {
       "identity" : "geometrylite2d",
@@ -143,6 +143,15 @@
       "state" : {
         "branch" : "master",
         "revision" : "8b5b49eb196bec7040441bee33b2c9a4838d6967"
+      }
+    },
+    {
+      "identity" : "tree-sitter-toml",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tree-sitter-grammars/tree-sitter-toml",
+      "state" : {
+        "branch" : "master",
+        "revision" : "64b56832c2cffe41758f28e05c756a3a98d16f41"
       }
     }
   ],
