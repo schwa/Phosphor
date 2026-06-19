@@ -31,13 +31,13 @@ public func validate(_ env: PhosphorEnvironment) -> [PhosphorDiagnostic] {
     }
 
     for pass in env.passes {
-        var seenBindingIDs: Set<ResourceID> = []
+        var seenBindingNames: Set<String> = []
         var writeBindings: [Pass.TextureBinding] = []
         var readBindings: [Pass.TextureBinding] = []
 
         for binding in pass.textures {
-            if !seenBindingIDs.insert(binding.id).inserted {
-                diagnostics.append(.duplicateBinding(name: binding.id.raw, in: pass.id))
+            if !seenBindingNames.insert(binding.effectiveName).inserted {
+                diagnostics.append(.duplicateBinding(name: binding.effectiveName, in: pass.id))
             }
             if !textureIDs.contains(binding.id) {
                 diagnostics.append(.unknownResource(binding.id, in: "pass \"\(pass.id)\" binding"))

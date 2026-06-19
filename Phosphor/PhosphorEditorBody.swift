@@ -166,7 +166,7 @@ private struct ResourcePicker: View {
     @Binding var displayedResource: ResourceID?
 
     private var resourceIDs: [ResourceID] {
-        environment?.resources.map(\.id) ?? []
+        environment?.textures.map(\.id) ?? []
     }
 
     private var isDisabled: Bool {

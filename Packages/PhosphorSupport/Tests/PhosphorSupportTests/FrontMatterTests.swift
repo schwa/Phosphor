@@ -19,15 +19,19 @@ struct FrontMatterTests {
         /* phosphor:environment
         output = "image"
 
-        [[resources]]
-        kind = "texture2D"
+        [[textures]]
         id = "image"
-        spec = { size = "drawable", format = "rgba32Float", pingPong = true, flipTiming = "endOfFrame", initial = "zero" }
+        size = "drawable"
+        format = "rgba32Float"
+        swap = "endOfFrame"
+        init = { kind = "zero" }
 
         [[passes]]
         id = "image"
-        output = "image"
-        inputs = [{ name = "iChannel0", resource = "image" }]
+        textures = [
+            { id = "image", access = "write" },
+            { id = "image", access = "read", name = "feedback" },
+        ]
         */
 
         kernel void image(...) {}
@@ -36,85 +40,76 @@ struct FrontMatterTests {
         #expect(result.diagnostics.isEmpty)
         let env = try #require(result.environment)
         #expect(env.output == "image")
-        #expect(env.resources.count == 1)
-        if case let .texture2D(id, spec) = env.resources[0] {
-            #expect(id == "image")
-            #expect(spec.size == .drawable)
-            #expect(spec.format == .rgba32Float)
-            #expect(spec.pingPong == true)
-            #expect(spec.flipTiming == .endOfFrame)
-            #expect(spec.initial == .zero)
-        } else {
-            Issue.record("expected texture2D resource")
-        }
+        #expect(env.textures.count == 1)
+
+        let texture = env.textures[0]
+        #expect(texture.id == "image")
+        #expect(texture.size == .drawable)
+        #expect(texture.format == .rgba32Float)
+        #expect(texture.swap == .endOfFrame)
+        #expect(texture.initialContents == .zero)
+
         #expect(env.passes.count == 1)
         #expect(env.passes[0].id == "image")
-        #expect(env.passes[0].output == "image")
-        #expect(env.passes[0].inputs == [Pass.Input(name: "iChannel0", resource: "image")])
+        #expect(env.passes[0].textures == [
+            Pass.TextureBinding(id: "image", access: .write),
+            Pass.TextureBinding(id: "image", access: .read, name: "feedback")
+        ])
 
-        // Body is the post-front-matter content.
         #expect(result.body.contains("kernel void image"))
         #expect(!result.body.contains("phosphor:environment"))
     }
 
-    @Test("Phosphor2.md §4 example parses end-to-end")
-    func designDocExample() throws {
+    @Test("Texture defaults: omitted fields fall back to canonical values")
+    func textureDefaults() throws {
         let source = """
         /* phosphor:environment
         output = "image"
 
-        [[resources]]
-        kind = "texture2D"
-        id = "bufA"
-        spec = { size = "drawable", format = "rgba16Float", pingPong = true, flipTiming = "endOfFrame", initial = "zero" }
-
-        [[resources]]
-        kind = "texture2D"
+        [[textures]]
         id = "image"
-        spec = { size = "drawable", format = "rgba16Float", pingPong = false, initial = "zero" }
-
-        [[passes]]
-        id = "bufA"
-        output = "bufA"
-        inputs = [
-            { name = "iChannel0", resource = "bufA" },
-        ]
 
         [[passes]]
         id = "image"
-        output = "image"
-        inputs = [
-            { name = "iChannel0", resource = "bufA" },
-        ]
-
-        [[uniforms]]
-        name = "intensity"
-        kind = "float"
-        default = 1.0
-        ui = { slider = { min = 0.0, max = 4.0 } }
+        textures = [{ id = "image", access = "write" }]
         */
-
-        kernel void bufA(...) {}
-        kernel void image(...) {}
         """
         let result = PhosphorFrontMatter.parse(source)
         #expect(result.diagnostics.isEmpty)
         let env = try #require(result.environment)
+        let texture = env.textures[0]
+        #expect(texture.size == .drawable)
+        #expect(texture.format == .rgba32Float)
+        #expect(texture.swap == .none)
+        #expect(texture.initialContents == .zero)
+    }
 
-        // Resources
-        #expect(env.resources.count == 2)
+    @Test("Image-init texture decodes name field")
+    func imageInit() throws {
+        let source = """
+        /* phosphor:environment
+        output = "image"
 
-        // Passes
-        #expect(env.passes.count == 2)
-        #expect(env.passes.map(\.id) == ["bufA", "image"])
+        [[textures]]
+        id = "photo"
+        init = { kind = "image", file = "screenshot.png" }
 
-        // Uniforms
-        #expect(env.uniforms.count == 1)
-        let uniform = env.uniforms[0]
-        #expect(uniform.name == "intensity")
-        #expect(uniform.kind == .float)
-        #expect(uniform.defaultValue == .float(1.0))
-        #expect(uniform.ui == .slider(min: 0.0, max: 4.0))
+        [[textures]]
+        id = "image"
+
+        [[passes]]
+        id = "image"
+        textures = [
+            { id = "image", access = "write" },
+            { id = "photo", access = "sample" },
+        ]
+        */
+        """
+        let result = PhosphorFrontMatter.parse(source)
+        #expect(result.diagnostics.isEmpty)
+        let env = try #require(result.environment)
+        let photo = env.textures.first { $0.id == "photo" }!
+        #expect(photo.initialContents == .image(file: "screenshot.png"))
     }
 
     @Test("TOML syntax error surfaces as frontMatterParse diagnostic")
@@ -134,23 +129,20 @@ struct FrontMatterTests {
 
     @Test("Validation errors propagate through parse")
     func validationError() {
-        // 'output' references a resource that doesn't exist.
+        // 'output' references a texture that doesn't exist.
         let source = """
         /* phosphor:environment
         output = "missing"
 
-        [[resources]]
-        kind = "texture2D"
+        [[textures]]
         id = "image"
-        spec = { size = "drawable", format = "rgba32Float", pingPong = false, initial = "zero" }
 
         [[passes]]
         id = "image"
-        output = "image"
+        textures = [{ id = "image", access = "write" }]
         */
         """
         let result = PhosphorFrontMatter.parse(source)
-        // Environment is still constructed; validation diagnostics come back alongside.
         #expect(result.environment != nil)
         #expect(result.diagnostics.contains(.missingOutput("missing")))
     }
@@ -178,14 +170,12 @@ struct FrontMatterTests {
         /* phosphor:environment
         output = "image"
 
-        [[resources]]
-        kind = "texture2D"
+        [[textures]]
         id = "image"
-        spec = { size = "drawable", format = "rgba32Float" }
 
         [[passes]]
         id = "image"
-        output = "image"
+        textures = [{ id = "image", access = "write" }]
         */
 
         kernel void image(...) {}
@@ -194,30 +184,5 @@ struct FrontMatterTests {
         #expect(result.diagnostics.isEmpty)
         #expect(result.environment != nil)
         #expect(result.body.contains("kernel void image"))
-    }
-
-    @Test("Inline non-pingpong spec round-trips without flipTiming field")
-    func inlineSpecRoundTrip() throws {
-        let source = """
-        /* phosphor:environment
-        output = "image"
-
-        [[resources]]
-        kind = "texture2D"
-        id = "image"
-        spec = { size = "drawable", format = "rgba32Float", pingPong = false, initial = "zero" }
-
-        [[passes]]
-        id = "image"
-        output = "image"
-        */
-        """
-        let result = PhosphorFrontMatter.parse(source)
-        #expect(result.diagnostics.isEmpty)
-        let env = try #require(result.environment)
-        if case let .texture2D(_, spec) = env.resources[0] {
-            #expect(spec.pingPong == false)
-            #expect(spec.flipTiming == .endOfFrame)
-        }
     }
 }

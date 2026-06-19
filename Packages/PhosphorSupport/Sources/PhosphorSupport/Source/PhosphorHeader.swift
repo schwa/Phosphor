@@ -59,7 +59,7 @@ public enum PhosphorHeader {
     static func texturesDecl(pass: Pass, env: PhosphorEnvironment) -> String {
         var out = "struct \(passTexturesTypeName(pass)) {\n"
         for binding in pass.textures {
-            out += "    texture2d<float, access::\(binding.access.metalQualifier)> \(binding.id.raw);\n"
+            out += "    texture2d<float, access::\(binding.access.metalQualifier)> \(binding.effectiveName);\n"
         }
         out += "};\n"
         return out

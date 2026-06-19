@@ -45,34 +45,49 @@ public struct Pass: Hashable, Sendable, Codable {
 
     /// Binds one of the pass's textures by id, with an MSL access mode.
     ///
-    /// The binding name in the generated kernel-side `Textures` struct is
-    /// the same as `id` — no separate identifier. Nested in ``Pass`` to
-    /// keep the type name local; `Pass.TextureBinding` reads cleanly at
-    /// call sites.
+    /// The binding name in the generated kernel-side `Textures` struct
+    /// defaults to `id`, but can be overridden via `name` so a pass can
+    /// bind the same texture twice with different access modes (typical
+    /// for swap textures: one `write` binding for 'next' parity, one
+    /// `read` binding for 'last' parity).
     public struct TextureBinding: Hashable, Codable, Sendable {
         public var id: ResourceID
         public var access: TextureAccess
+        /// Optional override for the binding name; when nil, the binding
+        /// is named after its `id`.
+        public var name: String?
 
-        public init(id: ResourceID, access: TextureAccess) {
+        public init(id: ResourceID, access: TextureAccess, name: String? = nil) {
             self.id = id
             self.access = access
+            self.name = name
+        }
+
+        /// Effective binding name: `name` if set, else `id.raw`.
+        public var effectiveName: String {
+            name ?? id.raw
         }
 
         private enum CodingKeys: String, CodingKey {
             case id
             case access
+            case name
         }
 
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             self.id = try container.decode(ResourceID.self, forKey: .id)
             self.access = try container.decodeIfPresent(TextureAccess.self, forKey: .access) ?? .read
+            self.name = try container.decodeIfPresent(String.self, forKey: .name)
         }
 
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(id, forKey: .id)
             try container.encode(access, forKey: .access)
+            if let name {
+                try container.encode(name, forKey: .name)
+            }
         }
     }
 }

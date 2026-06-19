@@ -14,24 +14,19 @@ struct ValidationTests {
     @Test("Single-pass canonical environment validates cleanly")
     func singlePassClean() {
         let env = PhosphorEnvironment(
-            resources: [
-                .texture2D(id: "image", spec: .init(pingPong: true))
-            ],
+            textures: [Texture(id: "image")],
             passes: [
-                Pass(id: "image", inputs: [.init(name: "iChannel0", resource: "image")], output: "image")
+                Pass(id: "image", textures: [.init(id: "image", access: .write)])
             ],
             output: "image"
         )
         #expect(validate(env).isEmpty)
     }
 
-    @Test("Duplicate resource IDs surface")
-    func duplicateResources() {
+    @Test("Duplicate texture IDs surface")
+    func duplicateTextures() {
         let env = PhosphorEnvironment(
-            resources: [
-                .texture2D(id: "image", spec: .init()),
-                .texture2D(id: "image", spec: .init())
-            ],
+            textures: [Texture(id: "image"), Texture(id: "image")],
             output: "image"
         )
         #expect(validate(env).contains(.duplicateResource("image")))
@@ -40,26 +35,25 @@ struct ValidationTests {
     @Test("Duplicate pass IDs surface")
     func duplicatePasses() {
         let env = PhosphorEnvironment(
-            resources: [.texture2D(id: "image", spec: .init())],
+            textures: [Texture(id: "image")],
             passes: [
-                Pass(id: "a", output: "image"),
-                Pass(id: "a", output: "image")
+                Pass(id: "a", textures: [.init(id: "image", access: .write)]),
+                Pass(id: "a", textures: [.init(id: "image", access: .write)])
             ],
             output: "image"
         )
         #expect(validate(env).contains(.duplicatePass("a")))
     }
 
-    @Test("Unknown binding resource surfaces")
-    func unknownBindingResource() {
+    @Test("Unknown binding texture surfaces")
+    func unknownBindingTexture() {
         let env = PhosphorEnvironment(
-            resources: [.texture2D(id: "image", spec: .init())],
+            textures: [Texture(id: "image")],
             passes: [
-                Pass(
-                    id: "image",
-                    inputs: [.init(name: "iChannel0", resource: "missing")],
-                    output: "image"
-                )
+                Pass(id: "image", textures: [
+                    .init(id: "image", access: .write),
+                    .init(id: "missing", access: .read)
+                ])
             ],
             output: "image"
         )
@@ -70,125 +64,46 @@ struct ValidationTests {
         })
     }
 
-    @Test("Channel name must be iChannelN")
-    func badChannelName() {
-        let env = PhosphorEnvironment(
-            resources: [.texture2D(id: "image", spec: .init(pingPong: true))],
-            passes: [
-                Pass(
-                    id: "image",
-                    inputs: [.init(name: "feedback", resource: "image")],
-                    output: "image"
-                )
-            ],
-            output: "image"
-        )
-        #expect(validate(env).contains(.unknownChannelName("feedback", in: "image")))
-    }
-
-    @Test("Read/write hazard on non-pingpong resource")
+    @Test("Read/write hazard on non-swap texture")
     func readWriteHazardCase() {
         let env = PhosphorEnvironment(
-            resources: [.texture2D(id: "image", spec: .init(pingPong: false))],
+            textures: [Texture(id: "image", swap: .none)],
             passes: [
-                Pass(
-                    id: "image",
-                    inputs: [.init(name: "iChannel0", resource: "image")],
-                    output: "image"
-                )
+                Pass(id: "image", textures: [
+                    .init(id: "image", access: .write),
+                    .init(id: "image", access: .read, name: "reread")
+                ])
             ],
             output: "image"
         )
         #expect(validate(env).contains(.readWriteHazard(pass: "image", resource: "image")))
     }
 
-    @Test("Same self-read is fine on a ping-pong resource")
-    func selfReadOnPingPongIsFine() {
+    @Test("Same self-read is fine on a swap texture (with distinct binding names)")
+    func selfReadOnSwapIsFine() {
         let env = PhosphorEnvironment(
-            resources: [.texture2D(id: "image", spec: .init(pingPong: true))],
+            textures: [Texture(id: "image", swap: .endOfFrame)],
             passes: [
-                Pass(
-                    id: "image",
-                    inputs: [.init(name: "iChannel0", resource: "image")],
-                    output: "image"
-                )
+                Pass(id: "image", textures: [
+                    .init(id: "image", access: .write),
+                    .init(id: "image", access: .read, name: "feedback")
+                ])
             ],
             output: "image"
         )
         #expect(validate(env).isEmpty)
     }
 
-    @Test("Duplicate binding name on one pass")
-    func duplicateBindingName() {
+    @Test("Pass with no write binding is rejected")
+    func passNeedsAWriteBinding() {
         let env = PhosphorEnvironment(
-            resources: [.texture2D(id: "image", spec: .init(pingPong: true))],
+            textures: [Texture(id: "image")],
             passes: [
-                Pass(
-                    id: "image",
-                    inputs: [
-                        .init(name: "iChannel0", resource: "image"),
-                        .init(name: "iChannel0", resource: "image")
-                    ],
-                    output: "image"
-                )
+                Pass(id: "image", textures: [.init(id: "image", access: .read)])
             ],
             output: "image"
         )
-        #expect(validate(env).contains(.duplicateBinding(name: "iChannel0", in: "image")))
-    }
-}
-
-@Suite("Channel inference")
-struct ChannelInferenceTests {
-    @Test("No bindings -> 0 channels")
-    func noChannels() {
-        let env = PhosphorEnvironment(
-            resources: [.texture2D(id: "image", spec: .init())],
-            passes: [Pass(id: "image", output: "image")],
-            output: "image"
-        )
-        #expect(channelCount(for: env) == 0)
-    }
-
-    @Test("iChannel0 used -> 1 channel")
-    func oneChannel() {
-        let env = PhosphorEnvironment(
-            resources: [.texture2D(id: "image", spec: .init(pingPong: true))],
-            passes: [
-                Pass(
-                    id: "image",
-                    inputs: [.init(name: "iChannel0", resource: "image")],
-                    output: "image"
-                )
-            ],
-            output: "image"
-        )
-        #expect(channelCount(for: env) == 1)
-    }
-
-    @Test("iChannel3 used -> 4 channels (sparse usage rounds up)")
-    func sparseUsage() {
-        let env = PhosphorEnvironment(
-            resources: [.texture2D(id: "image", spec: .init(pingPong: true))],
-            passes: [
-                Pass(
-                    id: "image",
-                    inputs: [.init(name: "iChannel3", resource: "image")],
-                    output: "image"
-                )
-            ],
-            output: "image"
-        )
-        #expect(channelCount(for: env) == 4)
-    }
-
-    @Test("channelIndex parses iChannelN")
-    func indexParsing() {
-        #expect(channelIndex(from: "iChannel0") == 0)
-        #expect(channelIndex(from: "iChannel12") == 12)
-        #expect(channelIndex(from: "iChannel") == nil)
-        #expect(channelIndex(from: "iChannelA") == nil)
-        #expect(channelIndex(from: "feedback") == nil)
+        #expect(validate(env).contains(.passHasNoOutput(pass: "image")))
     }
 }
 
@@ -197,21 +112,14 @@ struct CodableTests {
     @Test("Environment round-trips through JSONEncoder/Decoder")
     func roundTrip() throws {
         let original = PhosphorEnvironment(
-            resources: [
-                .texture2D(id: "bufA", spec: .init(
-                    size: .drawable,
-                    format: .rgba16Float,
-                    pingPong: true,
-                    flipTiming: .endOfFrame,
-                    initial: .zero
-                ))
+            textures: [
+                Texture(id: "bufA", size: .drawable, format: .rgba16Float, swap: .endOfFrame, initialContents: .zero)
             ],
             passes: [
-                Pass(
-                    id: "bufA",
-                    inputs: [.init(name: "iChannel0", resource: "bufA")],
-                    output: "bufA"
-                )
+                Pass(id: "bufA", textures: [
+                    .init(id: "bufA", access: .write),
+                    .init(id: "bufA", access: .read)
+                ])
             ],
             output: "bufA",
             uniforms: [
