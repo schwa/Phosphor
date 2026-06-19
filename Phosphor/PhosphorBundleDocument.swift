@@ -100,6 +100,19 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
         parsed = ParsedPhosphorSource(source: text)
     }
 
+    /// Imports a file URL as a new asset, keyed by the file's name stem.
+    /// Existing assets with the same key are replaced.
+    func addAsset(at url: URL) {
+        guard let data = try? Data(contentsOf: url) else { return }
+        let name = url.deletingPathExtension().lastPathComponent
+        assets[name] = PhosphorAsset(name: name, data: data)
+    }
+
+    /// Removes the asset with the given name. No-op if not present.
+    func removeAsset(name: String) {
+        assets.removeValue(forKey: name)
+    }
+
     // MARK: - ReadableDocument
 
     /// Snapshot type for the bundle: source text + assets, plus the prior
@@ -170,9 +183,7 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
         let directory = snapshot.previousFileWrapper
             ?? FileWrapper(directoryWithFileWrappers: [:])
 
-        // Replace shader.metal in place. The other children
-        // (currently just a potential `assets/` directory) survive
-        // because we keep the same parent wrapper.
+        // Replace shader.metal in place.
         if let existing = directory.fileWrappers?[Self.shaderFilename] {
             directory.removeFileWrapper(existing)
         }
@@ -181,7 +192,49 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
         shaderWrapper.preferredFilename = Self.shaderFilename
         directory.addFileWrapper(shaderWrapper)
 
+        // Materialize the assets/ subdirectory from snapshot.assets.
+        // Drop any previous assets/ wrapper and rebuild from the dict so
+        // adds and removes both round-trip. (We're writing a small
+        // handful of assets; perf isn't a concern yet.)
+        if let existingAssets = directory.fileWrappers?[Self.assetsDirectoryName] {
+            directory.removeFileWrapper(existingAssets)
+        }
+        if !snapshot.assets.isEmpty {
+            let assetsDirectory = FileWrapper(directoryWithFileWrappers: [:])
+            assetsDirectory.preferredFilename = Self.assetsDirectoryName
+            for asset in snapshot.assets.values {
+                let filename = filenameForAsset(asset)
+                let wrapper = FileWrapper(regularFileWithContents: asset.data)
+                wrapper.preferredFilename = filename
+                assetsDirectory.addFileWrapper(wrapper)
+            }
+            directory.addFileWrapper(assetsDirectory)
+        }
+
         return directory
+    }
+
+    /// Picks the on-disk filename for an asset by sniffing its bytes for a
+    /// known image format and appending the matching extension. Falls back
+    /// to no extension if the format isn't recognized; the bundle reader
+    /// keys assets by stem so this still round-trips, just with an ugly
+    /// filename.
+    private static func filenameForAsset(_ asset: PhosphorAsset) -> String {
+        let extensionGuess: String?
+        let header = asset.data.prefix(8)
+        if header.starts(with: [0x89, 0x50, 0x4E, 0x47]) {
+            extensionGuess = "png"
+        } else if header.starts(with: [0xFF, 0xD8, 0xFF]) {
+            extensionGuess = "jpg"
+        } else if header.starts(with: [0x47, 0x49, 0x46]) {
+            extensionGuess = "gif"
+        } else {
+            extensionGuess = nil
+        }
+        if let ext = extensionGuess {
+            return "\(asset.name).\(ext)"
+        }
+        return asset.name
     }
 
     @MainActor

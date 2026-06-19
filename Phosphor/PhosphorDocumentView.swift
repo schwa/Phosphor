@@ -13,7 +13,8 @@ struct PhosphorDocumentView: View {
             parsed: document.parsed,
             assets: [:],
             onTextChange: { document.refreshParsed() },
-            isUntouchedTemplate: document.isUntouchedTemplate
+            isUntouchedTemplate: document.isUntouchedTemplate,
+            editorAccessory: { EmptyView() }
         )
     }
 }

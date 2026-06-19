@@ -7,12 +7,16 @@ import SwiftUI
 /// ``PhosphorDocumentView`` (flat `.metal`) or
 /// ``PhosphorBundleDocumentView`` (`.phosphor` package). All persistence
 /// concerns stay with the wrapping per-doc view.
-struct PhosphorEditorBody: View {
+struct PhosphorEditorBody<EditorAccessory: View>: View {
     @Binding var text: String
     let parsed: ParsedPhosphorSource
     let assets: [String: PhosphorAsset]
     let onTextChange: () -> Void
     let isUntouchedTemplate: Bool
+    /// Pinned below the code editor on the left side. Plain `.metal`
+    /// documents pass `EmptyView()`; `.phosphor` bundles pass a
+    /// ``PhosphorAssetStrip``.
+    @ViewBuilder let editorAccessory: () -> EditorAccessory
 
     @State private var showHeader: Bool = false
     @State private var showGenerate: Bool = false
@@ -41,8 +45,11 @@ struct PhosphorEditorBody: View {
 
     var body: some View {
         HSplitView {
-            CodePane(text: $text, onTextChange: onTextChange)
-                .frame(minWidth: 280, idealWidth: 420)
+            VStack(spacing: 0) {
+                CodePane(text: $text, onTextChange: onTextChange)
+                editorAccessory()
+            }
+            .frame(minWidth: 280, idealWidth: 420)
             PreviewPane(
                 parsed: parsed,
                 assets: assets,
