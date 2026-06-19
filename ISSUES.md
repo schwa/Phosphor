@@ -420,12 +420,13 @@ UX details to decide:
 ## 16: Port Phosphor 1 example snippets into Examples/
 
 +++
-status: open
+status: closed
 priority: medium
 kind: task
 labels: effort:l
 created: 2026-06-18T21:52:41Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-19T01:19:44Z
+closed: 2026-06-19T01:19:44Z
 +++
 
 The original Phosphor 1 demo (`MetalSprocketsExamples/.../PhosphorDemo/Examples/`) ships a curated library of 19 shadertoy-style snippets:
@@ -463,6 +464,18 @@ A few are non-trivial (RaymarchingSphere has heavy math, ReactionDiffusion is mu
 Keep our existing Plasma demo separate \u2014 the Phosphor 1 "Plasma" is a different effect.
 
 Once ported, update Examples/ in the README / docs so users can discover them.
+
+- `2026-06-19T01:19:44Z`: Done. 17 of the original 19 Phosphor 1 example snippets ported into Examples/: Checkerboard, Cityscape, Fire, FractalKaleidoscope, FractalPlant, Heart, HelloTriangle, HSVRaymarch, IterativeTrig, NeonLamp, NoiseFlow, PlasmaClassic, RaymarchingSphere, ReactionDiffusion, TerrainRiver, VoronoiCells, WaterRipples.
+
+Skipped:
+- BrokenShader (intentionally broken; not useful as a demo).
+- TwiglGeek (single-line obfuscated demo with a different preprocessor convention; not worth porting).
+
+To make the port mechanical, the synthesized PhosphorHeader gained a helpers section with the Phosphor 1 Support.h helpers: PI, PI2, vec2/3/4 aliases, F4, rotate2D, rotate3D, fsnoise, fsnoiseDigits, hsv, snoise2D, snoise3D, snoise4D. The Metal compiler dead-codes whatever a given shader doesn't use.
+
+Each ported file keeps the original mainImage(...) function intact and wraps it in a Phosphor 2 kernel that substitutes the parameter names (position = float2(gid), resolution = uniforms->resolution, etc.).
+
+Existing hand-written Plasma.metal stayed; the Phosphor 1 'Plasma' is a different effect, ported as PlasmaClassic.
 
 ---
 
