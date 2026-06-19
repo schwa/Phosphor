@@ -165,7 +165,7 @@ public extension GeneratedShader {
         if !prompts.isEmpty {
             output += "\n"
         }
-        output += "/* phosphor:environment\n\(toml)*/\n\n\(body)\n"
+        output += "\(FrontMatterFormatter.wrapFrontMatter(body: toml))\n\n\(body)\n"
         return output
     }
 

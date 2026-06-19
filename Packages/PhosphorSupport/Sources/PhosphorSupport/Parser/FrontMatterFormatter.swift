@@ -36,7 +36,18 @@ public enum FrontMatterFormatter {
         }
         let prefix = source[..<openRange.lowerBound]
         let suffix = source[closeRange.upperBound...]
-        return "\(prefix)/* phosphor:environment\n\(toml)*/\(suffix)"
+        // Ensure the closing `*/` lands on its own line: trim any trailing
+        // whitespace from the TOML body, then re-add exactly one newline.
+        let body = toml.trimmingCharacters(in: .whitespacesAndNewlines)
+        return "\(prefix)/* phosphor:environment\n\(body)\n*/\(suffix)"
+    }
+
+    /// Wraps a TOML body string in the standard front-matter block with
+    /// `*/` on its own line. Used by ``GeneratedShader/toMetalSource(prompts:)``
+    /// to keep generated and reformatted shaders consistent.
+    public static func wrapFrontMatter(body: String) -> String {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        return "/* phosphor:environment\n\(trimmed)\n*/"
     }
 
     /// Walks the encoded TOML and marks deep sub-tables as inline so

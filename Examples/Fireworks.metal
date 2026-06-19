@@ -1,16 +1,19 @@
 /* phosphor:environment
-output = "image"
 flipY = true
-
-[[textures]]
-id = "image"
-format = "rgba8Unorm"
+output = "image"
+uniforms = []
 
 [[passes]]
+enabled = true
 id = "image"
-textures = [
-    { id = "image", access = "write" },
-]
+textures = [ { access = "write", id = "image" } ]
+
+[[textures]]
+format = "rgba8Unorm"
+id = "image"
+init = { kind = "zero" }
+size = "drawable"
+swap = "none"
 */
 
 #include "Phosphor.h"
