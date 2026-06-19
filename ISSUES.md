@@ -1221,3 +1221,16 @@ created: 2026-06-19T01:04:30Z
 Current TOML generation produces rather verbose output. Investigate ways to coax tomlkit into emitting a more compact representation (e.g. inline tables, inline arrays, fewer blank lines, compact dict styling) where appropriate.
 
 ---
+
+## 39: Video input: webcam source
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-06-19T01:23:57Z
++++
+
+Add support for using a webcam as a live video input source.
+
+---
