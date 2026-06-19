@@ -34,10 +34,14 @@ struct PhosphorDocumentView: View {
 
     var body: some View {
         HSplitView {
-            codePane
+            CodePane(document: document)
                 .frame(minWidth: 280, idealWidth: 420)
-            previewPane
-                .frame(minWidth: 360, idealWidth: 640)
+            PreviewPane(
+                document: document,
+                isPaused: $isPaused,
+                resetSignal: resetSignal
+            )
+            .frame(minWidth: 360, idealWidth: 640)
         }
         .frame(minWidth: 800, minHeight: 500)
         .toolbar {
@@ -48,7 +52,7 @@ struct PhosphorDocumentView: View {
                     Label("Phosphor.h", systemImage: "doc.text.magnifyingglass")
                 }
                 .popover(isPresented: $showHeader, arrowEdge: .top) {
-                    headerPopover
+                    HeaderPopover(environment: document.parsed.environment ?? PhosphorEnvironment(output: "image"))
                 }
             }
             ToolbarItem(placement: .primaryAction) {
@@ -106,28 +110,43 @@ struct PhosphorDocumentView: View {
         }
     }
 
-    @ViewBuilder
-    private var codePane: some View {
+}
+
+/// Left side of the document split: the editable Metal source.
+private struct CodePane: View {
+    @Bindable var document: PhosphorMetalDocument
+
+    var body: some View {
         MetalSourceView(text: $document.text)
             .background(Color(.textBackgroundColor))
             .onChange(of: document.text) { _, _ in
                 document.refreshParsed()
             }
     }
+}
 
-    @ViewBuilder
-    private var headerPopover: some View {
-        let env = document.parsed.environment ?? PhosphorEnvironment(output: "image")
-        let header = PhosphorHeader.source(for: env)
+/// Popover that shows the synthesized `Phosphor.h` content for the current
+/// document's environment.
+private struct HeaderPopover: View {
+    let environment: PhosphorEnvironment
+
+    var body: some View {
         ScrollView([.horizontal, .vertical]) {
-            MetalSourceView(text: header)
+            MetalSourceView(text: PhosphorHeader.source(for: environment))
                 .padding(12)
         }
         .frame(minWidth: 480, idealWidth: 600, minHeight: 320, idealHeight: 480)
     }
+}
 
-    @ViewBuilder
-    private var previewPane: some View {
+/// Right side of the document split: either the live render or a
+/// no-front-matter placeholder.
+private struct PreviewPane: View {
+    let document: PhosphorMetalDocument
+    @Binding var isPaused: Bool
+    let resetSignal: Int
+
+    var body: some View {
         if let view = PhosphorView(
             parsed: document.parsed,
             isPaused: $isPaused,
@@ -135,26 +154,60 @@ struct PhosphorDocumentView: View {
         ) {
             view
         } else {
-            ContentUnavailableView {
-                Label("No front-matter", systemImage: "doc.text.magnifyingglass")
-            } description: {
-                if document.parsed.diagnostics.isEmpty {
-                    Text("This file has no /* phosphor:environment ... */ block.")
-                } else {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Failed to parse front-matter:")
-                        ForEach(Array(document.parsed.diagnostics.enumerated()), id: \.offset) { _, diagnostic in
-                            Text(verbatim: String(describing: diagnostic))
-                                .font(.system(.callout, design: .monospaced))
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                    .padding(8)
-                }
-            }
-            .frame(maxHeight: .infinity)
+            NoFrontMatterPlaceholder(diagnostics: document.parsed.diagnostics)
         }
     }
+}
+
+/// Shown in the preview pane when the source has no parsable front-matter.
+private struct NoFrontMatterPlaceholder: View {
+    let diagnostics: [PhosphorDiagnostic]
+
+    var body: some View {
+        ContentUnavailableView {
+            Label("No front-matter", systemImage: "doc.text.magnifyingglass")
+        } description: {
+            if diagnostics.isEmpty {
+                Text("This file has no /* phosphor:environment ... */ block.")
+            } else {
+                DiagnosticsList(diagnostics: diagnostics)
+            }
+        }
+        .frame(maxHeight: .infinity)
+    }
+}
+
+/// Vertical list of parse diagnostics, monospaced and text-selectable.
+private struct DiagnosticsList: View {
+    let diagnostics: [PhosphorDiagnostic]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Failed to parse front-matter:")
+            ForEach(Array(diagnostics.enumerated()), id: \.offset) { _, diagnostic in
+                Text(verbatim: String(describing: diagnostic))
+                    .font(.system(.callout, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(8)
+    }
+}
+
+// MARK: - Previews
+
+// Note: `PhosphorDocumentView` itself isn't previewable in isolation —
+// `PhosphorMetalDocument` requires a `URLDocumentConfiguration` which the
+// document system constructs internally, with no public init available
+// outside it. Previews here cover the standalone subviews instead.
+
+#Preview("No front-matter placeholder") {
+    NoFrontMatterPlaceholder(diagnostics: [])
+        .frame(width: 400, height: 300)
+}
+
+#Preview("Header popover") {
+    HeaderPopover(environment: PhosphorEnvironment(output: "image"))
 }
 

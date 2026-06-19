@@ -135,13 +135,17 @@ public struct PhosphorView: View {
                         }
                 )
                 .overlay(alignment: .topLeading) {
-                    diagnosticsOverlay(diagnostics: frontMatterDiagnostics + runtime.diagnostics)
+                    DiagnosticsOverlay(diagnostics: frontMatterDiagnostics + runtime.diagnostics)
                 }
                 .overlay(alignment: .topTrailing) {
-                    uniformsOverlay
+                    UniformsOverlay(
+                        uniforms: environment.uniforms,
+                        showPanel: showUniformsPanel,
+                        uniformValues: $uniformValues
+                    )
                 }
             } else if let initError {
-                errorView(message: "\(initError)")
+                PhosphorErrorView(message: "\(initError)")
             } else {
                 Color.black
             }
@@ -149,39 +153,6 @@ public struct PhosphorView: View {
         .task(id: SourceKey(environment: environment, source: source)) {
             await updateRuntime()
             uniformValues = UserUniformsLayout.defaultsDictionary(environment.uniforms)
-        }
-    }
-
-    // MARK: - Uniforms panel
-
-    @ViewBuilder
-    private var uniformsOverlay: some View {
-        if !environment.uniforms.isEmpty, showUniformsPanel {
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Uniforms").font(.caption).bold().foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background { Color.black.opacity(0.6) }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(environment.uniforms, id: \.name) { uniform in
-                        UniformControl(
-                            uniform: uniform,
-                            value: Binding(
-                                get: { uniformValues[uniform.name] ?? uniform.defaultValue },
-                                set: { uniformValues[uniform.name] = $0 }
-                            )
-                        )
-                    }
-                }
-                .padding(8)
-                .background { Color.black.opacity(0.5) }
-                .foregroundStyle(.white)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .frame(maxWidth: 320)
-            .padding(8)
         }
     }
 
@@ -262,15 +233,57 @@ public struct PhosphorView: View {
         }
     }
 
-    // MARK: - Diagnostics overlay
+}
 
-    @ViewBuilder
-    private func diagnosticsOverlay(diagnostics: [PhosphorDiagnostic]) -> some View {
+/// Translucent panel listing every declared user-uniform with live controls.
+/// Hides itself when the environment declares no uniforms.
+private struct UniformsOverlay: View {
+    let uniforms: [UniformDecl]
+    let showPanel: Bool
+    @Binding var uniformValues: [String: UniformValue]
+
+    var body: some View {
+        if !uniforms.isEmpty, showPanel {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Uniforms").font(.caption).bold().foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background { Color.black.opacity(0.6) }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(uniforms, id: \.name) { uniform in
+                        UniformControl(
+                            uniform: uniform,
+                            value: Binding(
+                                get: { uniformValues[uniform.name] ?? uniform.defaultValue },
+                                set: { uniformValues[uniform.name] = $0 }
+                            )
+                        )
+                    }
+                }
+                .padding(8)
+                .background { Color.black.opacity(0.5) }
+                .foregroundStyle(.white)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .frame(maxWidth: 320)
+            .padding(8)
+        }
+    }
+}
+
+/// Top-leading overlay listing front-matter / validation / compile
+/// diagnostics for the current document. Renders nothing when empty.
+private struct DiagnosticsOverlay: View {
+    let diagnostics: [PhosphorDiagnostic]
+
+    var body: some View {
         if !diagnostics.isEmpty {
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(Array(diagnostics.enumerated()), id: \.offset) { _, diagnostic in
-                        Text(verbatim: diagnosticString(diagnostic))
+                        Text(verbatim: Self.diagnosticString(diagnostic))
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(.white)
                             .textSelection(.enabled)
@@ -285,7 +298,7 @@ public struct PhosphorView: View {
         }
     }
 
-    private func diagnosticString(_ diagnostic: PhosphorDiagnostic) -> String {
+    private static func diagnosticString(_ diagnostic: PhosphorDiagnostic) -> String {
         switch diagnostic {
         case .frontMatterParse(let msg, let line):
             return "frontmatter: \(msg)\(line.map { " (line \($0))" } ?? "")"
@@ -309,9 +322,14 @@ public struct PhosphorView: View {
             return "compile error in '\(error.passID)':\n\(error.rawError)"
         }
     }
+}
 
-    @ViewBuilder
-    private func errorView(message: String) -> some View {
+/// Shown when ``PhosphorView`` failed to initialize its Metal runtime
+/// (no GPU, allocation failure, etc.).
+private struct PhosphorErrorView: View {
+    let message: String
+
+    var body: some View {
         ContentUnavailableView {
             Label("Phosphor Error", systemImage: "exclamationmark.triangle")
         } description: {
@@ -324,4 +342,19 @@ public struct PhosphorView: View {
 private struct SourceKey: Hashable {
     var environment: PhosphorEnvironment
     var source: String
+}
+
+// MARK: - Previews
+
+#Preview("Error") {
+    PhosphorErrorView(message: "No Metal device available")
+        .frame(width: 480, height: 240)
+}
+
+#Preview("Diagnostics") {
+    DiagnosticsOverlay(diagnostics: [
+        .missingOutput("image"),
+        .duplicatePass("render")
+    ])
+    .frame(width: 480, height: 240)
 }

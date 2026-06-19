@@ -78,19 +78,6 @@ public struct MetalSourceView: View {
         }
     }
 
-    /// Binding adapter: `TextEditor` reads the live text and writes back
-    /// through the underlying binding.
-    private var editableBinding: Binding<String> {
-        switch storage {
-        case .editable(let binding): return binding
-        case .readOnly(let text):
-            return Binding(
-                get: { text },
-                set: { _ in }
-            )
-        }
-    }
-
     /// Builds a syntax-highlighted AttributedString by walking the tree-sitter
     /// parse tree and coloring node ranges.
     static func format(_ source: String) throws -> AttributedString {
@@ -143,5 +130,32 @@ private extension Range where Bound == AttributedString.Index {
             return nil
         }
         self = from..<to
+    }
+}
+
+// MARK: - Previews
+
+#Preview("Read-only") {
+    MetalSourceView(text: """
+    // tiny kernel
+    kernel void image(uint2 gid [[thread_position_in_grid]]) {
+        float v = 0.5;
+        if (gid.x > 100) { v = 1.0; }
+    }
+    """)
+    .frame(width: 480, height: 240)
+}
+
+#Preview("Editable") {
+    EditablePreviewHost()
+        .frame(width: 480, height: 240)
+}
+
+/// Hosts a `@State` String so the editable `MetalSourceView` preview can
+/// take a real `Binding`.
+private struct EditablePreviewHost: View {
+    @State private var source: String = "kernel void image() {\n    // edit me\n}\n"
+    var body: some View {
+        MetalSourceView(text: $source)
     }
 }

@@ -6,10 +6,9 @@ import SwiftUI
 struct SettingsView: View {
     var body: some View {
         TabView {
-            ModelsSettingsView()
-                .tabItem {
-                    Label("Models", systemImage: "brain")
-                }
+            Tab("Models", systemImage: "brain") {
+                ModelsSettingsView()
+            }
         }
         .frame(width: 480, height: 280)
     }
@@ -63,4 +62,13 @@ struct ModelsSettingsView: View {
             await MainActor.run { savedFlash = false }
         }
     }
+}
+
+#Preview("Settings") {
+    SettingsView()
+}
+
+#Preview("Models pane") {
+    ModelsSettingsView()
+        .frame(width: 480, height: 280)
 }

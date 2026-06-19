@@ -14,7 +14,7 @@ struct GeneratePanel: View {
     @AppStorage("phosphor.generation.model") private var modelRawValue: String = GenerationModel.onDevice.rawValue
 
     private var selectedModel: GenerationModel {
-        get { GenerationModel(rawValue: modelRawValue) ?? .onDevice }
+        GenerationModel(rawValue: modelRawValue) ?? .onDevice
     }
 
     private var isModifying: Bool {
@@ -122,3 +122,7 @@ struct GeneratePanel: View {
         }
     }
 }
+
+// `GeneratePanel` needs a `PhosphorMetalDocument`, which requires a
+// `URLDocumentConfiguration` (no public init). Not previewable standalone
+// until/unless we extract the prompt UI into its own document-less subview.
