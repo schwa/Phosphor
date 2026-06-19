@@ -280,15 +280,26 @@ public struct ShaderGenerator {
                 outTexture.write(float4(red, green, blue, alpha), gid);
             }
 
-        Available inside a kernel:
-        - `uniforms->time` (float seconds), `uniforms->frame` (float), `uniforms->resolution` (float2).
-        - `uniforms->resized` (uint) is 1 on the frame after the view resizes (textures are freshly
-          zeroed). Feedback effects should re-seed when `uniforms->frame < 1.0 || uniforms->resized != 0u`.
-        - `uniforms->waveform[i]` (i in 0..1023): live microphone audio samples in [-1, 1]. Zero when
+        Available inside a kernel (all read via `uniforms->`):
+        - `time` (float): seconds since the document opened.
+        - `timeDelta` (float): seconds elapsed since the previous frame.
+        - `frame` (float): frame counter, starts at 0.
+        - `resolution` (float2): drawable size in pixels.
+        - `resized` (uint): 1 on the frame after the view resizes (textures freshly zeroed),
+          0 otherwise. Feedback effects should re-seed when
+          `uniforms->frame < 1.0 || uniforms->resized != 0u`.
+        - `mouse` (float2): current cursor position in pixels. Updates on hover and drag.
+        - `mouseButtons` (uint): bitmask of held buttons; bit 0 = left button. Use
+          `uniforms->mouseButtons != 0u` to detect any press.
+        - `mouseClickOrigin` (float2): cursor position in pixels at the start of the current
+          press. Equal to `mouse` outside a drag.
+        - `channelCount` (uint): how many `iChannelN` slots the environment declared.
+          Rarely needed; informational only.
+        - `waveform[i]` (i in 0..1023): live microphone audio samples in [-1, 1]. Zero when
           the user hasn't enabled the mic.
-        - `uniforms->spectrum[i]` (i in 0..511): linear FFT magnitudes in [0, 1], low frequencies first.
-          Zero when the mic is off. Use this for audio-reactive shaders (level meters, beat-reactive
-          glow, frequency-driven color).
+        - `spectrum[i]` (i in 0..511): linear FFT magnitudes in [0, 1], low frequencies first.
+          Zero when the mic is off. Use this for audio-reactive shaders (level meters,
+          beat-reactive glow, frequency-driven color).
 
         COORDINATE SYSTEM:
         - In Phosphor, `gid.y = 0` is at the TOP of the screen and `gid.y = resolution.y - 1`
