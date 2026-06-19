@@ -1770,10 +1770,12 @@ what's on screen.
 ## 49: Rename .phosphor bundle extension to .phosphord
 
 +++
-status: new
+status: closed
 priority: low
 kind: task
 created: 2026-06-19T16:08:19Z
+updated: 2026-06-19T16:10:31Z
+closed: 2026-06-19T16:10:31Z
 +++
 
 Rename the bundle file extension from `.phosphor` to `.phosphord`. The
@@ -1796,5 +1798,7 @@ a different format later, and matches the document-suffix pattern (`.keyd`,
 ## Out of scope
 
 - Migrating already-shipped bundles. Pre-rename builds aren't released.
+
+- `2026-06-19T16:10:31Z`: Done. UTI string stays io.schwa.phosphor.bundle; Swift symbol stays UTType.phosphorBundle. Only the user-facing extension flips to .phosphord. The flat-file .phosphor format will land in a future change.
 
 ---
