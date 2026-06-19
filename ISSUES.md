@@ -7,12 +7,13 @@ File format: <https://github.com/schwa/issues-format>
 ## 1: Step 5: TextureInit.image — load CGImage assets into ping-pong textures
 
 +++
-status: open
+status: blocked
 priority: medium
 kind: feature
 labels: effort:m
+depends: 46
 created: 2026-06-18T20:01:51Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-19T02:46:48Z
 +++
 
 The asset-resolution path is wired up to the runtime (host injects `[String: PhosphorAsset]` into `PhosphorView`), but the materializer doesn't yet honor `TextureInit.image(name:)` — all textures start zero-filled.
@@ -271,12 +272,13 @@ Currently TOML syntax highlighting isn't applied to front matter blocks. Extend 
 ## 11: Picker to show ANY in-use texture instead of just output texture
 
 +++
-status: open
+status: blocked
 priority: medium
 kind: enhancement
 labels: effort:m
+depends: 46
 created: 2026-06-18T21:32:32Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-19T02:46:48Z
 +++
 
 Add a picker UI to select and display any texture currently in use, not just the output texture.
@@ -649,12 +651,13 @@ The system prompt explains both conventions explicitly and tells the model to se
 ## 22: SwiftUI audit: idioms, accessibility, perf
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: effort:m
 created: 2026-06-18T22:05:23Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-19T02:33:55Z
+closed: 2026-06-19T02:33:55Z
 +++
 
 Sweep the SwiftUI surface (PhosphorView, PhosphorDocumentView, GeneratePanel, SettingsView, MetalSourceView, UniformControl) for:
@@ -666,6 +669,20 @@ Sweep the SwiftUI surface (PhosphorView, PhosphorDocumentView, GeneratePanel, Se
 - 2027-era APIs: anything we should adopt (NavigationSplitView for the doc layout? Inspector? scenePadding? toolbar visibility APIs?).
 
 Use the swiftui-specialist and accessibility-audit skills.
+
+- `2026-06-19T02:33:55Z`: Done as a SwiftUI review pass on 2026-06-18. Findings landed across two commits:
+
+- Extracted @ViewBuilder computed properties into View structs (house rule): UniformControl, PhosphorDocumentView, PhosphorView.
+- Migrated SettingsView's TabView to the macOS 27 Tab API (soft-deprecated tabItem).
+- Dropped dead code in MetalSourceView (editableBinding).
+- Trivial cleanup in GeneratePanel.
+- Added #Preview blocks to every standalone-previewable view. PhosphorDocumentView and GeneratePanel can't be previewed because PhosphorMetalDocument needs a URLDocumentConfiguration with no public init.
+
+Follow-ups split into their own issues:
+- #45: restructure PhosphorView body into Loading/Error/Running branch views.
+- #43: extract the playback clock state machine inside PhosphorView (already filed earlier).
+
+Accessibility and perf bits of the original audit not addressed here; if needed they can be split into focused issues.
 
 ---
 
@@ -698,12 +715,13 @@ Use the metalsprockets skill.
 ## 24: Run swiftlint + fix violations
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: effort:s
 created: 2026-06-18T22:05:43Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-19T02:39:44Z
+closed: 2026-06-19T02:39:44Z
 +++
 
 Add a .swiftlint.yml (if not present) and run `swiftlint lint --quiet` over the package + app. Fix violations or document opt-outs.
@@ -716,6 +734,14 @@ Particular things likely to come up:
 - Trailing whitespace / vertical_whitespace.
 
 Use the swift-linting skill.
+
+- `2026-06-19T02:39:44Z`: Done. swiftlint runs clean against the project.
+
+- Added .build / Packages/*/.build exclusions to .swiftlint.yml so SwiftPM build artifacts don't trip line-length checks.
+- Fixed two real violations in Phosphor/GeneratePanel.swift (closure_end_indentation, opening_brace, trailing_closure) on the ShaderGenerator.generate(...) call site.
+- Repaired a multi-statement-on-one-line build break in PhosphorSupport/Parser/FrontMatter.swift that was introduced by an earlier swiftlint --fix run.
+
+`swiftlint lint` now produces zero violations.
 
 ---
 
@@ -751,10 +777,12 @@ Use the swift-documentation skill.
 ## 26: Shadertoy compatibility audit: what fraction can we run today?
 
 +++
-status: new
+status: blocked
 priority: medium
 kind: none
+depends: 46
 created: 2026-06-18T22:08:22Z
+updated: 2026-06-19T02:46:48Z
 +++
 
 Survey Shadertoy's API surface against what Phosphor 2 currently supports. Goal: a written gap analysis so we know what to add next to maximise the fraction of Shadertoy shaders that port over with mechanical changes.
@@ -817,10 +845,12 @@ Outcome: a markdown table (or a doc section under DocC) summarising what 'a Shad
 ## 27: Shadertoy compatibility layer: auto-translate Shadertoy GLSL to Phosphor MSL
 
 +++
-status: new
+status: blocked
 priority: medium
 kind: none
+depends: 46
 created: 2026-06-18T22:08:49Z
+updated: 2026-06-19T02:46:48Z
 +++
 
 Make Phosphor accept Shadertoy source verbatim and translate it to a Phosphor kernel at runtime, so users can paste Shadertoy URLs/snippets directly without manual rewriting.
@@ -1223,25 +1253,548 @@ Related: #17 (mic input).
 ## 38: TOML generation is verbose; try to make tomlkit produce a more compact output
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 created: 2026-06-19T01:04:30Z
+updated: 2026-06-19T02:32:58Z
+closed: 2026-06-19T02:32:58Z
 +++
 
 Current TOML generation produces rather verbose output. Investigate ways to coax tomlkit into emitting a more compact representation (e.g. inline tables, inline arrays, fewer blank lines, compact dict styling) where appropriate.
+
+- `2026-06-19T02:24:56Z`: Partial progress: applied the two trivial TOMLKit FormatOptions tweaks:
+
+- Dropped `.allowLiteralStrings` so strings emit as double-quoted (`"image"` vs `'image'`), matching the hand-written Examples.
+- Added `.relaxedFloatPrecision` so 0.6 doesn't serialize as 0.60000002384185791.
+
+What's still verbose: TOMLKit always expands sub-tables into `[parent.child]` sections instead of inline tables. Hand-written examples use:
+
+    spec = { size = "drawable", format = "rgba32Float", pingPong = false, initial = "zero" }
+    ui = { slider = { min = 0.5, max = 24.0 } }
+
+The generator still emits:
+
+    [resources.spec]
+    flipTiming = 'endOfFrame'
+    format = 'rgba32Float'
+    ...
+
+This is controlled by the toml++ C++ writer below TOMLKit and is NOT exposed via FormatOptions. Fixing it requires either:
+
+1. A post-encode walk of the `TOMLTable` that sets `.inline = true` on every leaf sub-table (TOMLKit exposes this property). ~30-50 lines.
+2. Our own bespoke encoder for `PhosphorEnvironment` that produces the desired layout directly.
+
+Leaving open for option 1 or 2 later.
+
+- `2026-06-19T02:32:58Z`: Closed via partial fix. Inline-tables-for-leaf-records would need our own encoding (TOMLKit always splits sub-tables into [parent.child] sections; not configurable via FormatOptions). Will revisit if it becomes a problem in practice.
 
 ---
 
 ## 39: Video input: webcam source
 
 +++
-status: new
+status: blocked
 priority: medium
 kind: feature
+depends: 46
 created: 2026-06-19T01:23:57Z
+updated: 2026-06-19T02:46:48Z
 +++
 
 Add support for using a webcam as a live video input source.
+
+---
+
+## 40: Architecture: deepen render orchestrator (Runtime + Pipeline)
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: architecture
+created: 2026-06-19T02:15:39Z
++++
+
+## Problem
+
+`PhosphorRuntime` (507 LOC, `@Observable` class) and `PhosphorPipeline` (116 LOC, MetalSprockets Element) are tightly coupled but neither owns the abstraction. Runtime exposes ~8 distinct mutating methods (`ensureTextures`, `writeAudioBuffers`, `writeBuiltinUniforms`, `writeUserUniforms`, `writeChannelBuffers(parity:)`, `signalReset`, plus per-pass lookups). Pipeline's `body` is a 5-line cheat sheet that calls them in the exact right order, computes parity, and decides what each `iChannelN` binds to.
+
+The real coordination logic — ping-pong parity, cross-pass write/read tracking inside `writeChannelBuffers`, the reset "resized" flag, the per-frame buffer-realloc dance — is split across both files. There's no single place that owns the per-frame protocol; getting it wrong silently produces visual bugs that no test catches.
+
+Symptoms:
+
+- Pipeline mutates Runtime state (channel buffers) via a method that ALSO returns useLists. Two-tier protocol.
+- Pause/reset state (issue #31) lives in PhosphorView, communicating with Runtime via `signalReset()` AND with the frame closure via private `@State`. Three actors on one timeline.
+- The 26-shader render-smoke suite is the only thing that catches per-frame protocol regressions, and it doesn't probe parity, reset semantics, or the upstream-write-this-frame rule.
+
+## Proposed Direction
+
+Merge into a single deep `PhosphorRenderer` module. Inputs: an environment, a source string, and a per-frame inputs struct (time, frame, mouse, drawable size, paused-or-not, reset-this-frame). Output: an Element that renders this frame. Hide: texture allocation, parity bookkeeping, channel-buffer assembly, uniforms packing, audio buffer plumbing, the fallback texture, the reset flag.
+
+Callers (currently `PhosphorView`) should only need to construct one struct and emit one Element per frame. No `@Observable` Runtime to thread through views; no separate `Pipeline` element to remember the call order.
+
+## Dependency Category
+
+In-process. `MTLDevice` and the user's `AudioCaptureEngine` are the only externals; both are already injected.
+
+## Testing Strategy
+
+- **New boundary tests**: extend render-smoke harness to assert specific behaviors — Game of Life reseeds when `resized` fires; multi-pass shaders see same-frame writes from upstream passes; paused frame produces byte-identical output to the prior frame; reset zeros ping-pong contents.
+- **Old tests to delete**: none currently exist for Runtime/Pipeline internals (the smoke suite is already the boundary).
+
+## Files Involved
+
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Runtime/PhosphorRuntime.swift`
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Runtime/PhosphorPipeline.swift`
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Runtime/PingPongTexture.swift`
+- Parts of `Packages/PhosphorSupport/Sources/PhosphorSupport/UI/PhosphorView.swift` (playback wiring)
+
+---
+
+## 41: Architecture: deepen shader compile pipeline
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: architecture
+created: 2026-06-19T02:15:58Z
++++
+
+## Problem
+
+Three callers all do the same 6-step dance to compile a Phosphor source string into an `MTLLibrary` with per-pass functions:
+
+1. `PhosphorRuntime.recompile` — calls `validate` + `PhosphorCompiler.compileLibrary` + `makeFunction` per pass.
+2. `ShaderGenerator.tryCompile` — reproduces the same dance to check whether generated source compiles, for retry-on-error.
+3. `SourceAssembler.assemble` is called inside the compiler but is also conceptually part of the chain.
+
+Each step is its own module:
+
+- `SourceAssembler` (38 LOC): strips include + front-matter, prepends prelude.
+- `PhosphorHeader` (281 LOC): builds prelude string.
+- `PhosphorCompiler` (47 LOC): `makeLibrary` + `makeFunction`.
+- `Validation` (101 LOC): structural diagnostics.
+
+No public function takes a source string and returns "library + functions + diagnostics". Every caller stitches its own.
+
+## Proposed Direction
+
+A single deep `ShaderCompilePipeline` (name TBD) with one entry point:
+
+```swift
+public func compile(source: String, device: MTLDevice) throws -> CompiledShader
+```
+
+where `CompiledShader` carries the parsed environment, the library, the per-pass MTLFunctions, and any non-fatal diagnostics. Internally it does parse → validate → assemble → `makeLibrary` → `makeFunction` per pass, with a single `CompileError` enum for the things that can go wrong.
+
+`SourceAssembler` and `PhosphorCompiler` become internal helpers (or get inlined). `PhosphorHeader` stays public because the UI displays it.
+
+## Dependency Category
+
+In-process. Pure transformation + `MTLDevice`.
+
+## Testing Strategy
+
+- **New boundary tests**: "given source X, I get library Y with functions Z" or specific diagnostic D. One test per category instead of one per internal module.
+- **Old tests to consolidate**: `SourceAssemblerTests`, parts of `CompileTests`, parts of `FrontMatterTests` (the ones that test what the runtime would see).
+- **Old tests to keep**: `PhosphorHeader` structural tests (the header is its own public surface for the UI).
+
+## Files Involved
+
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Compile/PhosphorCompiler.swift`
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Source/SourceAssembler.swift`
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Source/PhosphorHeader.swift` (keep public)
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Parser/FrontMatter.swift`
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Model/Validation.swift`
+- Callers in Runtime + ShaderGenerator
+
+---
+
+## 42: Architecture: collapse document parse + validate to single path
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: architecture
+created: 2026-06-19T02:16:14Z
++++
+
+## Problem
+
+Validation runs three times for one document:
+
+1. `PhosphorFrontMatter.parse` calls `validate` and stuffs the diagnostics into `ParsedPhosphorSource.diagnostics`.
+2. `PhosphorRuntime.recompile` (called from `init` and `update`) calls `validate` again on the same environment.
+3. `ShaderGenerator` converts `GeneratedShader` to env via `toPhosphorEnvironment`, which calls `validate` a third time, then the runtime calls it again on the rendered source.
+
+This is mostly redundancy rather than coupling, but the seam between `ParsedPhosphorSource` and the rest of the codebase is fuzzy: it carries diagnostics, but downstream consumers re-derive them anyway because they don't trust the input.
+
+## Proposed Direction
+
+Make `ParsedPhosphorSource` (or its successor) authoritative. Runtime trusts the parse step; validation runs once. The Document layer holds the parsed view (already does, via `PhosphorMetalDocument.parsed`). Runtime accepts `ParsedPhosphorSource`, not raw source + environment.
+
+This pairs with #41 (compile pipeline) — that issue could already take a `ParsedPhosphorSource` as input.
+
+## Dependency Category
+
+In-process. Pure value plumbing.
+
+## Testing Strategy
+
+- **New boundary tests**: none new really; existing FrontMatter + Validation tests cover the parse path. Mostly a removal of duplicate `validate()` calls.
+- **Net change**: smaller blast radius for environment changes, less re-work per document update.
+
+## Files Involved
+
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Parser/FrontMatter.swift`
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Model/Validation.swift`
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Runtime/PhosphorRuntime.swift`
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Generation/GeneratedShader.swift`
+
+---
+
+## 43: Architecture: extract playback clock as deep module
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: architecture
+created: 2026-06-19T02:16:32Z
++++
+
+## Problem
+
+Pause/play/reset logic (issue #31, just landed) is implemented as five `@State` properties + two helpers + one Runtime method, all scattered across `PhosphorView`:
+
+- `timeBase: Float`, `frameBase: UInt32`
+- `pausedSnapshot: (time, frame)?`
+- `capturePauseSnapshot: Bool` (sentinel for capture-on-next-frame)
+- `rebaseRequested: Bool` (sentinel for rebase-on-next-frame)
+- `buildUniforms(context:drawableSize:)`
+- `applyPlaybackSideEffects(context:)` (runs from `.onWorkloadEnter`)
+- `PhosphorRuntime.signalReset()` + `resizedFlag`
+
+The logic is tricky (had three failed attempts during implementation) and only quasi-tested via render-smoke. The interaction with MetalSprockets' element-builder rules (mutations can't happen inside `@ElementBuilder` closures) forced a deferred-snapshot dance that's hard to read.
+
+## Proposed Direction
+
+Extract a value-type `PlaybackClock` (struct or small `@Observable`):
+
+```swift
+struct PlaybackClock {
+    mutating func tick(wallClockTime: Float, wallClockFrame: UInt32) -> (time: Float, frame: Float)
+    mutating func pause()
+    mutating func resume()
+    mutating func reset() -> Bool   // returns true if reset fired this tick
+}
+```
+
+PhosphorView holds one of these in `@State` and feeds it the renderer's clock each frame; gets back kernel time/frame. The runtime's `resizedFlag` becomes the `reset() -> Bool` return value, plumbed through the inputs struct.
+
+## Dependency Category
+
+In-process. Pure state machine.
+
+## Testing Strategy
+
+- **New boundary tests**: "given (wall_time, events) sequence, assert (kernel_time, kernel_frame, reset) sequence." Fully unit-testable, no Metal needed.
+- **Old tests to delete**: none — this logic is currently untested at the unit level.
+- Pause/resume semantics and the "reset clears pause" rule become assertion-level rather than 'try it and see'.
+
+## Files Involved
+
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/UI/PhosphorView.swift`
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Runtime/PhosphorRuntime.swift` (resizedFlag, signalReset)
+
+---
+
+## 44: Architecture: deepen shader generation pipeline (ports & adapters)
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: architecture
+created: 2026-06-19T02:16:51Z
++++
+
+## Problem
+
+`ShaderGenerator` (457 LOC) is a single struct with one `generate` method that does ~7 things, plus a 250-line instructions constant. Backend selection (on-device / PCC / Anthropic), prompt assembly, response decoding, env conversion, compile check, retry loop with error feedback — all stitched together by static helpers. The compile-check step duplicates the compile path PhosphorRuntime takes (see #41).
+
+Currently untested. Zero generator tests exist, partly because:
+
+- It directly depends on `FoundationModels` (`LanguageModelSession`, `SystemLanguageModel`).
+- It directly depends on `FoundationModelBackends.AnthropicLanguageModel` (real HTTP).
+- It reads from Keychain.
+
+These dependencies are hard-coded into `makeSession`, so a test can't substitute a fake.
+
+## Proposed Direction (Ports & Adapters)
+
+Define a `LanguageModelPort` protocol the generator depends on:
+
+```swift
+protocol LanguageModelPort {
+    func respond<T: Generable>(prompt: String, generating type: T.Type) async throws -> T
+}
+```
+
+Production adapters: `OnDeviceAdapter`, `PCCAdapter`, `AnthropicAdapter` (this last one carries the API key). The Generate panel constructs the right adapter from `GenerationModel` + Keychain.
+
+Test adapter: `FakeLanguageModel` that returns scripted responses. Lets us test:
+
+- Retry-on-compile-error fires when first response doesn't compile.
+- Empty body throws `emptyBody`.
+- Prompt assembly for modify-existing.
+- Prompt history is preserved.
+
+The 250-line instructions constant moves to its own file (or a generated resource). The compile-check step uses the deepened compile pipeline from #41.
+
+## Dependency Category
+
+- **Language model backends**: True external (Anthropic) and local-substitutable (FoundationModels). Both move behind a port.
+- **Keychain**: Local-substitutable. Inject the API key string, not the Keychain lookup.
+
+## Testing Strategy
+
+- **New boundary tests**: full retry-loop, prompt assembly, env conversion edge cases. Using a fake adapter, no network or Apple Intelligence required.
+- **Old tests to delete**: none exist.
+- **Test environment needs**: `FakeLanguageModel` in the test target.
+
+## Files Involved
+
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Generation/ShaderGenerator.swift`
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Generation/GeneratedShader.swift`
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Generation/KeychainStore.swift`
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/Generation/PromptHistory.swift`
+- `Phosphor/GeneratePanel.swift` (constructs the adapter)
+
+---
+
+## 45: SwiftUI: restructure PhosphorView body composition
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: swiftui, architecture
+created: 2026-06-19T02:32:17Z
++++
+
+## Problem
+
+`PhosphorView.body` is a single `ZStack` containing an `if let runtime / else if let initError / else` branch chain. The success branch alone is 70+ lines: a `RenderView` with chained modifiers `.onGeometryChange`, two `.onChange` (pause + reset), `.onContinuousHover`, a `DragGesture`, and two `.overlay`s.
+
+Per the house rules (`references/structure.md`), each conditional branch should be its own `View` struct. The overlays were extracted already (#46 work); the three-branch body and the success-branch composition are still inline.
+
+## Proposed
+
+Split the body into:
+- `PhosphorRunningView` (success branch \u2014 owns the RenderView + gestures + overlays)
+- `PhosphorErrorView` (already exists)
+- `PhosphorLoadingView` (current `Color.black` placeholder)
+
+The dispatch in `body` becomes a short switch / if-let chain that picks one of the three.
+
+## Out of scope
+
+The playback clock state machine inside the running view stays where it is for now; #43 tracks extracting that as a separate value type.
+
+## Files
+
+- `Packages/PhosphorSupport/Sources/PhosphorSupport/UI/PhosphorView.swift`
+
+---
+
+## 46: .phosphor bundle document format (file package with embedded assets)
+
++++
+status: new
+priority: medium
+kind: feature
+labels: architecture
+created: 2026-06-19T02:46:40Z
++++
+
+## Why
+
+Currently the only document type is plain `.metal` (UTF-8 text). That's fine
+for procedural / audio-reactive / feedback shaders, but blocks anything that
+needs a static input texture (image-process effects, dither LUTs, font atlases,
+reaction-diffusion seeds). Sandboxing makes naive `file://` URLs in TOML
+front-matter unworkable: the URL is unreachable on next launch unless the user
+re-grants permission via security-scoped bookmarks (awful UX).
+
+Pattern: a file package (a directory presented as a single file in Finder),
+same as `.pages`, `.key`, or an Xcode project. The sandboxed app reads
+and writes its contents freely.
+
+## Scope (v1)
+
+- Two document types side by side:
+  - `.metal` (existing, unchanged) for lightweight single-file shaders.
+  - `.phosphor` (new) for shaders that need bundled assets.
+- v1 `.phosphor` holds exactly **one** active `.metal` shader plus its
+  assets. Multi-shader picker comes later (see Future).
+- Bundle layout (proposed, not final):
+    .phosphor/
+      shader.metal      # the active source
+      assets/
+        foo.png
+        noise.jpg
+      info.json         # optional manifest (e.g. selected shader id once we go multi)
+- Asset names in front-matter (`initial = "image"`, `name = "foo"`) resolve
+  against `assets/`.
+- Drag/drop or paste an image -> auto-migrate the open `.metal` doc to a
+  `.phosphor` bundle ("Save as Phosphor Bundle\u2026" if auto isn't feasible
+  through SwiftUI document APIs).
+- `.metal` and `.phosphor` share parse / runtime / generation paths. The
+  bundle wrapper is mostly an asset-resolution + persistence concern.
+
+## Out of scope (v1)
+
+- Multiple `.metal` files inside one `.phosphor` (deferred to v2, see
+  Future).
+- Co-rendering multiple shaders (likely never \u2014 multi-pass already handles
+  cross-pass sampling within one file).
+
+## Future / v2+
+
+- Multiple `.metal` files in one bundle + a shader picker UI.
+- Embedded sample audio.
+- Embedded fonts / atlases for text effects.
+
+## Implementation notes
+
+- Use SwiftUI's `PackageDocument` / `FileWrapper`-based document types
+  (the SDK 27 ReadableDocument/WritableDocument API supports both flat and
+  package representations).
+- UTType for the bundle: `com.schwa.phosphor.bundle`, conforming to
+  `com.apple.package`.
+- The auto-migrate-on-image-drop step needs investigation; SwiftUI's
+  document-based-app API may force a Save dialog (file extension change).
+  If unavoidable, fall back to an explicit menu item.
+
+## Blocks
+
+#1 (image asset loading), #11 (texture picker UI), #26 / #27 (Shadertoy
+compatibility \u2014 channel images), #39 (webcam input, same materialization
+path).
+
+---
+
+## 47: Add gain control to microphone input
+
++++
+status: closed
+priority: medium
+kind: enhancement
+created: 2026-06-19T03:10:45Z
+updated: 2026-06-19T16:08:48Z
+closed: 2026-06-19T16:08:48Z
++++
+
+Add an adjustable gain control to the microphone input so users can boost or attenuate the input level.
+
+- `2026-06-19T16:08:48Z`: Closing: shaders that need scaled audio can declare a 'gain' user uniform and multiply it into uniforms->waveform[i] / spectrum[i] themselves. No app-level control needed.
+
+---
+
+## 48: Generator: send a rendered-frame screenshot back into the generator for visual feedback
+
++++
+status: new
+priority: medium
+kind: feature
+labels: generation
+created: 2026-06-19T03:25:39Z
++++
+
+## Problem
+
+Today the generator is text-only: prompt in, source out, plus a one-shot retry
+if the compile fails. There's no signal about how the output *looks* once it
+renders. If the user prompts for a 'fiery red glow' and gets a green one, the
+only fix is to try again with a more detailed prompt.
+
+## Idea
+
+Capture the current rendered frame from the live preview, attach it (alongside
+the prompt + existing source) to the next generation request. Multi-modal
+backends (Claude vision; potentially PCC) can then steer the shader toward
+what's on screen.
+
+## v1 scope (proposed)
+
+- Generate panel grows a 'Use current frame' checkbox.
+- When checked, the panel pulls a PNG snapshot from the live PhosphorView (via
+  the existing MetalSprockets render pipeline or a one-shot offscreen
+  rasterize) and attaches it to the LanguageModelSession request.
+- Anthropic backend: send via the existing vision content type. On-device /
+  PCC: gate the checkbox off (or surface a 'not supported on this model'
+  hint).
+- Treat the image as a *complement* to the existing prompt, not a replacement
+  \u2014 the prompt still drives intent.
+
+## Out of scope (later)
+
+- Multiple-frame storyboards.
+- Annotating the screenshot (arrows, masks).
+- Generator-initiated 'render N frames and diff against a target image'
+  iteration loops.
+
+## Open design questions
+
+- How big should the screenshot be? Models charge by image tokens; 512\u00d7512
+  is probably the sweet spot. The live preview is whatever the window is.
+- Does the screenshot bypass or include the front-matter? Sending just the
+  pixels gives the model less to anchor on; sending source+frame ties them
+  together but eats more tokens.
+- Reuse the existing pause/reset mechanism to ensure a stable capture, or
+  capture during normal playback?
+
+## Related
+
+- Depends on multi-modal support in the FoundationModelBackends adapter
+  layer we use for Anthropic.
+- Pairs naturally with #44 (deepen the generation pipeline / ports & adapters)
+  \u2014 the screenshot becomes another input on the LanguageModelPort.
+
+---
+
+## 49: Rename .phosphor bundle extension to .phosphord
+
++++
+status: new
+priority: low
+kind: task
+created: 2026-06-19T16:08:19Z
++++
+
+Rename the bundle file extension from `.phosphor` to `.phosphord`. The
+trailing 'd' disambiguates from anything Phosphor-the-brand might want for
+a different format later, and matches the document-suffix pattern (`.keyd`,
+`.numberd`-style conventions don't exist but the extra letter still reads
+'document').
+
+## Touch points
+
+- `UTType.phosphorBundle` (exported identifier stays
+  `io.schwa.phosphor.bundle`; the user-facing extension is what changes)
+- `Info.plist`:
+  - `UTExportedTypeDeclarations[0].UTTypeTagSpecification.public.filename-extension`
+- `Phosphor/PhosphorBundleDocument.swift`: any hard-coded references
+  (none today, since the extension is plist-driven, but worth a grep)
+- Any existing `.phosphor` files on disk would need to be renamed by hand;
+  in-development only, so no migration code needed.
+
+## Out of scope
+
+- Migrating already-shipped bundles. Pre-rename builds aren't released.
 
 ---
