@@ -25,7 +25,7 @@ public enum PhosphorHeader {
         out += "\n"
         out += helpersDecl()
         out += "\n"
-        out += channelBindingsDecl(channelCount: channelCount(for: env))
+        out += channelBindingsDecl(env: env)
         out += "\n"
         out += userUniformsDecl(uniforms: env.uniforms)
         return out
@@ -234,19 +234,39 @@ public enum PhosphorHeader {
 
     /// Auto-generated `ChannelBindings` argument-buffer struct.
     ///
-    /// Sized to `channelCount`. Each slot is a `texture2d<float, access::read>`
-    /// declared via the `TEXTURE2D` macro from `MetalSprocketsShaders.h`. On
-    /// Metal it expands to a real texture handle; on Swift it'd be an
-    /// `MTLResourceID` if we ever needed the host-side mirror.
+    /// Sized to the inferred channel count. Each slot's access qualifier is
+    /// derived from the resource bound to it: image resources can opt into
+    /// `access::sample` via front-matter; everything else uses `access::read`.
+    /// If no pass binds a given slot, it defaults to `access::read`.
     ///
     /// Empty struct (no slots) is legal — Metal accepts it.
-    static func channelBindingsDecl(channelCount: Int) -> String {
+    static func channelBindingsDecl(env: PhosphorEnvironment) -> String {
+        let accessBySlot = inferAccessBySlot(env: env)
         var out = "struct ChannelBindings {\n"
-        for index in 0..<channelCount {
-            out += "    texture2d<float, access::read> iChannel\(index);\n"
+        for index in 0..<accessBySlot.count {
+            out += "    texture2d<float, access::\(accessBySlot[index].rawValue)> iChannel\(index);\n"
         }
         out += "};\n"
         return out
+    }
+
+    /// For each iChannelN slot in `env`, the access qualifier that should
+    /// appear in the struct declaration. Slot count matches
+    /// ``channelCount(for:)``. Last writer wins if two passes bind the same
+    /// slot to different resources with different access; that's a
+    /// front-matter authoring error that validation should catch, but the
+    /// codegen still needs to produce something.
+    private static func inferAccessBySlot(env: PhosphorEnvironment) -> [TextureAccess] {
+        let count = channelCount(for: env)
+        var result = Array(repeating: TextureAccess.read, count: count)
+        for pass in env.passes {
+            for binding in pass.inputs {
+                guard let index = channelIndex(from: binding.name), index < count else { continue }
+                guard let resource = env.resource(binding.resource) else { continue }
+                result[index] = resource.access
+            }
+        }
+        return result
     }
 
     /// Auto-generated `UserUniforms` struct.

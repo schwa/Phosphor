@@ -59,6 +59,11 @@ public func validate(_ env: PhosphorEnvironment) -> [PhosphorDiagnostic] {
             }
         }
 
+        // A pass can't write to a read-only `.image` resource.
+        if case .image = env.resource(pass.output) {
+            diagnostics.append(.readWriteHazard(pass: pass.id, resource: pass.output))
+        }
+
         // Read/write hazard: writing to a non-ping-pong resource that is also
         // sampled as an input. (Sampling the same ping-pong resource is fine —
         // that's the standard feedback pattern.)

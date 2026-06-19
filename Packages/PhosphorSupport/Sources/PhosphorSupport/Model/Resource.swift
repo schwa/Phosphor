@@ -7,12 +7,36 @@ import simd
 /// can add buffers, cubemaps, etc. without changing call sites.
 public enum Resource: Hashable, Sendable {
     case texture2D(id: ResourceID, spec: Texture2DSpec)
+    /// A read-only image asset bound by name. Format and size are
+    /// determined by the decoded image — callers don't pre-declare them.
+    case image(id: ResourceID, name: String, access: TextureAccess)
 
     public var id: ResourceID {
         switch self {
         case .texture2D(let id, _): return id
+        case .image(let id, _, _): return id
         }
     }
+
+    /// The MSL access qualifier the kernel-side `iChannelN` binding should
+    /// use for this resource. Texture2D resources default to `.read` (the
+    /// historical behavior); image resources can opt into `.sample` via
+    /// front-matter.
+    public var access: TextureAccess {
+        switch self {
+        case .texture2D: return .read
+        case .image(_, _, let access): return access
+        }
+    }
+}
+
+/// MSL access qualifier for a channel binding's `texture2d<float, ...>`.
+///
+/// `.read` is integer-pixel access via `.read(coord)`; `.sample` is
+/// `.sample(sampler, uv)` with optional filtering.
+public enum TextureAccess: String, Hashable, Codable, Sendable {
+    case read
+    case sample
 }
 
 /// Describes a 2D texture resource: size, format, ping-pong behavior, initial contents.

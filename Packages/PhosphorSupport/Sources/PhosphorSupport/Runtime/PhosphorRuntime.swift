@@ -291,19 +291,32 @@ public final class PhosphorRuntime {
 
         var textures = self.textures
         for resource in environment.resources {
-            guard case let .texture2D(id, spec) = resource else { continue }
-            let (width, height) = pixelDimensions(for: spec.size, drawableSize: drawableSize)
-            let existing = textures[id]
-            let dimensionsChanged = (existing != nil) && (existing!.a.width != width || existing!.a.height != height)
-            let pingPongChanged = (existing != nil) && (existing!.pingPong != spec.pingPong)
-            let resizeRequired = (drawableChanged && dimensionDependsOnDrawable(spec.size))
-                || existing == nil
-                || dimensionsChanged
-                || pingPongChanged
-            guard resizeRequired else { continue }
+            switch resource {
+            case let .texture2D(id, spec):
+                let (width, height) = pixelDimensions(for: spec.size, drawableSize: drawableSize)
+                let existing = textures[id]
+                let dimensionsChanged = (existing != nil) && (existing!.a.width != width || existing!.a.height != height)
+                let pingPongChanged = (existing != nil) && (existing!.pingPong != spec.pingPong)
+                let resizeRequired = (drawableChanged && dimensionDependsOnDrawable(spec.size))
+                    || existing == nil
+                    || dimensionsChanged
+                    || pingPongChanged
+                guard resizeRequired else { continue }
 
-            textures[id] = try allocate(id: id, spec: spec, width: width, height: height)
-            resizedFlag = true
+                textures[id] = try allocate(id: id, spec: spec, width: width, height: height)
+                resizedFlag = true
+
+            case let .image(id, name, _):
+                // Once loaded, image resources don't depend on drawable size
+                // or anything else — keep them across frames.
+                guard textures[id] == nil else { continue }
+
+                if let texture = makeImageTexture(name: name) {
+                    textures[id] = PingPongTexture(pingPong: false, a: texture, b: texture)
+                } else {
+                    appendDiagnostic(.missingAsset(name: name, in: id))
+                }
+            }
         }
 
         // Drop textures for resources that no longer exist.
@@ -521,6 +534,26 @@ public final class PhosphorRuntime {
 
     private func appendDiagnostic(_ diagnostic: PhosphorDiagnostic) {
         diagnostics.append(diagnostic)
+    }
+
+    /// Decodes the named asset directly into an MTLTexture via
+    /// MTKTextureLoader. Returns nil if the asset is missing or doesn't
+    /// decode. Caller surfaces the diagnostic.
+    private func makeImageTexture(name: String) -> MTLTexture? {
+        guard let asset = assets[name] else { return nil }
+        let options: [MTKTextureLoader.Option: Any] = [
+            .textureUsage: NSNumber(value: MTLTextureUsage.shaderRead.rawValue),
+            .textureStorageMode: NSNumber(value: MTLStorageMode.private.rawValue),
+            .SRGB: NSNumber(value: false)
+        ]
+        do {
+            let texture = try textureLoader.newTexture(data: asset.data, options: options)
+            texture.label = "Phosphor.Image.\(name)"
+            return texture
+        } catch {
+            Self.logger.error("asset '\(name, privacy: .public)' failed to decode: \(error, privacy: .public)")
+            return nil
+        }
     }
 
     private func pixelDimensions(for size: TextureSize, drawableSize: CGSize) -> (Int, Int) {

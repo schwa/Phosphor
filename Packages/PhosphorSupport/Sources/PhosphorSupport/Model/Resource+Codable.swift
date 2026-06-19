@@ -15,10 +15,13 @@ extension Resource: Codable {
         case kind
         case id
         case spec
+        case name
+        case access
     }
 
     private enum Kind: String, Codable {
         case texture2D
+        case image
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -28,6 +31,13 @@ extension Resource: Codable {
             try container.encode(Kind.texture2D, forKey: .kind)
             try container.encode(id, forKey: .id)
             try container.encode(spec, forKey: .spec)
+        case .image(let id, let name, let access):
+            try container.encode(Kind.image, forKey: .kind)
+            try container.encode(id, forKey: .id)
+            try container.encode(name, forKey: .name)
+            if access != .read {
+                try container.encode(access, forKey: .access)
+            }
         }
     }
 
@@ -39,6 +49,11 @@ extension Resource: Codable {
             let id = try container.decode(ResourceID.self, forKey: .id)
             let spec = try container.decode(Texture2DSpec.self, forKey: .spec)
             self = .texture2D(id: id, spec: spec)
+        case .image:
+            let id = try container.decode(ResourceID.self, forKey: .id)
+            let name = try container.decode(String.self, forKey: .name)
+            let access = try container.decodeIfPresent(TextureAccess.self, forKey: .access) ?? .read
+            self = .image(id: id, name: name, access: access)
         }
     }
 }

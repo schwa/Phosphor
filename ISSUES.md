@@ -786,12 +786,11 @@ Use the swift-documentation skill.
 ## 26: Shadertoy compatibility audit: what fraction can we run today?
 
 +++
-status: blocked
+status: open
 priority: medium
 kind: none
-depends: 46
 created: 2026-06-18T22:08:22Z
-updated: 2026-06-19T02:46:48Z
+updated: 2026-06-19T16:16:03Z
 +++
 
 Survey Shadertoy's API surface against what Phosphor 2 currently supports. Goal: a written gap analysis so we know what to add next to maximise the fraction of Shadertoy shaders that port over with mechanical changes.
@@ -854,12 +853,11 @@ Outcome: a markdown table (or a doc section under DocC) summarising what 'a Shad
 ## 27: Shadertoy compatibility layer: auto-translate Shadertoy GLSL to Phosphor MSL
 
 +++
-status: blocked
+status: open
 priority: medium
 kind: none
-depends: 46
 created: 2026-06-18T22:08:49Z
-updated: 2026-06-19T02:46:48Z
+updated: 2026-06-19T16:16:03Z
 +++
 
 Make Phosphor accept Shadertoy source verbatim and translate it to a Phosphor kernel at runtime, so users can paste Shadertoy URLs/snippets directly without manual rewriting.
@@ -1303,12 +1301,11 @@ Leaving open for option 1 or 2 later.
 ## 39: Video input: webcam source
 
 +++
-status: blocked
+status: open
 priority: medium
 kind: feature
-depends: 46
 created: 2026-06-19T01:23:57Z
-updated: 2026-06-19T02:46:48Z
+updated: 2026-06-19T16:16:03Z
 +++
 
 Add support for using a webcam as a live video input source.
@@ -1623,11 +1620,12 @@ The playback clock state machine inside the running view stays where it is for n
 ## 46: .phosphor bundle document format (file package with embedded assets)
 
 +++
-status: new
+status: open
 priority: medium
 kind: feature
 labels: architecture
 created: 2026-06-19T02:46:40Z
+updated: 2026-06-19T16:16:03Z
 +++
 
 ## Why
