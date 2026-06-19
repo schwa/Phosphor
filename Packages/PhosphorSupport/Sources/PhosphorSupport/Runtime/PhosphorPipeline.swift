@@ -6,7 +6,7 @@ import MetalSprocketsSupport
 import MetalSprocketsUI
 
 /// Per-frame element that runs every compute pass in the environment, then
-/// blits the chosen output resource to the drawable via
+/// blits the env's `output` texture to the drawable via
 /// `TextureBillboardPipeline`.
 ///
 /// Ping-pong parity is derived directly from the frame counter — no state.
@@ -43,25 +43,20 @@ public struct PhosphorPipeline: Element {
         get throws {
             try? runtime.ensureTextures(drawableSize: drawableSize)
             runtime.writeAudioBuffers()
-            runtime.writeBuiltinUniforms(uniforms)
             runtime.writeUserUniforms(userUniformValues)
 
-            // Parity for every ping-pong resource derived from the frame count.
-            // Non-ping-pong resources still get a parity entry (always true) so
+            // Parity for every ping-pong texture derived from the frame count.
+            // Non-ping-pong textures still get an entry (always true) so
             // downstream lookups don't have to special-case them.
             let isEvenFrame = (UInt64(uniforms.frame) % 2) == 0
             var parityByResource: [ResourceID: Bool] = [:]
-            for resource in runtime.environment.resources {
-                if case let .texture2D(id, spec) = resource {
-                    parityByResource[id] = spec.pingPong ? isEvenFrame : true
-                }
+            for texture in runtime.environment.textures {
+                parityByResource[texture.id] = (texture.swap != .none) ? isEvenFrame : true
             }
-            let useLists = runtime.writeChannelBuffers(parity: parityByResource)
+            let useLists = runtime.writePassUniforms(builtin: uniforms, parity: parityByResource)
 
-            // The billboard samples this frame's *write* target — same parity
-            // as the writing pass. If the host picked a non-default resource
-            // and it doesn't exist (stale binding after edit), fall back to
-            // the environment's declared output.
+            // The billboard samples this frame's *write* target of the
+            // chosen output texture — same parity as the writing pass.
             let outputResourceID: ResourceID = {
                 if let chosen = displayedResource,
                    runtime.textures[chosen] != nil {
@@ -77,7 +72,7 @@ public struct PhosphorPipeline: Element {
                 ForEach(Array(enabledPasses.enumerated()), id: \.offset) { _, pass in
                     try makeComputePass(
                         pass,
-                        parity: parityByResource[pass.output] ?? true,
+                        parity: parityByResource,
                         useResources: useLists[pass.id] ?? []
                     )
                 }
@@ -98,25 +93,38 @@ public struct PhosphorPipeline: Element {
         }
     }
 
+    /// Finds the texture this pass writes to, using its first
+    /// `.write` / `.readWrite` binding. Dispatch grid size matches that
+    /// texture's dimensions.
+    private func primaryWriteTexture(for pass: Pass, parity: [ResourceID: Bool]) -> MTLTexture? {
+        guard let binding = pass.textures.first(where: { $0.access == .write || $0.access == .readWrite }) else {
+            return nil
+        }
+        let resourceParity = parity[binding.id] ?? true
+        return runtime.textures[binding.id]?.writeTexture(currentIsA: resourceParity)
+    }
+
     @ElementBuilder
-    private func makeComputePass(_ pass: Pass, parity: Bool, useResources: [MTLTexture]) throws -> some Element {
+    private func makeComputePass(
+        _ pass: Pass,
+        parity: [ResourceID: Bool],
+        useResources: [MTLTexture]
+    ) throws -> some Element {
         if let function = runtime.passFunctions[pass.id],
-           let outTexture = runtime.textures[pass.output]?.writeTexture(currentIsA: parity),
-           let channelBuffer = runtime.channelBuffer(for: pass.id) {
+           let dispatchTarget = primaryWriteTexture(for: pass, parity: parity),
+           let passBuffer = runtime.passUniformsBuffer(for: pass.id) {
             try ComputePass(label: pass.id.raw) {
                 try ComputePipeline(computeKernel: ComputeKernel(function)) {
                     try ComputeDispatch(
-                        threadsPerGrid: MTLSize(width: outTexture.width, height: outTexture.height, depth: 1),
+                        threadsPerGrid: MTLSize(width: dispatchTarget.width, height: dispatchTarget.height, depth: 1),
                         threadsPerThreadgroup: MTLSize(width: 16, height: 16, depth: 1)
                     )
-                    .parameter("outTexture", texture: outTexture)
-                    .parameter("channels", buffer: channelBuffer, offset: 0)
-                    .parameter("uniforms", buffer: runtime.uniformsBuffer, offset: 0)
+                    .parameter("uniforms", buffer: passBuffer, offset: 0)
                     .parameter("userUniforms", buffer: runtime.userUniformsBuffer, offset: 0)
                     .onWorkloadEnter { [runtime] env in
                         guard let encoder = env.computeCommandEncoder else { return }
                         for tex in useResources {
-                            encoder.useResource(tex, usage: .read)
+                            encoder.useResource(tex, usage: [.read, .write])
                         }
                         // The Uniforms argument buffer references the audio
                         // buffers via their gpuAddress; mark them resident.

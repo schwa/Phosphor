@@ -9,20 +9,19 @@ import os
 ///
 /// The runtime is `@Observable` so SwiftUI views can react to recompiles
 /// and diagnostics. State that the per-frame element reads (textures,
-/// pipelines, channel arg buffers, uniforms buffers) lives here.
+/// pipelines, per-pass uniforms buffers) lives here.
 @Observable
 public final class PhosphorRuntime {
     public let device: MTLDevice
     public private(set) var environment: PhosphorEnvironment
     public private(set) var source: String
     public private(set) var diagnostics: [PhosphorDiagnostic] = []
-    /// Compiled `MTLFunction` for each pass, keyed by pass id. The element
-    /// wraps each in a `ComputeKernel` and lets MetalSprockets own pipeline
-    /// state creation + caching.
+
+    /// Compiled `MTLFunction` for each pass, keyed by pass id.
     public private(set) var passFunctions: [ResourceID: MTLFunction] = [:]
     public private(set) var library: MTLLibrary?
 
-    /// Cached textures keyed by ``Resource`` id. Allocated lazily by
+    /// Cached textures keyed by id. Allocated lazily by
     /// ``ensureTextures(drawableSize:)``.
     public private(set) var textures: [ResourceID: PingPongTexture] = [:]
 
@@ -36,28 +35,18 @@ public final class PhosphorRuntime {
     /// Surfaced to kernels via `Uniforms.resized`.
     private var resizedFlag: Bool = false
 
-    /// Signals a reset: next frame's `uniforms.resized` will be 1 so feedback
-    /// shaders re-seed. Also zeros all ping-pong textures so any leftover
-    /// state from before the reset doesn't bleed through.
     public func signalReset() {
         resizedFlag = true
-        // Best-effort zero of ping-pong buffers. Non-pingpong outputs get
-        // overwritten by the next compute pass anyway.
-        for (id, var pair) in textures {
-            guard pair.pingPong else { continue }
+        for (_, pair) in textures where pair.pingPong {
             zeroTexture(pair.a)
             zeroTexture(pair.b)
-            _ = id
-            _ = pair
         }
     }
 
     private func zeroTexture(_ texture: MTLTexture) {
-        // Cheapest path: enqueue a blit pass that fills the texture with zero.
         guard let queue = device.makeCommandQueue(),
               let commandBuffer = queue.makeCommandBuffer(),
               let encoder = commandBuffer.makeBlitCommandEncoder() else { return }
-        // Use copy from a zero-filled buffer of the texture's row size.
         let bytesPerPixel: Int
         switch texture.pixelFormat {
         case .rgba8Unorm: bytesPerPixel = 4
@@ -73,78 +62,45 @@ public final class PhosphorRuntime {
         }
         memset(zero.contents(), 0, length)
         encoder.copy(
-            from: zero,
-            sourceOffset: 0,
-            sourceBytesPerRow: bytesPerRow,
+            from: zero, sourceOffset: 0, sourceBytesPerRow: bytesPerRow,
             sourceBytesPerImage: length,
             sourceSize: MTLSize(width: texture.width, height: texture.height, depth: 1),
-            to: texture,
-            destinationSlice: 0,
-            destinationLevel: 0,
+            to: texture, destinationSlice: 0, destinationLevel: 0,
             destinationOrigin: MTLOrigin(x: 0, y: 0, z: 0)
         )
         encoder.endEncoding()
         commandBuffer.commit()
     }
 
-    /// Per-pass channel argument buffers (Metal 3 bindless). Rebuilt every
-    /// frame against the current parity table to support multi-resource
-    /// pipelines where a pass reads a ping-pong resource owned by a different
-    /// pass. See ``writeChannelBuffers(parity:)``.
-    private var channelBuffers: [ResourceID: MTLBuffer] = [:]
+    /// Per-pass uniforms buffers. Each pass gets its own MTLBuffer carrying
+    /// the BuiltinUniforms scalar prefix followed by the nested Textures
+    /// argument-buffer field (one MTLResourceID per binding). Rebuilt every
+    /// frame; per-frame alloc dodges in-flight read races.
+    private var passUniformsBuffers: [ResourceID: MTLBuffer] = [:]
 
-    /// Returns the channel argument buffer for `pass` (set during the most
-    /// recent ``writeChannelBuffers(parity:)`` call).
-    public func channelBuffer(for pass: ResourceID) -> MTLBuffer? {
-        channelBuffers[pass]
+    public func passUniformsBuffer(for pass: ResourceID) -> MTLBuffer? {
+        passUniformsBuffers[pass]
     }
 
-    /// Built-in uniforms buffer. One slot, written each frame.
-    public private(set) var uniformsBuffer: MTLBuffer
-
     /// User uniforms buffer. Sized to ``UserUniformsLayout/totalSize`` for
-    /// the current environment; allocated fresh per frame to dodge in-flight
-    /// races (see issue #6).
+    /// the current environment.
     public private(set) var userUniformsBuffer: MTLBuffer
 
-    /// Computed layout for `env.uniforms`. Used to pack values and to size
-    /// the per-frame `userUniformsBuffer`.
     public private(set) var userUniformsLayout: UserUniformsLayout.Layout
 
-    /// 1×1 zero texture used for unbound channel slots, so the GPU never
-    /// dereferences a null `MTLResourceID`.
     public private(set) var fallbackTexture: MTLTexture
 
-    /// Audio waveform buffer (1024 floats). Always allocated; zero-filled
-    /// when the microphone is disabled. Referenced by `Uniforms.waveform`.
     public private(set) var waveformBuffer: MTLBuffer
-
-    /// Audio spectrum buffer (512 floats). Always allocated; zero-filled
-    /// when the microphone is disabled. Referenced by `Uniforms.spectrum`.
     public private(set) var spectrumBuffer: MTLBuffer
 
-    /// Length, in samples, of ``waveformBuffer``.
     public static let waveformSampleCount: Int = 1_024
-
-    /// Length, in bins, of ``spectrumBuffer``.
     public static let spectrumBinCount: Int = 512
 
-    /// Audio capture source. When non-nil and running, ``writeAudioBuffers()``
-    /// copies its latest samples into ``waveformBuffer`` each frame.
     public weak var audioCapture: AudioCaptureEngine?
-
-    /// FFT helper. Lazily created on first audio frame; reused thereafter.
     private var spectrumAnalyzer: SpectrumAnalyzer?
 
-    /// Host-supplied binary assets keyed by name. Texture resources whose
-    /// ``Texture2DSpec/initial`` is `.image(name:)` are seeded from this
-    /// map at allocation time. Plain `.metal` documents pass an empty map;
-    /// `.phosphor` bundles populate it from the `assets/` subdirectory.
     public private(set) var assets: [String: PhosphorAsset]
 
-    /// MetalKit texture loader. Used to decode bundled image assets into
-    /// MTLTextures that we then blit into our pre-allocated, shader-
-    /// writable target textures.
     @ObservationIgnored
     private let textureLoader: MTKTextureLoader
 
@@ -159,13 +115,6 @@ public final class PhosphorRuntime {
         self.source = source
         self.assets = assets
         self.textureLoader = MTKTextureLoader(device: device)
-
-        let uniformsLength = max(MemoryLayout<BuiltinUniforms>.stride, 16)
-        guard let uniformsBuffer = device.makeBuffer(length: uniformsLength, options: .storageModeShared) else {
-            throw PhosphorRuntimeError.allocationFailed("uniforms buffer")
-        }
-        uniformsBuffer.label = "Phosphor.Uniforms"
-        self.uniformsBuffer = uniformsBuffer
 
         let userUniformsLayout = UserUniformsLayout.compute(for: environment.uniforms)
         let userUniformsLength = max(userUniformsLayout.totalSize, 16)
@@ -197,10 +146,6 @@ public final class PhosphorRuntime {
         try recompile()
     }
 
-    // MARK: - Document updates
-
-    /// Replace the environment and/or source. Triggers a (synchronous, for now)
-    /// recompile.
     public func update(
         environment: PhosphorEnvironment,
         source: String,
@@ -210,7 +155,6 @@ public final class PhosphorRuntime {
         self.source = source
         self.assets = assets
 
-        // User-uniforms layout may have changed — recompute and reallocate.
         let newLayout = UserUniformsLayout.compute(for: environment.uniforms)
         let newLength = max(newLayout.totalSize, 16)
         if newLength != userUniformsBuffer.length {
@@ -225,11 +169,7 @@ public final class PhosphorRuntime {
         try recompile()
     }
 
-    /// Validate + compile the environment's library and per-pass pipeline states.
-    /// Surfaces fatal diagnostics on the runtime; per-pass compile errors are
-    /// also non-fatal at this layer (failed passes simply don't end up in
-    /// ``pipelines``).
-    private func recompile() {
+    private func recompile() throws {
         var diagnostics = validate(environment)
         let fatal = diagnostics.contains(where: \.isFatal)
         if fatal {
@@ -253,9 +193,6 @@ public final class PhosphorRuntime {
             }
             self.passFunctions = functions
         } catch {
-            // Whole-library compile failure. Attribute to the first enabled pass
-            // for now; future work: parse the Metal error to map line numbers
-            // back to specific kernels.
             let attributedTo = environment.passes.first(where: \.enabled)?.id ?? "library"
             diagnostics.append(.compile(.init(passID: attributedTo, rawError: "\(error)")))
             self.library = nil
@@ -271,7 +208,6 @@ public final class PhosphorRuntime {
             switch diagnostic {
             case .compile(let error):
                 Self.logger.error("[Phosphor] compile error in '\(error.passID.raw, privacy: .public)':\n\(error.rawError, privacy: .public)")
-
             default:
                 Self.logger.error("[Phosphor] \(String(describing: diagnostic), privacy: .public)")
             }
@@ -282,61 +218,36 @@ public final class PhosphorRuntime {
 
     // MARK: - Per-frame state
 
-    /// Make sure textures for every resource exist at the right size for
-    /// `drawableSize`. Reallocates resources whose specified size depends on
-    /// the drawable when the drawable size changes.
+    /// Allocate textures for every declared resource at the right size for
+    /// `drawableSize`. Idempotent for resources whose size doesn't depend
+    /// on the drawable.
     public func ensureTextures(drawableSize: CGSize) throws {
         let drawableChanged = drawableSize != currentDrawableSize
         currentDrawableSize = drawableSize
 
-        var textures = self.textures
-        for resource in environment.resources {
-            switch resource {
-            case let .texture2D(id, spec):
-                let (width, height) = pixelDimensions(for: spec.size, drawableSize: drawableSize)
-                let existing = textures[id]
-                let dimensionsChanged = (existing != nil) && (existing!.a.width != width || existing!.a.height != height)
-                let pingPongChanged = (existing != nil) && (existing!.pingPong != spec.pingPong)
-                let resizeRequired = (drawableChanged && dimensionDependsOnDrawable(spec.size))
-                    || existing == nil
-                    || dimensionsChanged
-                    || pingPongChanged
-                guard resizeRequired else { continue }
+        var liveIDs: Set<ResourceID> = []
+        for texture in environment.textures {
+            liveIDs.insert(texture.id)
+            let existing = textures[texture.id]
+            let (width, height) = pixelDimensions(for: texture.size, drawableSize: drawableSize)
+            let dimensionsChanged = (existing != nil) && (existing!.a.width != width || existing!.a.height != height)
+            let pingPong = texture.swap != .none
+            let pingPongChanged = (existing != nil) && (existing!.pingPong != pingPong)
+            let resizeRequired = (drawableChanged && dimensionDependsOnDrawable(texture.size))
+                || existing == nil
+                || dimensionsChanged
+                || pingPongChanged
+            guard resizeRequired else { continue }
 
-                textures[id] = try allocate(id: id, spec: spec, width: width, height: height)
-                resizedFlag = true
-
-            case let .image(id, name, _):
-                // Once loaded, image resources don't depend on drawable size
-                // or anything else — keep them across frames.
-                guard textures[id] == nil else { continue }
-
-                if let texture = makeImageTexture(name: name) {
-                    textures[id] = PingPongTexture(pingPong: false, a: texture, b: texture)
-                } else {
-                    appendDiagnostic(.missingAsset(name: name, in: id))
-                }
-            }
+            textures[texture.id] = try allocate(texture: texture, width: width, height: height)
+            resizedFlag = true
         }
 
-        // Drop textures for resources that no longer exist.
-        let liveIDs = Set(environment.resources.map(\.id))
         for staleID in textures.keys where !liveIDs.contains(staleID) {
             textures.removeValue(forKey: staleID)
         }
-
-        self.textures = textures
     }
 
-    /// Write the built-in uniforms into a fresh ``uniformsBuffer``.
-    ///
-    /// Allocates a new MTLBuffer per frame. The previous frame's buffer may
-    /// still be in flight on the GPU; overwriting shared-storage buffers
-    /// while the GPU reads them causes intermittent page faults.
-    /// Pulls the most recent audio samples from ``audioCapture`` into
-    /// ``waveformBuffer``. Zero-fills if no engine is attached or the engine
-    /// isn't running. Called by the per-frame element before the dispatches
-    /// reference the buffer.
     public func writeAudioBuffers() {
         let waveformPtr = waveformBuffer.contents().bindMemory(to: Float.self, capacity: Self.waveformSampleCount)
         let spectrumPtr = spectrumBuffer.contents().bindMemory(to: Float.self, capacity: Self.spectrumBinCount)
@@ -355,91 +266,103 @@ public final class PhosphorRuntime {
         }
     }
 
-    public func writeBuiltinUniforms(_ uniforms: BuiltinUniforms) {
-        var copy = uniforms
-        copy.channelCount = UInt32(channelCount(for: environment))
+    /// Writes one MTLBuffer per pass containing the BuiltinUniforms prefix
+    /// followed by the texture handles for that pass's bindings. Allocates
+    /// a fresh buffer per pass per frame to avoid in-flight write races.
+    ///
+    /// `builtin` is the BuiltinUniforms values to use as the prefix; the
+    /// runtime fills in `resized`, `waveform`, and `spectrum` itself.
+    /// `parity` carries the ping-pong parity for each ping-pong texture.
+    ///
+    /// Returns a map of pass id → use-list of textures the kernel will
+    /// touch; the per-frame element passes that to `encoder.useResource`.
+    public func writePassUniforms(builtin: BuiltinUniforms, parity: [ResourceID: Bool]) -> [ResourceID: [MTLTexture]] {
+        var copy = builtin
         copy.resized = resizedFlag ? 1 : 0
         resizedFlag = false
         copy.waveform = waveformBuffer.gpuAddress
         copy.spectrum = spectrumBuffer.gpuAddress
-        let length = MemoryLayout<BuiltinUniforms>.stride
-        guard let buffer = device.makeBuffer(length: length, options: .storageModeShared) else { return }
-        buffer.label = "Phosphor.Uniforms"
-        memcpy(buffer.contents(), &copy, MemoryLayout<BuiltinUniforms>.size)
-        uniformsBuffer = buffer
-    }
 
-    /// Writes per-pass channel argument buffers for the current frame.
-    ///
-    /// For each channel slot the rule is:
-    ///
-    /// - If the sampled resource is the same as the pass's output (i.e.
-    ///   self-feedback like Game of Life), bind `readTexture` for that
-    ///   resource's parity — the kernel reads last frame's contents.
-    /// - If the sampled resource is written by an *earlier* pass this frame,
-    ///   bind `writeTexture` for that resource's parity — the kernel sees
-    ///   the upstream pass's just-written data, no one-frame lag.
-    /// - Otherwise (resource not written this frame, or self-feedback for
-    ///   non-pingpong), bind `readTexture` and we get last frame's data.
-    ///
-    /// Allocates a fresh MTLBuffer per pass per frame to avoid in-flight
-    /// read races.
-    public func writeChannelBuffers(parity: [ResourceID: Bool]) -> [ResourceID: [MTLTexture]] {
-        let slotCount = channelCount(for: environment)
-        let bufferLength = max(slotCount * MemoryLayout<MTLResourceID>.stride, 16)
+        let builtinSize = MemoryLayout<BuiltinUniforms>.size
+        let builtinStride = MemoryLayout<BuiltinUniforms>.stride
+        let handleStride = MemoryLayout<MTLResourceID>.stride
+
         var newBuffers: [ResourceID: MTLBuffer] = [:]
         var useLists: [ResourceID: [MTLTexture]] = [:]
 
-        // Track which resources have been written so far this frame as we walk
-        // the pass list in order. A pass's inputs that sample one of these
-        // resources (and aren't self-feedback) get the writeTexture (just-
-        // written data); inputs that sample a not-yet-written resource get
-        // the readTexture (last frame).
+        // Track which textures have been written so far this frame so a
+        // downstream pass reading the same id sees just-written data.
         var alreadyWritten: Set<ResourceID> = []
 
         for pass in environment.passes where pass.enabled {
-            guard let buffer = device.makeBuffer(length: bufferLength, options: .storageModeShared) else { continue }
-            buffer.label = "Phosphor.Channels.\(pass.id.raw)"
-            let ptr = buffer.contents().bindMemory(to: MTLResourceID.self, capacity: max(slotCount, 1))
-            var useList: [MTLTexture] = []
+            // Buffer layout: [BuiltinUniforms prefix][N × MTLResourceID]
+            let handleCount = pass.textures.count
+            let length = builtinStride + handleCount * handleStride
+            guard let buffer = device.makeBuffer(length: max(length, 16), options: .storageModeShared) else { continue }
+            buffer.label = "Phosphor.Uniforms.\(pass.id.raw)"
 
-            for slot in 0..<slotCount {
-                let channelName = "iChannel\(slot)"
-                let resourceID = pass.inputs.first { $0.name == channelName }?.resource
+            // Prefix.
+            withUnsafePointer(to: copy) { srcPtr in
+                memcpy(buffer.contents(), srcPtr, builtinSize)
+            }
+
+            // Texture handles.
+            let handlePtr = buffer.contents().advanced(by: builtinStride).assumingMemoryBound(to: MTLResourceID.self)
+            var useList: [MTLTexture] = []
+            for (index, binding) in pass.textures.enumerated() {
                 let texture: MTLTexture
-                if let resourceID, let ping = textures[resourceID] {
-                    let resourceParity = parity[resourceID] ?? true
-                    let isSelfFeedback = resourceID == pass.output
-                    if !isSelfFeedback, alreadyWritten.contains(resourceID) {
-                        // Upstream pass wrote this resource earlier this frame.
-                        // Read what they just wrote.
-                        texture = ping.writeTexture(currentIsA: resourceParity)
-                    } else {
-                        // Self-feedback, or a resource not written this frame.
-                        // Read last frame's contents.
-                        texture = ping.readTexture(currentIsA: resourceParity)
+                if let pair = textures[binding.id] {
+                    let resourceParity = parity[binding.id] ?? true
+                    switch binding.access {
+                    case .write, .readWrite:
+                        texture = pair.writeTexture(currentIsA: resourceParity)
+                    case .read, .sample:
+                        let isSelfFeedback = pass.textures.contains { $0.id == binding.id && ($0.access == .write || $0.access == .readWrite) }
+                        if !isSelfFeedback, alreadyWritten.contains(binding.id) {
+                            texture = pair.writeTexture(currentIsA: resourceParity)
+                        } else {
+                            texture = pair.readTexture(currentIsA: resourceParity)
+                        }
                     }
                 } else {
                     texture = fallbackTexture
                 }
-                ptr[slot] = texture.gpuResourceID
+                handlePtr[index] = texture.gpuResourceID
                 useList.append(texture)
             }
 
             newBuffers[pass.id] = buffer
             useLists[pass.id] = useList
-            alreadyWritten.insert(pass.output)
+
+            // Record any write targets of this pass for downstream lookups.
+            for binding in pass.textures where binding.access == .write || binding.access == .readWrite {
+                alreadyWritten.insert(binding.id)
+            }
         }
 
-        self.channelBuffers = newBuffers
+        self.passUniformsBuffers = newBuffers
         return useLists
     }
 
-    // MARK: - Helpers
+    public func writeUserUniforms(_ values: [String: UniformValue]) {
+        let length = max(userUniformsLayout.totalSize, 16)
+        guard let buffer = device.makeBuffer(length: length, options: .storageModeShared) else { return }
+        buffer.label = "Phosphor.UserUniforms"
+        let defaults = UserUniformsLayout.defaultsDictionary(environment.uniforms)
+        UserUniformsLayout.pack(
+            values: values,
+            defaults: defaults,
+            layout: userUniformsLayout,
+            into: buffer.contents()
+        )
+        userUniformsBuffer = buffer
+    }
 
-    private func allocate(id: ResourceID, spec: Texture2DSpec, width: Int, height: Int) throws -> PingPongTexture {
+    // MARK: - Allocation
+
+    private func allocate(texture: Texture, width: Int, height: Int) throws -> PingPongTexture {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: mtlPixelFormat(spec.format),
+            pixelFormat: mtlPixelFormat(texture.format),
             width: max(1, width),
             height: max(1, height),
             mipmapped: false
@@ -447,123 +370,103 @@ public final class PhosphorRuntime {
         descriptor.usage = [.shaderRead, .shaderWrite]
         descriptor.storageMode = .private
         guard let a = device.makeTexture(descriptor: descriptor) else {
-            throw PhosphorRuntimeError.allocationFailed("texture \(id.raw) (a)")
+            throw PhosphorRuntimeError.allocationFailed("texture \(texture.id.raw) (a)")
         }
-        a.label = "Phosphor.\(id.raw).a"
+        a.label = "Phosphor.\(texture.id.raw).a"
 
+        let pingPong = texture.swap != .none
         let b: MTLTexture
-        if spec.pingPong {
+        if pingPong {
             guard let madeB = device.makeTexture(descriptor: descriptor) else {
-                throw PhosphorRuntimeError.allocationFailed("texture \(id.raw) (b)")
+                throw PhosphorRuntimeError.allocationFailed("texture \(texture.id.raw) (b)")
             }
-            madeB.label = "Phosphor.\(id.raw).b"
+            madeB.label = "Phosphor.\(texture.id.raw).b"
             b = madeB
         } else {
             b = a
         }
 
-        // Honor spec.initial. .zero is implicit (storage mode private +
-        // first compute write). .image is the main case: upload the asset
-        // into both halves of the ping-pong pair so feedback shaders read
-        // the seed image on frame 0.
-        // .color / .noise are still TODO.
-        if case let .image(name) = spec.initial {
+        // Honor init action.
+        switch texture.initialContents {
+        case .zero:
+            break  // Storage mode .private + first compute write zero-fills implicitly.
+        case .fill:
+            // TODO(#52): implement fill via a small init compute or blit-with-color.
+            break
+        case .image(let file):
             do {
-                try seedTextureFromAsset(name: name, into: a, alsoInto: spec.pingPong ? b : nil)
+                try seedTextureFromAsset(file: file, into: a, alsoInto: pingPong ? b : nil)
             } catch {
-                appendDiagnostic(.missingAsset(name: name, in: id))
+                appendDiagnostic(.missingAsset(name: file, in: texture.id))
             }
+        case .noise:
+            // TODO(#52): implement noise init.
+            break
         }
 
-        return PingPongTexture(pingPong: spec.pingPong, a: a, b: b)
+        return PingPongTexture(pingPong: pingPong, a: a, b: b)
     }
 
-    /// Decodes the named asset and blits the decoded image into the given
-    /// target textures. Throws ``PhosphorRuntimeError/assetMissing(name:)``
-    /// if no asset by that name was supplied or it doesn't decode as an
-    /// image; the caller turns that into a non-fatal diagnostic.
     private func seedTextureFromAsset(
-        name: String,
+        file: String,
         into primary: MTLTexture,
         alsoInto secondary: MTLTexture?
     ) throws {
-        guard let asset = assets[name] else {
-            throw PhosphorRuntimeError.assetMissing(name: name)
+        guard let asset = assetData(named: file) else {
+            throw PhosphorRuntimeError.assetMissing(name: file)
         }
 
-        // MTKTextureLoader decodes any ImageIO format and gives us an
-        // MTLTexture. Force a shared storage mode and SRGB->linear so the
-        // bytes match what our compute shaders expect.
         let options: [MTKTextureLoader.Option: Any] = [
             .textureStorageMode: NSNumber(value: MTLStorageMode.shared.rawValue),
             .SRGB: NSNumber(value: false)
         ]
         let decoded: MTLTexture
         do {
-            decoded = try textureLoader.newTexture(data: asset.data, options: options)
+            decoded = try textureLoader.newTexture(data: asset, options: options)
         } catch {
-            Self.logger.error("asset '\(name, privacy: .public)' failed to decode: \(error, privacy: .public)")
-            throw PhosphorRuntimeError.assetMissing(name: name)
+            Self.logger.error("asset '\(file, privacy: .public)' failed to decode: \(error, privacy: .public)")
+            throw PhosphorRuntimeError.assetMissing(name: file)
         }
 
-        // Blit decoded -> primary (and -> secondary for ping-pong).
         guard let queue = device.makeCommandQueue(),
               let commandBuffer = queue.makeCommandBuffer(),
               let encoder = commandBuffer.makeBlitCommandEncoder() else {
-            throw PhosphorRuntimeError.assetMissing(name: name)
+            throw PhosphorRuntimeError.assetMissing(name: file)
         }
-
         let copyWidth = min(decoded.width, primary.width)
         let copyHeight = min(decoded.height, primary.height)
         let sourceSize = MTLSize(width: copyWidth, height: copyHeight, depth: 1)
         let origin = MTLOrigin(x: 0, y: 0, z: 0)
-
-        encoder.copy(
-            from: decoded, sourceSlice: 0, sourceLevel: 0, sourceOrigin: origin, sourceSize: sourceSize,
-            to: primary, destinationSlice: 0, destinationLevel: 0, destinationOrigin: origin
-        )
+        encoder.copy(from: decoded, sourceSlice: 0, sourceLevel: 0, sourceOrigin: origin, sourceSize: sourceSize,
+                     to: primary, destinationSlice: 0, destinationLevel: 0, destinationOrigin: origin)
         if let secondary {
-            encoder.copy(
-                from: decoded, sourceSlice: 0, sourceLevel: 0, sourceOrigin: origin, sourceSize: sourceSize,
-                to: secondary, destinationSlice: 0, destinationLevel: 0, destinationOrigin: origin
-            )
+            encoder.copy(from: decoded, sourceSlice: 0, sourceLevel: 0, sourceOrigin: origin, sourceSize: sourceSize,
+                         to: secondary, destinationSlice: 0, destinationLevel: 0, destinationOrigin: origin)
         }
         encoder.endEncoding()
         commandBuffer.commit()
+    }
+
+    /// Looks up asset data, trying the literal name first then the name
+    /// without its extension (so kernels can write `file = "screenshot"`
+    /// for an asset stored on disk as `screenshot.png`).
+    private func assetData(named: String) -> Data? {
+        if let asset = assets[named] { return asset.data }
+        let stem = (named as NSString).deletingPathExtension
+        if stem != named, let asset = assets[stem] { return asset.data }
+        return nil
     }
 
     private func appendDiagnostic(_ diagnostic: PhosphorDiagnostic) {
         diagnostics.append(diagnostic)
     }
 
-    /// Decodes the named asset directly into an MTLTexture via
-    /// MTKTextureLoader. Returns nil if the asset is missing or doesn't
-    /// decode. Caller surfaces the diagnostic.
-    private func makeImageTexture(name: String) -> MTLTexture? {
-        guard let asset = assets[name] else { return nil }
-        let options: [MTKTextureLoader.Option: Any] = [
-            .textureUsage: NSNumber(value: MTLTextureUsage.shaderRead.rawValue),
-            .textureStorageMode: NSNumber(value: MTLStorageMode.private.rawValue),
-            .SRGB: NSNumber(value: false)
-        ]
-        do {
-            let texture = try textureLoader.newTexture(data: asset.data, options: options)
-            texture.label = "Phosphor.Image.\(name)"
-            return texture
-        } catch {
-            Self.logger.error("asset '\(name, privacy: .public)' failed to decode: \(error, privacy: .public)")
-            return nil
-        }
-    }
-
     private func pixelDimensions(for size: TextureSize, drawableSize: CGSize) -> (Int, Int) {
         switch size {
         case .drawable:
             return (max(1, Int(drawableSize.width.rounded())), max(1, Int(drawableSize.height.rounded())))
-
         case .fixed(let width, let height):
             return (max(1, width), max(1, height))
-
         case .scaledDrawable(let scale):
             return (
                 max(1, Int((Float(drawableSize.width) * scale).rounded())),
@@ -587,30 +490,9 @@ public final class PhosphorRuntime {
         }
     }
 
-    /// Allocates a fresh user-uniforms buffer and packs `values` into it via
-    /// ``UserUniformsLayout``. Falls back to declared defaults for any name
-    /// not present in `values`. Same per-frame-alloc dodge as the built-in
-    /// uniforms buffer; tracked by issue #6.
-    public func writeUserUniforms(_ values: [String: UniformValue]) {
-        let length = max(userUniformsLayout.totalSize, 16)
-        guard let buffer = device.makeBuffer(length: length, options: .storageModeShared) else { return }
-        buffer.label = "Phosphor.UserUniforms"
-        let defaults = UserUniformsLayout.defaultsDictionary(environment.uniforms)
-        UserUniformsLayout.pack(
-            values: values,
-            defaults: defaults,
-            layout: userUniformsLayout,
-            into: buffer.contents()
-        )
-        userUniformsBuffer = buffer
-    }
-
     private static func makeFallbackTexture(device: MTLDevice) throws -> MTLTexture {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba32Float,
-            width: 1,
-            height: 1,
-            mipmapped: false
+            pixelFormat: .rgba32Float, width: 1, height: 1, mipmapped: false
         )
         descriptor.usage = [.shaderRead]
         descriptor.storageMode = .shared

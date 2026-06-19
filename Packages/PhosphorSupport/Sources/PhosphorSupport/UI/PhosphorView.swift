@@ -348,17 +348,14 @@ private struct DiagnosticsOverlay: View {
         case .duplicatePass(let id):
             return "duplicate pass '\(id)'"
 
-        case .unknownChannelName(let name, let pass):
-            return "unknown channel '\(name)' in pass '\(pass)'"
-
-        case .channelOutOfRange(let name, let inferred):
-            return "channel '\(name)' out of range (inferred \(inferred))"
-
         case .duplicateBinding(let name, let pass):
             return "duplicate binding '\(name)' in pass '\(pass)'"
 
         case .readWriteHazard(let pass, let resource):
             return "read/write hazard: pass '\(pass)' reads + writes '\(resource)'"
+
+        case .passHasNoOutput(let pass):
+            return "pass '\(pass)' declares no write binding"
 
         case .missingOutput(let id):
             return "missing output resource '\(id)'"

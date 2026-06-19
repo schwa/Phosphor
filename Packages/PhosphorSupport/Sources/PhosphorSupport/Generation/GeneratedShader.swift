@@ -108,25 +108,25 @@ public extension GeneratedShader {
     /// invalid fields turn into `PhosphorDiagnostic`s; the caller decides
     /// whether to surface them.
     func toPhosphorEnvironment() -> (environment: PhosphorEnvironment, diagnostics: [PhosphorDiagnostic]) {
-        let resources: [Resource] = self.resources.map { resource in
-            .texture2D(
+        // Map the generator's resources -> textures with sensible defaults.
+        // The generator schema still uses the old shape (single output
+        // resource id per pass, separate channel inputs); we synthesize
+        // bindings that include a write target for each pass's output.
+        let textures: [Texture] = self.resources.map { resource in
+            Texture(
                 id: ResourceID(resource.id),
-                spec: .init(
-                    size: .drawable,
-                    format: pixelFormat(from: resource.format),
-                    pingPong: resource.pingPong,
-                    flipTiming: .endOfFrame,
-                    initial: .zero
-                )
+                format: pixelFormat(from: resource.format),
+                swap: resource.pingPong ? .endOfFrame : .none
             )
         }
 
         let passes: [Pass] = self.passes.map { pass in
-            Pass(
-                id: ResourceID(pass.id),
-                inputs: pass.inputs.map { Pass.Input(name: $0.name, resource: ResourceID($0.resource)) },
-                output: ResourceID(pass.output)
-            )
+            var bindings: [Pass.TextureBinding] = []
+            bindings.append(.init(id: ResourceID(pass.output), access: .write))
+            for input in pass.inputs {
+                bindings.append(.init(id: ResourceID(input.resource), access: .read))
+            }
+            return Pass(id: ResourceID(pass.id), textures: bindings)
         }
 
         let uniforms: [UniformDecl] = self.uniforms.map { uniform in
@@ -139,7 +139,7 @@ public extension GeneratedShader {
         }
 
         let env = PhosphorEnvironment(
-            resources: resources,
+            textures: textures,
             passes: passes,
             output: ResourceID(outputResourceID),
             uniforms: uniforms,
