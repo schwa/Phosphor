@@ -10,10 +10,24 @@ struct PhosphorDocumentView: View {
     @State private var showHeader: Bool = false
     @State private var showGenerate: Bool = false
     @AppStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
+    @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
+    @Environment(\.audioCapture) private var audioCapture
 
     /// True if the current document has at least one declared uniform.
     private var hasUniforms: Bool {
         !(document.parsed.environment?.uniforms.isEmpty ?? true)
+    }
+
+    /// Two-way binding for the mic toggle: writes the AppStorage flag AND
+    /// pushes through to the live engine.
+    private var micToggleBinding: Binding<Bool> {
+        Binding(
+            get: { micEnabled },
+            set: { newValue in
+                micEnabled = newValue
+                audioCapture?.isEnabled = newValue
+            }
+        )
     }
 
     var body: some View {
@@ -44,6 +58,16 @@ struct PhosphorDocumentView: View {
                 .help(hasUniforms
                     ? "Show or hide the uniforms panel"
                     : "No uniforms declared in this shader")
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Toggle(isOn: micToggleBinding) {
+                    Label("Microphone", systemImage: micEnabled ? "mic.fill" : "mic.slash")
+                }
+                .toggleStyle(.button)
+                .disabled(audioCapture?.isPermissionDenied ?? false)
+                .help(audioCapture?.isPermissionDenied == true
+                    ? "Microphone access was denied. Enable it in System Settings → Privacy & Security."
+                    : "Enable microphone input for audio-reactive shaders")
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {

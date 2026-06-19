@@ -22,6 +22,7 @@ public struct PhosphorView: View {
     @State private var initError: Error?
     @State private var uniformValues: [String: UniformValue] = [:]
     @AppStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
+    @Environment(\.audioCapture) private var audioCapture
 
     // Mouse state, in pixel coordinates (matching uniforms.resolution).
     // Updated by gestures on the RenderView; passed into BuiltinUniforms
@@ -177,7 +178,9 @@ public struct PhosphorView: View {
                     ])
                     return
                 }
-                runtime = try PhosphorRuntime(device: device, environment: environment, source: source)
+                let newRuntime = try PhosphorRuntime(device: device, environment: environment, source: source)
+                newRuntime.audioCapture = audioCapture
+                runtime = newRuntime
             }
         } catch {
             initError = error

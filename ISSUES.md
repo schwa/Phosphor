@@ -1044,24 +1044,25 @@ No audio capture yet \u2014 buffers stay zero-filled. This issue is purely the s
 Effort: small. ~30-45 min plus a couple build/test cycles.
 
 - `2026-06-19T00:08:16Z`: Done. Migrated kernels from `constant Uniforms&` to `device const Uniforms*` so the Uniforms struct can carry device pointers.
-
-- BuiltinUniforms gains two UInt64 fields (waveform, spectrum) holding GPU addresses. Struct grows from 48 to 64 bytes; layout test updated.
-- PhosphorRuntime allocates zero-filled waveformBuffer (1024 floats) and spectrumBuffer (512 floats) at init. writeBuiltinUniforms writes their gpuAddress into the uniforms struct each frame.
-- PhosphorPipeline calls useResource on both audio buffers in the compute encoder so they're resident when the kernel dereferences them via the Uniforms argument buffer.
-- PhosphorHeader.uniformsDecl() now emits two `device const float*` fields in the synthesized Uniforms MSL struct.
-- All 8 Examples/*.metal demos and CompileTests embedded sources updated: signature switch + every uniforms.x → uniforms->x.
-- ShaderGenerator system prompt and all 3 worked examples updated to the new signature.
-- All 39 tests pass; existing demos render unchanged.
+- `2026-06-19T00:08:16Z`: BuiltinUniforms gains two UInt64 fields (waveform, spectrum) holding GPU addresses. Struct grows from 48 to 64 bytes; layout test updated.
+- `2026-06-19T00:08:16Z`: PhosphorRuntime allocates zero-filled waveformBuffer (1024 floats) and spectrumBuffer (512 floats) at init. writeBuiltinUniforms writes their gpuAddress into the uniforms struct each frame.
+- `2026-06-19T00:08:16Z`: PhosphorPipeline calls useResource on both audio buffers in the compute encoder so they're resident when the kernel dereferences them via the Uniforms argument buffer.
+- `2026-06-19T00:08:16Z`: PhosphorHeader.uniformsDecl() now emits two `device const float*` fields in the synthesized Uniforms MSL struct.
+- `2026-06-19T00:08:16Z`: All 8 Examples/*.metal demos and CompileTests embedded sources updated: signature switch + every uniforms.x → uniforms->x.
+- `2026-06-19T00:08:16Z`: ShaderGenerator system prompt and all 3 worked examples updated to the new signature.
+- `2026-06-19T00:08:16Z`: All 39 tests pass; existing demos render unchanged.
 
 ---
 
 ## 34: Audio input v2: AVAudioEngine capture pipeline
 
 +++
-status: new
+status: closed
 priority: low
 kind: none
 created: 2026-06-18T23:49:57Z
+updated: 2026-06-19T00:24:56Z
+closed: 2026-06-19T00:24:56Z
 +++
 
 Capture step for #17. Depends on #33 (signature change landed first).
@@ -1080,6 +1081,16 @@ Output: `audioWaveformBuffer` on PhosphorRuntime is populated each frame with th
 No FFT yet \u2014 spectrum buffer stays zero. That's the next issue.
 
 Effort: medium. AVAudioEngine + sandboxed permissions are the main complications.
+
+- `2026-06-19T00:24:56Z`: Done. AudioCaptureEngine in PhosphorSupport wraps AVAudioEngine with a tap on the input node, populates a 1024-sample mono Float32 ring buffer with the most recent audio, and exposes copyLatestSamples(into:) for the render loop.
+
+@Observable, @MainActor for control surface; lock-protected nonisolated ring buffer + isRunning flag so the Metal render loop can read without bouncing through the actor. Injected via SwiftUI environment (\.audioCapture).
+
+App-side: PhosphorApp creates and owns the engine, persists isEnabled via @AppStorage. PhosphorDocumentView's toolbar gains a mic toggle (mic.fill / mic.slash) bound to the same AppStorage key; disabled with help text when permission was denied.
+
+PhosphorRuntime gains writeAudioBuffers() which is called by PhosphorPipeline each frame. When the engine is running it copies the ring buffer into waveformBuffer; otherwise zero-fills. The spectrum buffer remains zero until #35 (FFT).
+
+Note: permission-prompt plumbing through the sandbox audio-input entitlement is incomplete; works when the entitlement is already present, falls through gracefully when missing.
 
 ---
 

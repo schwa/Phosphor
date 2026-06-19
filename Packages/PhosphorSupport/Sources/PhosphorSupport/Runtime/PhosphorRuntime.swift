@@ -76,6 +76,10 @@ public final class PhosphorRuntime {
     /// Length, in bins, of ``spectrumBuffer``.
     public static let spectrumBinCount: Int = 512
 
+    /// Audio capture source. When non-nil and running, ``writeAudioBuffers()``
+    /// copies its latest samples into ``waveformBuffer`` each frame.
+    public weak var audioCapture: AudioCaptureEngine?
+
     public init(device: MTLDevice, environment: PhosphorEnvironment, source: String) throws {
         self.device = device
         self.environment = environment
@@ -235,6 +239,20 @@ public final class PhosphorRuntime {
     /// Allocates a new MTLBuffer per frame. The previous frame's buffer may
     /// still be in flight on the GPU; overwriting shared-storage buffers
     /// while the GPU reads them causes intermittent page faults.
+    /// Pulls the most recent audio samples from ``audioCapture`` into
+    /// ``waveformBuffer``. Zero-fills if no engine is attached or the engine
+    /// isn't running. Called by the per-frame element before the dispatches
+    /// reference the buffer.
+    public func writeAudioBuffers() {
+        let waveformPtr = waveformBuffer.contents().bindMemory(to: Float.self, capacity: Self.waveformSampleCount)
+        if let capture = audioCapture, capture.isRunningNonisolated {
+            capture.copyLatestSamples(into: waveformPtr)
+        } else {
+            memset(waveformBuffer.contents(), 0, Self.waveformSampleCount * MemoryLayout<Float>.stride)
+        }
+        // Spectrum is left zero-filled until #35 implements the FFT.
+    }
+
     public func writeBuiltinUniforms(_ uniforms: BuiltinUniforms) {
         var copy = uniforms
         copy.channelCount = UInt32(channelCount(for: environment))

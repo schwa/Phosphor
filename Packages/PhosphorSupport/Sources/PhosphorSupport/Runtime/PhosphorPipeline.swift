@@ -36,6 +36,7 @@ public struct PhosphorPipeline: Element {
     public var body: some Element {
         get throws {
             try? runtime.ensureTextures(drawableSize: drawableSize)
+            runtime.writeAudioBuffers()
             runtime.writeBuiltinUniforms(uniforms)
             runtime.writeUserUniforms(userUniformValues)
 
