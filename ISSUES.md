@@ -264,15 +264,18 @@ Action: profile under Instruments Allocations + Leaks for ~60 sec of steady-stat
 ## 10: Colorise TOML in front matter too
 
 +++
-status: open
+status: closed
 priority: medium
 kind: enhancement
 labels: effort:s
 created: 2026-06-18T20:45:57Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-19T16:58:04Z
+closed: 2026-06-19T16:58:04Z
 +++
 
 Currently TOML syntax highlighting isn't applied to front matter blocks. Extend colorisation to TOML in front matter.
+
+- `2026-06-19T16:58:04Z`: Done. MetalSourceView now parses the front-matter TOML body with tree-sitter-toml and applies token colors (bare keys, strings, numbers, booleans, table headers). Also styles all C++ comments green + italic so the front-matter block still reads as a comment despite the inner coloring.
 
 ---
 
@@ -366,12 +369,13 @@ UX details to decide when implementing:
 ## 14: Layout toggle: side-by-side vs. overlay (code on top of preview)
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: effort:s
 created: 2026-06-18T21:46:29Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-20T23:35:42Z
+closed: 2026-06-20T23:35:42Z
 +++
 
 Add a toggle (toolbar item or View menu) that switches the document layout between two modes:
@@ -901,13 +905,17 @@ Related: #26 (Shadertoy audit), #16 (Phosphor 1 examples \u2014 those were also 
 ## 28: Use Metal gid-as-global style for kernel thread index
 
 +++
-status: new
+status: closed
 priority: medium
 kind: enhancement
 created: 2026-06-18T22:15:45Z
+updated: 2026-06-19T18:10:35Z
+closed: 2026-06-19T18:10:35Z
 +++
 
 Adopt the Metal style where the grid/thread index is declared as a global variable (e.g. via attribute on a global) rather than passed as a parameter to the kernel function.
+
+- `2026-06-19T18:10:35Z`: Done as part of #50. All 36 examples now declare 'uint2 gid [[thread_position_in_grid]];' at file scope rather than as a kernel parameter. PhosphorHeader doesn't need to do anything to support it — MSL accepts the file-scope attributed global naturally.
 
 ---
 
@@ -1264,8 +1272,8 @@ status: closed
 priority: low
 kind: enhancement
 created: 2026-06-19T01:04:30Z
-updated: 2026-06-19T02:32:58Z
-closed: 2026-06-19T02:32:58Z
+updated: 2026-06-19T17:06:14Z
+closed: 2026-06-19T17:06:14Z
 +++
 
 Current TOML generation produces rather verbose output. Investigate ways to coax tomlkit into emitting a more compact representation (e.g. inline tables, inline arrays, fewer blank lines, compact dict styling) where appropriate.
@@ -1295,6 +1303,7 @@ This is controlled by the toml++ C++ writer below TOMLKit and is NOT exposed via
 Leaving open for option 1 or 2 later.
 
 - `2026-06-19T02:32:58Z`: Closed via partial fix. Inline-tables-for-leaf-records would need our own encoding (TOMLKit always splits sub-tables into [parent.child] sections; not configurable via FormatOptions). Will revisit if it becomes a problem in practice.
+- `2026-06-19T17:06:14Z`: Done. FrontMatterFormatter now post-processes TOMLKit's encoded TOMLTable and flags deep sub-tables as inline, so output matches the hand-written Examples style (sectional [[resources]], inline spec = { ... }). Also wired up Edit > Reformat Front Matter to apply the same encoder to the active document.
 
 ---
 
@@ -1585,11 +1594,13 @@ The 250-line instructions constant moves to its own file (or a generated resourc
 ## 45: SwiftUI: restructure PhosphorView body composition
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 labels: swiftui, architecture
 created: 2026-06-19T02:32:17Z
+updated: 2026-06-20T19:35:58Z
+closed: 2026-06-20T19:35:58Z
 +++
 
 ## Problem
@@ -1613,19 +1624,21 @@ The playback clock state machine inside the running view stays where it is for n
 
 ## Files
 
-- `Packages/PhosphorSupport/Sources/PhosphorSupport/UI/PhosphorView.swift`
+- `2026-06-19T02:32:17Z`: `Packages/PhosphorSupport/Sources/PhosphorSupport/UI/PhosphorView.swift`
+- `2026-06-20T19:35:58Z`: Done in audit pass. PhosphorView.body collapses to a dispatch between PhosphorRunningView and PhosphorLoadingView. The running view owns its own playback + input @State and the RenderView setup. PhosphorErrorView already existed but is unused after the runtime moved into PhosphorRuntimeStore; it can be deleted in a follow-up cleanup.
 
 ---
 
 ## 46: .phosphor bundle document format (file package with embedded assets)
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: architecture
 created: 2026-06-19T02:46:40Z
-updated: 2026-06-19T16:16:03Z
+updated: 2026-06-19T17:07:02Z
+closed: 2026-06-19T17:07:02Z
 +++
 
 ## Why
@@ -1692,6 +1705,10 @@ and writes its contents freely.
 #1 (image asset loading), #11 (texture picker UI), #26 / #27 (Shadertoy
 compatibility \u2014 channel images), #39 (webcam input, same materialization
 path).
+
+- `2026-06-19T17:07:02Z`: v1 scope landed. Both doc types ship, .phosphord bundles persist shader.metal + assets/, asset name resolution works end-to-end, both doc types share the editor body and runtime via plain bindings.
+
+The 'auto-migrate .metal to .phosphord on image drop' UX item is not done. Plain .metal documents handle text fine; users who want assets create a new Phosphor Bundle. We'll file migration as a separate issue if it comes up.
 
 ---
 
@@ -1806,5 +1823,568 @@ a different format later, and matches the document-suffix pattern (`.keyd`,
 
 - `2026-06-19T16:08:19Z`: Migrating already-shipped bundles. Pre-rename builds aren't released.
 - `2026-06-19T16:10:31Z`: Done. UTI string stays io.schwa.phosphor.bundle; Swift symbol stays UTType.phosphorBundle. Only the user-facing extension flips to .phosphord. The flat-file .phosphor format will land in a future change.
+
+---
+
+## 50: Texture model redesign: named bindings, action-based init, unified outputs/inputs
+
++++
+status: closed
+priority: medium
+kind: feature
+labels: architecture
+created: 2026-06-19T16:43:18Z
+updated: 2026-06-19T18:10:25Z
+closed: 2026-06-19T18:10:25Z
++++
+
+## Problem
+
+The current texture model carries three layers of accumulated cruft that
+should be redesigned together:
+
+### 1. Bindings are inconsistent
+
+Inputs go into auto-generated `iChannel0` \u2026 `iChannel3` slots on a
+`ChannelBindings` struct (Shadertoy holdover). Outputs are a special
+`outTexture [[texture(0)]]` parameter, separate from everything else.
+The naming inside the kernel (`channels.iChannel0`) doesn't match what
+the resource is, and the in-kernel API distinguishes 'output' and 'input'
+when in reality both are just textures with different access modes.
+
+### 2. Resources have two shapes
+
+`Resource.texture2D(id, spec)` and `Resource.image(id, name, access)`.
+The `.image` shape was added to skip pre-declaring size and format for
+image-backed textures \u2014 but that's not a different kind of resource,
+it's a texture seeded by a particular init action.
+
+### 3. Init and ping-pong are encoded as fields, not actions
+
+`spec.initial = .image(name) | .zero | .color(...) | .noise(...)` is
+mostly TODO; only `.zero` and `.image` work. `spec.pingPong: Bool` +
+`spec.flipTiming: .endOfFrame | .immediate` encode 'when does the swap
+happen' as two coupled fields. Three different mechanisms for what is
+really one concept ('how does this texture behave at init / mid-frame /
+end of frame').
+
+## Goal
+
+One consistent texture model:
+
+- A resource is always a 2D texture.
+- It has user-named bindings per pass; each binding has its own access
+  mode (`read` / `sample` / `write` / `read_write`).
+- Init is an action with kinds (`zero`, `image`, `color`, `noise`),
+  each with its own parameters.
+- Swap timing is one field (`none` / `endOfFrame` / `immediate`), not
+  a Bool plus a separate timing enum.
+- Size and format default sensibly; image-backed textures derive them
+  from the decoded asset.
+
+## Proposed shape
+
+```toml
+# Procedural single-pass: full defaults.
+[[textures]]
+id = "image"
+
+# Image-backed texture: size + format derived from the asset.
+[[textures]]
+id = "photo"
+init = { kind = "image", name = "screenshot" }
+
+# Feedback buffer with explicit swap timing.
+[[textures]]
+id = "trail"
+swap = "endOfFrame"   # or "none" (default) or "immediate"
+
+[[passes]]
+id = "image"
+textures = [
+    { name = "output",   resource = "image", access = "write"  },
+    { name = "photo",    resource = "photo", access = "sample" },
+    { name = "history",  resource = "trail", access = "read"   },
+]
+```
+
+Kernel:
+
+```metal
+kernel void image(
+    device const Textures&     textures     [[buffer(1)]],
+    device const Uniforms*     uniforms     [[buffer(0)]],
+    device const UserUniforms* userUniforms [[buffer(2)]],
+    uint2 gid                                [[thread_position_in_grid]])
+{
+    constexpr sampler s(mag_filter::linear);
+    float4 c = textures.photo.sample(s, uv);
+    textures.output.write(c, gid);
+}
+```
+
+## Implementation notes
+
+- Single `Resource.texture2D` (or rename to `.texture`). Drop `.image`
+  case entirely.
+- `TextureInit` becomes a fully-modeled enum with payloads, all kinds
+  actually implemented.
+- `SwapTiming` (`none` / `endOfFrame` / `immediate`) replaces
+  `pingPong: Bool` + `flipTiming`.
+- Bindings are named on each pass; access mode per binding.
+- `PhosphorHeader` emits a `Textures` struct (name TBD) with one field
+  per named binding, with the matching MSL access qualifier.
+- `outTexture [[texture(0)]]` special parameter goes away; pass writes
+  through whichever binding has `access = "write"` or `"read_write"`.
+- Runtime's `writeChannelBuffers` becomes per-binding-name rather than
+  per-numeric-slot.
+- Top-level env `output = "image"` stays \u2014 tells the preview which
+  resource to blit. Distinct from per-pass outputs.
+
+## Decisions to make during impl
+
+- Final struct name: `Textures` (matches reality), `Bindings`, or
+  `Channels` (keep the Shadertoy nod)?
+- Path syntax: `textures.output` flat, or namespaced like
+  `channels.images.output`? Probably flat; revisit if buffers / samplers
+  become first-class bindings.
+- Init action re-triggerability: could conceivably be a runtime action
+  the user fires from the toolbar (so 'reseed Game of Life' becomes
+  'rerun the init action'). Out of scope for v1 but the shape leaves
+  room.
+
+## Breaking changes
+
+**Every example shader has to be ported.** ~35 `.metal` files in
+`Examples/`. Changes are mostly mechanical:
+
+- Replace `iChannel0` / `channels.iChannelN` references with the named
+  binding from the pass's `textures = [\u2026]` list.
+- Drop the `outTexture [[texture(0)]]` kernel parameter, write through
+  the named output binding instead.
+- Convert `spec.pingPong = true` -> `swap = "endOfFrame"`.
+- Convert `initial = "image", name = \u2026` -> `init = { kind = "image",
+  name = \u2026 }`.
+
+Also update generator instructions and the new-document templates.
+
+## Out of scope
+
+- Sampler objects as first-class bindings.
+- Buffer resources alongside textures.
+- True simultaneous `access::read_write` on compute outputs.
+
+## Supersedes
+
+- #52 (resources-are-textures redesign) \u2014 same scope, folded in here.
+
+## Related
+
+- #1, #50 history: assets and the `.image` resource case were the cracks
+  that motivated this redesign.
+- #48 (screenshot-to-generator) makes texture bindings more central.
+- #51 (sensible defaults) is downstream \u2014 with this model, defaults
+  become easy to express.
+
+- `2026-06-19T18:10:25Z`: Done. Texture model redesign landed across 6 commits, RFC at RFCs/RFC-001-texture-model-redesign.md.
+
+Summary:
+- Resource enum -> flat Texture value type with id/size/format/swap/init.
+- TextureInit cases: zero / fill(rgba) / image(file) / noise(seed).
+- SwapTiming: none / endOfFrame / immediate (immediate still unimplemented, #4).
+- TextureAccess gains write + readWrite.
+- Pass.TextureBinding(id, access, name?) — id IS the binding name unless overridden via name (needed for self-feedback with separate read + write bindings on a swap texture).
+- PhosphorHeader emits per-pass Pass_<id>_Uniforms struct containing scalars/audio/nested Pass_<id>_Textures. SourceAssembler injects #define Uniforms Pass_<id>_Uniforms before each kernel.
+- ChannelBindings / iChannelN / channelCount gone.
+- Kernel signature: two argbuffers — device const Uniforms& at [[buffer(0)]], device const UserUniforms& at [[buffer(1)]]. No more outTexture special parameter; writes go through uniforms.textures.<id>.write(...).
+- gid declared as a file-scope global with [[thread_position_in_grid]] (also closes #28).
+- All 36 examples ported and rendering. Generator instructions + document templates updated to teach the new shape.
+- Validation: passHasNoOutput, readWriteHazard adjusted for new model.
+- Asset loading via .image init still works end-to-end through the bundle.
+
+Follow-ups already filed: #51 (sensible front-matter defaults), #54 (inter-pass swap timing for SwapTiming.immediate).
+
+---
+
+## 51: Sensible front-matter defaults: empty block should just work
+
++++
+status: new
+priority: low
+kind: enhancement
+created: 2026-06-19T16:44:13Z
++++
+
+## Problem
+
+Every new shader starts with a near-identical 10-line front-matter block:
+
+    /* phosphor:environment
+    output = "image"
+
+    [[resources]]
+    kind = "texture2D"
+    id = "image"
+    spec = { size = "drawable", format = "rgba32Float", pingPong = false, initial = "zero" }
+
+    [[passes]]
+    id = "image"
+    output = "image"
+    */
+
+99% of single-pass procedural shaders want exactly this. The TOML is
+copy/paste boilerplate.
+
+## Goal
+
+An empty (or nearly empty) front-matter block should default to a sensible
+shape, so the simplest possible shader is:
+
+    /* phosphor:environment */
+
+    kernel void image(...) {
+        outTexture.write(float4(1, 0, 0, 1), gid);
+    }
+
+## Proposed defaults
+
+When the front-matter block is empty or omits a field:
+
+- `output` defaults to `"image"`.
+- If no `[[resources]]` are declared, synthesize one:
+  `{ kind = "texture2D", id = "image", spec = { size = "drawable", format = "rgba32Float", pingPong = false, initial = "zero" } }`
+- If no `[[passes]]` are declared, synthesize one:
+  `{ id = "image", output = "image" }`
+
+User can still override any of these by being explicit. The defaults kick
+in only when fields are absent.
+
+## Implementation notes
+
+- Lives in the TOML decode step (or right after). Add a normalization
+  pass that fills in absent fields before validation runs.
+- Document the defaults in the generator's instructions string so the
+  model can produce shorter front-matter for simple cases.
+- Update the empty-document templates in PhosphorMetalDocument and
+  PhosphorBundleDocument to use the minimal form.
+
+## Open questions
+
+- Should defaults apply when ALL fields are missing, or also when some are
+  missing? E.g. if the user declares one resource but no passes, do we
+  synthesize a pass that targets it? Probably yes \u2014 the rule is 'fill any
+  gap with the canonical single-pass shape if it makes sense'.
+- The synthesized pass id matches the kernel function name (`image`).
+  Document that the kernel function must match the (defaulted or declared)
+  pass id.
+
+---
+
+## 52: Resources are textures; init / swap are actions, not shapes
+
++++
+status: closed
+priority: medium
+kind: feature
+labels: architecture
+created: 2026-06-19T16:46:29Z
+updated: 2026-06-19T17:09:28Z
+closed: 2026-06-19T17:09:28Z
++++
+
+## Problem
+
+Today the texture model is fragmented across three orthogonal concerns
+that the model conflates:
+
+1. **Resource "kind"**: `.texture2D(id, spec)` vs `.image(id, name, access)`.
+   The `.image` shape is really 'a texture that happens to be seeded from
+   a bundled asset' \u2014 it's not a separate kind, it's a texture with a
+   particular init action.
+2. **Initial contents**: `spec.initial = .image(name)` vs `.zero` vs
+   `.color(\u2026)` vs `.noise(\u2026)`. Only `.zero` and `.image` are
+   actually implemented; the rest are TODOs.
+3. **Ping-pong flag**: `spec.pingPong: Bool` plus a separate
+   `spec.flipTiming: .endOfFrame | .immediate` for when the swap happens.
+
+Three different concerns, three different mechanisms, encoded as fields
+on a struct + an enum case on the parent. The `.image` shape only exists
+because it lets us skip pre-declaring size and format \u2014 not because it's
+a fundamentally different kind of resource.
+
+## Goal
+
+Collapse to: 'a Resource is a texture. It has a size, a format, an access
+mode. Things that happen *to* the texture (load an image, zero it, swap
+ping-pong halves) are actions/modes, not extra resource shapes.'
+
+## Proposed shape (sketch)
+
+```toml
+# Procedural single-pass shader, full defaults.
+[[textures]]
+id = "image"
+
+# Sample image bound at init time. Size + format inferred from the asset
+# (we don't make the user re-declare).
+[[textures]]
+id = "photo"
+init = { kind = "image", name = "screenshot" }
+access = "sample"
+
+# Feedback buffer with explicit swap timing.
+[[textures]]
+id = "trail"
+swap = "endOfFrame"        # or "none" (default) or "immediate"
+```
+
+Key moves:
+
+- **No `.image` enum case.** Image-backed textures are just textures with
+  `init = { kind = "image", \u2026 }`.
+- **Init becomes an action**, with kinds: `zero` (default), `image`,
+  `color`, `noise`. Each takes its own parameters in a nested table.
+- **`swap`** replaces the `pingPong: Bool` + `flipTiming` pair. Values:
+  `none` (default), `endOfFrame`, `immediate`.
+- **Size and format become optional even for non-image textures**, with
+  sensible defaults (`drawable` / `rgba32Float`). Image-backed textures
+  derive them from the decoded asset; that derivation isn't an explicit
+  case anymore, it's the result of running the init action.
+- **`access`** stays per-resource (was added recently); read / sample /
+  write / read_write per #50.
+
+## Implementation notes
+
+- One Resource case (just `.texture2D`, possibly renamed).
+- TextureInit becomes a fully-modeled enum with payloads, all actually
+  implemented (today only `.zero` and `.image` work).
+- Swap timing moves out of the spec entirely and into runtime behavior
+  derived from the `swap` field.
+- Runtime keys ping-pong pairs by the texture id when `swap != .none`.
+
+## Maybe-too-aggressive ideas
+
+- Init actions could be re-triggerable as named passes the user can fire
+  from the toolbar (so 'reseed feedback shader' becomes 'rerun the init
+  action'). Out of scope for v1 \u2014 but the shape leaves room for it.
+- Same with swap: today it's an automatic behavior; conceivably it could
+  be an explicit `swap()` call inside the shader pipeline definition.
+
+## Breaking changes
+
+Every example shader's front-matter changes. ~35 files. Mostly mechanical.
+
+## Related
+
+- #1 added `.image(name:)` as a TextureInit case but the resource itself
+  was still `.texture2D`. That was the first crack in this design.
+- The new `.image` resource case (filed in this session) papered over
+  the size/format-inference problem; that hack goes away under this
+  redesign.
+- #50 (unify outputs and channels) overlaps heavily \u2014 likely want to do
+  the two together so the texture model is fully re-thought at once.
+
+- `2026-06-19T17:09:28Z`: Folded into #50. Same scope, redesign covers both unified-bindings and resources-as-textures-with-action-init.
+
+---
+
+## 53: Debounce or wait-for-quiescent edit before recompiling shader
+
++++
+status: new
+priority: medium
+kind: bug
+created: 2026-06-19T16:48:27Z
+updated: 2026-06-19T16:48:45Z
++++
+
+After fixing a syntax error and the shader compiles fine, hitting space causes the syntax error to come back.
+
+---
+
+## 54: Inter-pass texture swaps: allow ping-pong parity flips between passes within a single frame
+
++++
+status: new
+priority: low
+kind: feature
+labels: speculative, architecture
+created: 2026-06-19T17:30:17Z
++++
+
+Speculative. Today the runtime's 'parity per resource' is set once per frame; ping-pong textures effectively swap only at end-of-frame. The same-frame-multi-pass case is partially handled (a later pass that samples a texture an earlier pass wrote sees the freshly written half), but there's no way to do a real *swap* between passes \u2014 i.e. pass B writes the next parity, pass C reads B's just-written half as if it were 'last frame's' contents.
+
+Use cases:
+
+- Multi-stage feedback chains where each pass contributes to a downstream pass's history.
+- Per-chemical reaction-diffusion buffers iterated multiple times per frame.
+- Jacobi-style convergent solvers (each pass = one iteration = one swap).
+
+Out of scope for the #50 redesign, but the new per-binding access shape makes this much easier to add: the runtime can derive 'this pass writes the new parity, that pass reads the previous parity' directly from the binding declarations, rather than from a global pingPong + flipTiming flag.
+
+Likely shape: `SwapTiming.immediate` (already modeled, today's #4) means 'flip parity right after this pass'. RFC-001 keeps that case in the enum but ships only `endOfFrame`.
+
+---
+
+## 55: Multi-shader .phosphord bundles with sidebar picker
+
++++
+status: new
+priority: medium
+kind: feature
+labels: architecture
+created: 2026-06-20T18:46:36Z
++++
+
+Today a .phosphord bundle holds one shader.metal. Expand to many.
+
+Bundle layout:
+
+    Foo.phosphord/
+      shaders/
+        hello.metal
+        plasma.metal
+        ...
+      assets/
+        ...
+
+UI: switch PhosphorBundleDocumentView to NavigationSplitView. Sidebar
+on the left lists the shaders (and the assets row stays at the bottom
+of the editor pane). Selecting a shader opens it in the existing
+PhosphorEditorBody. The asset list is shared across all shaders in
+the bundle.
+
+Touch points:
+- PhosphorBundleDocument: replace single 'text' with [String: String]
+  keyed by shader filename. Snapshot/Reader/Writer updated; previous
+  FileWrapper retained to keep unchanged shaders untouched on save.
+- PhosphorBundleDocumentView: NavigationSplitView with sidebar +
+  detail. Sidebar has a + button to create, hover/swipe to delete,
+  inline rename.
+- PhosphorEditorBody is unchanged — it still takes a Binding<String>
+  + parsed + assets.
+- Plain .metal documents stay single-file (no migration).
+
+Open questions to decide during impl:
+- Default shader filename for a brand-new bundle: 'shader.metal' stays
+  for v1 compat? Or 'untitled.metal'?
+- Which shader is 'active' on open? Last-edited (track in info.json)?
+  First alphabetically? First created?
+- Cross-shader references — out of scope for v1; each shader is its
+  own environment.
+
+---
+
+## 56: Side-by-side mode: dragging splitter resizes window instead of panes
+
++++
+status: new
+priority: low
+kind: bug
+created: 2026-06-20T20:15:30Z
++++
+
+Repro: in side-by-side layout, drag the HSplitView splitter to give the editor more or less width. Instead of redistributing between editor and preview, the window itself grows or shrinks.
+
+Likely cause: TextEditor inside MetalSourceView reports an intrinsic minimum size driven by the longest unbroken line of source. NSSplitView won't let the divider drop below that minimum, so any drag below the threshold pushes the window outward.
+
+Possible fixes to try:
+- .frame(minWidth: 0) on CodePane to force-zero the lower bound (lets the editor clip / scroll horizontally instead of growing the window).
+- Wrap MetalSourceView in a horizontal ScrollView so its intrinsic width detaches from its content width.
+- Set NSSplitView's holding priority via a UIViewRepresentable bridge \u2014 invasive.
+
+---
+
+## 57: Header popover needs minimum sizes
+
++++
+status: new
+priority: low
+kind: bug
+created: 2026-06-21T00:02:57Z
++++
+
+---
+
+## 58: User uniforms overlay should be anchored at bottom center of screen
+
++++
+status: new
+priority: low
+kind: enhancement
+created: 2026-06-21T00:02:57Z
++++
+
+---
+
+## 59: User uniforms overlay should respect safe areas
+
++++
+status: new
+priority: low
+kind: bug
+created: 2026-06-21T00:02:58Z
++++
+
+---
+
+## 60: App crashes when loading document (race condition with window sizing)
+
++++
+status: new
+priority: high
+kind: bug
+created: 2026-06-21T00:03:03Z
++++
+
+App often crashes when loading a doc, but not always — appears to be a race condition with window sizing. Crash log to be attached.
+
+- `2026-06-21T00:06:23Z`: Root cause from crash log: window-sizing race produces a zero-width drawable.
+
+CAMetalLayer ignoring invalid setDrawableSize width=0.000000 height=796.000000
+[CAMetalLayer nextDrawable] returning nil because allocation failed.
+MetalSprocketsSupport/Error.swift:50: Fatal error: Resource creation failure: No drawable available
+
+Crash is in the MetalSprockets dependency (not Phosphor): MetalSprocketsUI/RenderView.swift, RenderViewViewModel.draw(in:):
+  let currentDrawable = try view.currentDrawable.orThrow(.resourceCreationFailure("No drawable available"))
+
+When drawableSize has a zero dimension during initial window sizing, currentDrawable is nil and orThrow fatal-errors instead of skipping the frame.
+
+Fix belongs in schwa/MetalSprockets: early-return from draw(in:) when view.drawableSize.width <= 0 || height <= 0 (and/or guard-let currentDrawable to skip the frame). Then bump the MetalSprockets pin in Phosphor. Audio init lines in the log are unrelated noise.
+
+---
+
+## 61: Bundle UI: swipe to delete assets and shaders
+
++++
+status: new
+priority: low
+kind: feature
+created: 2026-06-21T00:03:03Z
++++
+
+---
+
+## 62: Bundle UI: add filter/search to list
+
++++
+status: new
+priority: low
+kind: feature
+created: 2026-06-21T00:03:03Z
++++
+
+---
+
+## 63: Anthropic API key occasionally loads blank
+
++++
+status: new
+priority: medium
+kind: bug
+created: 2026-06-21T00:14:01Z
++++
+
+Intermittently the Anthropic API key fails to load and comes back blank. Likely a load-order/timing or keychain-read race.
 
 ---
