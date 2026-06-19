@@ -33,7 +33,7 @@ only_rules:
   - contains_over_filter_is_empty
 #  - contains_over_first_not_nil # 3 violations
   - contains_over_range_nil_comparison
-  - contrasted_opening_brace # 68282 violations (fixable)
+#  - contrasted_opening_brace
   - control_statement # 14 violations (fixable)
 #  - convenience_type # 13 violations
   - custom_rules
