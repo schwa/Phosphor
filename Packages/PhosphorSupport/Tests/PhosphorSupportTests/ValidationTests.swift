@@ -65,7 +65,8 @@ struct ValidationTests {
         )
         let diagnostics = validate(env)
         #expect(diagnostics.contains { diagnostic in
-            if case .unknownResource("missing", _) = diagnostic { return true }return false
+            if case .unknownResource("missing", _) = diagnostic { return true }
+            return false
         })
     }
 

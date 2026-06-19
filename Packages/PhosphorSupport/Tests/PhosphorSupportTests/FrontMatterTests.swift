@@ -127,7 +127,8 @@ struct FrontMatterTests {
         let result = PhosphorFrontMatter.parse(source)
         #expect(result.environment == nil)
         #expect(result.diagnostics.contains { diagnostic in
-            if case .frontMatterParse = diagnostic { return true }return false
+            if case .frontMatterParse = diagnostic { return true }
+            return false
         })
     }
 

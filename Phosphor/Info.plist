@@ -16,6 +16,20 @@
 				<string>com.apple.metal-shader-source</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Phosphor Bundle</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>io.schwa.phosphor.bundle</string>
+			</array>
+			<key>LSTypeIsPackage</key>
+			<true/>
+		</dict>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
@@ -39,6 +53,26 @@
 				<key>public.filename-extension</key>
 				<array>
 					<string>metal</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>com.apple.package</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Phosphor Bundle</string>
+			<key>UTTypeIdentifier</key>
+			<string>io.schwa.phosphor.bundle</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>phosphor</string>
 				</array>
 			</dict>
 		</dict>

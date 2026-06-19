@@ -1,5 +1,7 @@
+import AppKit
 import PhosphorSupport
 import SwiftUI
+import UniformTypeIdentifiers
 
 @main
 struct PhosphorApp: App {
@@ -14,11 +16,28 @@ struct PhosphorApp: App {
         } makeDocument: { configuration, _ in
             PhosphorMetalDocument(configuration: configuration)
         }
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                MyNewDocumentButton(title: "New Metal Shader", contentType: .metalSource)
+                    .keyboardShortcut("n", modifiers: .command)
+                MyNewDocumentButton(title: "New Phosphor Bundle", contentType: .phosphorBundle)
+                    .keyboardShortcut("n", modifiers: [.command, .shift])
+            }
+        }
+
+        DocumentGroup { document in
+            PhosphorBundleDocumentView(document: document)
+                .environment(\.audioCapture, audioCapture)
+                .onAppear { syncMicState() }
+        } makeDocument: { configuration, _ in
+            PhosphorBundleDocument(configuration: configuration)
+        }
 
         Settings {
             SettingsView()
         }
     }
+
 
     /// Pushes the persisted toggle state into the engine on app launch and
     /// after any change. The engine handles permission-prompt on enable.
