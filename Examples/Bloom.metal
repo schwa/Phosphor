@@ -1,44 +1,45 @@
 /* phosphor:environment
 output = "image"
 
-[[resources]]
-kind = "texture2D"
-id = "bufA"
-spec = { size = "drawable", format = "rgba16Float", pingPong = true, flipTiming = "endOfFrame", initial = "zero" }
-
-[[resources]]
-kind = "texture2D"
-id = "image"
-spec = { size = "drawable", format = "rgba32Float", pingPong = false, initial = "zero" }
-
 [[passes]]
+enabled = true
 id = "bufA"
+inputs = [ { name = "iChannel0", resource = "bufA" } ]
 output = "bufA"
-inputs = [{ name = "iChannel0", resource = "bufA" }]
 
 [[passes]]
+enabled = true
 id = "image"
+inputs = [ { name = "iChannel0", resource = "bufA" } ]
 output = "image"
-inputs = [{ name = "iChannel0", resource = "bufA" }]
+
+[[resources]]
+id = "bufA"
+kind = "texture2D"
+spec = { flipTiming = "endOfFrame", format = "rgba16Float", initial = "zero", pingPong = true, size = "drawable" }
+
+[[resources]]
+id = "image"
+kind = "texture2D"
+spec = { flipTiming = "endOfFrame", format = "rgba32Float", initial = "zero", pingPong = false, size = "drawable" }
 
 [[uniforms]]
-name = "blurRadius"
-kind = "float"
 default = 4.0
-ui = { slider = { min = 0.0, max = 16.0 } }
+kind = "float"
+name = "blurRadius"
+ui = { slider = { max = 16.0, min = 0.0 } }
 
 [[uniforms]]
-name = "decay"
-kind = "float"
 default = 0.97
-ui = { slider = { min = 0.85, max = 0.999 } }
+kind = "float"
+name = "decay"
+ui = { slider = { max = 0.999, min = 0.85 } }
 
 [[uniforms]]
-name = "dotFalloff"
-kind = "float"
 default = 0.05
-ui = { slider = { min = 0.01, max = 0.5 } }
-*/
+kind = "float"
+name = "dotFalloff"
+ui = { slider = { max = 0.5, min = 0.01 } }*/
 
 #include "Phosphor.h"
 
