@@ -29,7 +29,7 @@ public enum PhosphorHeader {
         out += userUniformsDecl(uniforms: env.uniforms)
         out += "\n"
         for pass in env.passes {
-            out += texturesDecl(pass: pass, env: env)
+            out += texturesDecl(pass: pass)
             out += "\n"
             out += uniformsDecl(pass: pass)
             out += "\n"
@@ -56,7 +56,7 @@ public enum PhosphorHeader {
     /// texture's id. Access qualifier comes straight off the binding.
     /// Empty (no bindings) is legal but useless — every kernel needs at
     /// least one write target.
-    static func texturesDecl(pass: Pass, env: PhosphorEnvironment) -> String {
+    static func texturesDecl(pass: Pass) -> String {
         var out = "struct \(passTexturesTypeName(pass)) {\n"
         for binding in pass.textures {
             out += "    texture2d<float, access::\(binding.access.metalQualifier)> \(binding.effectiveName);\n"

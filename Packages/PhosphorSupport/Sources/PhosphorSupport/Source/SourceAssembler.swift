@@ -68,20 +68,17 @@ public enum SourceAssembler {
         // Splice in defines + undefs around each kernel header.
         var out = ""
         var cursor = source.startIndex
-        var previousPassID: String?
-        let nsSource = source as NSString
+        var sawPreviousPass = false
         for hit in hits {
             guard let hitStart = Range(NSRange(location: hit.range.location, length: 0), in: source) else { continue }
             out += source[cursor..<hitStart.lowerBound]
-            if let previous = previousPassID {
+            if sawPreviousPass {
                 out += "#undef Uniforms\n#undef Textures\n"
-                _ = previous
             }
             out += "#define Uniforms Pass_\(hit.passID)_Uniforms\n"
             out += "#define Textures Pass_\(hit.passID)_Textures\n"
-            previousPassID = hit.passID
+            sawPreviousPass = true
             cursor = hitStart.lowerBound
-            _ = nsSource
         }
         out += source[cursor...]
         return out
