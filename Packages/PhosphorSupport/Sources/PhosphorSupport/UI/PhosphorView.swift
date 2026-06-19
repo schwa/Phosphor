@@ -28,6 +28,10 @@ public struct PhosphorView: View {
     let isPausedExternally: Binding<Bool>?
     /// External reset signal. Each new value triggers a one-shot reset.
     let resetSignal: Int
+    /// Resource id to blit to the drawable. `nil` means use the
+    /// environment's declared output. Lets the host preview an
+    /// intermediate ping-pong / scratch buffer for debugging.
+    let displayedResource: ResourceID?
 
     @State private var runtime: PhosphorRuntime?
     @State private var initError: Error?
@@ -65,7 +69,8 @@ public struct PhosphorView: View {
         source: String,
         assets: [String: PhosphorAsset] = [:],
         isPaused: Binding<Bool>? = nil,
-        resetSignal: Int = 0
+        resetSignal: Int = 0,
+        displayedResource: ResourceID? = nil
     ) {
         self.environment = environment
         self.source = source
@@ -73,19 +78,22 @@ public struct PhosphorView: View {
         self.assets = assets
         self.isPausedExternally = isPaused
         self.resetSignal = resetSignal
+        self.displayedResource = displayedResource
     }
 
     public init?(
         source: String,
         assets: [String: PhosphorAsset] = [:],
         isPaused: Binding<Bool>? = nil,
-        resetSignal: Int = 0
+        resetSignal: Int = 0,
+        displayedResource: ResourceID? = nil
     ) {
         self.init(
             parsed: ParsedPhosphorSource(source: source),
             assets: assets,
             isPaused: isPaused,
-            resetSignal: resetSignal
+            resetSignal: resetSignal,
+            displayedResource: displayedResource
         )
     }
 
@@ -93,7 +101,8 @@ public struct PhosphorView: View {
         parsed: ParsedPhosphorSource,
         assets: [String: PhosphorAsset] = [:],
         isPaused: Binding<Bool>? = nil,
-        resetSignal: Int = 0
+        resetSignal: Int = 0,
+        displayedResource: ResourceID? = nil
     ) {
         guard let environment = parsed.environment else { return nil }
         self.environment = environment
@@ -102,6 +111,7 @@ public struct PhosphorView: View {
         self.assets = assets
         self.isPausedExternally = isPaused
         self.resetSignal = resetSignal
+        self.displayedResource = displayedResource
     }
 
     public var body: some View {
@@ -112,7 +122,8 @@ public struct PhosphorView: View {
                         runtime: runtime,
                         uniforms: buildUniforms(context: context, drawableSize: drawableSize),
                         userUniformValues: uniformValues,
-                        drawableSize: drawableSize
+                        drawableSize: drawableSize,
+                        displayedResource: displayedResource
                     )
                     .onWorkloadEnter { _ in
                         applyPlaybackSideEffects(context: context)

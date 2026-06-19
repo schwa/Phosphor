@@ -20,17 +20,23 @@ public struct PhosphorPipeline: Element {
     let uniforms: BuiltinUniforms
     let userUniformValues: [String: UniformValue]
     let drawableSize: CGSize
+    /// Resource id whose latest write target gets blitted to the drawable.
+    /// Defaults to `environment.output`; the host can override this to
+    /// preview an intermediate ping-pong / scratch resource.
+    let displayedResource: ResourceID?
 
     public init(
         runtime: PhosphorRuntime,
         uniforms: BuiltinUniforms,
         userUniformValues: [String: UniformValue] = [:],
-        drawableSize: CGSize
+        drawableSize: CGSize,
+        displayedResource: ResourceID? = nil
     ) {
         self.runtime = runtime
         self.uniforms = uniforms
         self.userUniformValues = userUniformValues
         self.drawableSize = drawableSize
+        self.displayedResource = displayedResource
     }
 
     public var body: some Element {
@@ -53,8 +59,16 @@ public struct PhosphorPipeline: Element {
             let useLists = runtime.writeChannelBuffers(parity: parityByResource)
 
             // The billboard samples this frame's *write* target — same parity
-            // as the writing pass.
-            let outputResourceID = runtime.environment.output
+            // as the writing pass. If the host picked a non-default resource
+            // and it doesn't exist (stale binding after edit), fall back to
+            // the environment's declared output.
+            let outputResourceID: ResourceID = {
+                if let chosen = displayedResource,
+                   runtime.textures[chosen] != nil {
+                    return chosen
+                }
+                return runtime.environment.output
+            }()
             let outputTexture = runtime.textures[outputResourceID]?.writeTexture(currentIsA: parityByResource[outputResourceID] ?? true)
 
             let enabledPasses = runtime.environment.passes.filter(\.enabled)

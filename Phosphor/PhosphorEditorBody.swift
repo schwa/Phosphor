@@ -22,6 +22,9 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
     @State private var showGenerate: Bool = false
     @State private var isPaused: Bool = false
     @State private var resetSignal: Int = 0
+    /// Which resource the preview blits to the drawable. `nil` falls back
+    /// to the environment's declared output (the normal case).
+    @State private var displayedResource: ResourceID?
     @AppStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
     @Environment(\.audioCapture) private var audioCapture
@@ -54,12 +57,19 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
                 parsed: parsed,
                 assets: assets,
                 isPaused: $isPaused,
-                resetSignal: resetSignal
+                resetSignal: resetSignal,
+                displayedResource: displayedResource
             )
             .frame(minWidth: 360, idealWidth: 640)
         }
         .frame(minWidth: 800, minHeight: 500)
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                ResourcePicker(
+                    environment: parsed.environment,
+                    displayedResource: $displayedResource
+                )
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     showHeader.toggle()
@@ -146,6 +156,40 @@ private struct CodePane: View {
     }
 }
 
+/// Dropdown that lets the user pick which resource the preview should
+/// blit to the drawable. "Output" (nil) follows the environment's declared
+/// output; other choices are individual texture resources. Disabled when
+/// the environment has only one resource (or none).
+private struct ResourcePicker: View {
+    let environment: PhosphorEnvironment?
+    @Binding var displayedResource: ResourceID?
+
+    private var resourceIDs: [ResourceID] {
+        environment?.resources.map(\.id) ?? []
+    }
+
+    private var isDisabled: Bool {
+        resourceIDs.count < 2
+    }
+
+    var body: some View {
+        Picker("Preview", selection: $displayedResource) {
+            Text("Output (\(environment?.output.raw ?? "—"))").tag(ResourceID?.none)
+            Divider()
+            ForEach(resourceIDs, id: \.self) { id in
+                Text(id.raw).tag(Optional(id))
+            }
+        }
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .frame(maxWidth: 180)
+        .disabled(isDisabled)
+        .help(isDisabled
+            ? "Only one resource declared—nothing to switch to"
+            : "Preview a specific resource instead of the declared output")
+    }
+}
+
 /// Popover that shows the synthesized `Phosphor.h` content for the current
 /// document's environment.
 private struct HeaderPopover: View {
@@ -167,13 +211,15 @@ private struct PreviewPane: View {
     let assets: [String: PhosphorAsset]
     @Binding var isPaused: Bool
     let resetSignal: Int
+    let displayedResource: ResourceID?
 
     var body: some View {
         if let view = PhosphorView(
             parsed: parsed,
             assets: assets,
             isPaused: $isPaused,
-            resetSignal: resetSignal
+            resetSignal: resetSignal,
+            displayedResource: displayedResource
         ) {
             view
         } else {
