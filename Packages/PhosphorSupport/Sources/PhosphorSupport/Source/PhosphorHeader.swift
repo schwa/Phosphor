@@ -9,10 +9,13 @@ import Foundation
 ///
 /// The header declares:
 ///
-/// - `Uniforms` — built-in per-frame uniforms.
-/// - `ChannelBindings` — auto-generated, sized to the inferred channel count.
+/// - Per-pass `Pass_<id>_Textures` and `Pass_<id>_Uniforms` structs. The
+///   source assembler inserts `#define Textures Pass_<id>_Textures` /
+///   `#define Uniforms Pass_<id>_Uniforms` immediately before each kernel
+///   so the user can write `Textures` / `Uniforms` and have it resolve to
+///   their pass's type.
 /// - `UserUniforms` — auto-generated from the environment's user-declared
-///   uniforms.
+///   uniforms. One per env (not per pass).
 ///
 /// Plus the `metal_stdlib` import and `using namespace metal`.
 public enum PhosphorHeader {
@@ -21,25 +24,56 @@ public enum PhosphorHeader {
         var out = ""
         out += "#include <metal_stdlib>\n"
         out += "using namespace metal;\n\n"
-        out += uniformsDecl()
-        out += "\n"
         out += helpersDecl()
         out += "\n"
-        out += channelBindingsDecl(env: env)
-        out += "\n"
         out += userUniformsDecl(uniforms: env.uniforms)
+        out += "\n"
+        for pass in env.passes {
+            out += texturesDecl(pass: pass, env: env)
+            out += "\n"
+            out += uniformsDecl(pass: pass)
+            out += "\n"
+        }
         return out
     }
 
-    /// Built-in `Uniforms` struct. Layout must match
-    /// ``BuiltinUniforms`` on the Swift side.
-    static func uniformsDecl() -> String {
+    /// Mangled name for a pass's `Textures` struct. The source assembler
+    /// emits a `#define Textures Pass_<id>_Textures` before each kernel so
+    /// authors write `Textures` and get the right type.
+    static func passTexturesTypeName(_ pass: Pass) -> String {
+        "Pass_\(pass.id.raw)_Textures"
+    }
+
+    /// Mangled name for a pass's `Uniforms` struct (which carries the
+    /// pass's `Textures` as a nested field).
+    static func passUniformsTypeName(_ pass: Pass) -> String {
+        "Pass_\(pass.id.raw)_Uniforms"
+    }
+
+    /// Auto-generated per-pass `Textures` struct.
+    ///
+    /// One `texture2d<float, access::XXX>` field per binding, named by the
+    /// texture's id. Access qualifier comes straight off the binding.
+    /// Empty (no bindings) is legal but useless — every kernel needs at
+    /// least one write target.
+    static func texturesDecl(pass: Pass, env: PhosphorEnvironment) -> String {
+        var out = "struct \(passTexturesTypeName(pass)) {\n"
+        for binding in pass.textures {
+            out += "    texture2d<float, access::\(binding.access.metalQualifier)> \(binding.id.raw);\n"
+        }
+        out += "};\n"
+        return out
+    }
+
+    /// Auto-generated per-pass `Uniforms` struct. Layout must match
+    /// ``BuiltinUniforms`` on the Swift side (plus the trailing
+    /// `Textures` argument-buffer field).
+    static func uniformsDecl(pass: Pass) -> String {
         """
-        struct Uniforms {
+        struct \(passUniformsTypeName(pass)) {
             float time;
             float timeDelta;
             float frame;
-            uint channelCount;
             float2 resolution;
             float2 mouse;
             uint mouseButtons;
@@ -50,6 +84,7 @@ public enum PhosphorHeader {
             // spectrum: 512 floats of linear FFT magnitudes in [0, 1].
             device const float* waveform;
             device const float* spectrum;
+            \(passTexturesTypeName(pass)) textures;
         };
 
         """
@@ -232,43 +267,6 @@ public enum PhosphorHeader {
         """
     }
 
-    /// Auto-generated `ChannelBindings` argument-buffer struct.
-    ///
-    /// Sized to the inferred channel count. Each slot's access qualifier is
-    /// derived from the resource bound to it: image resources can opt into
-    /// `access::sample` via front-matter; everything else uses `access::read`.
-    /// If no pass binds a given slot, it defaults to `access::read`.
-    ///
-    /// Empty struct (no slots) is legal — Metal accepts it.
-    static func channelBindingsDecl(env: PhosphorEnvironment) -> String {
-        let accessBySlot = inferAccessBySlot(env: env)
-        var out = "struct ChannelBindings {\n"
-        for index in 0..<accessBySlot.count {
-            out += "    texture2d<float, access::\(accessBySlot[index].rawValue)> iChannel\(index);\n"
-        }
-        out += "};\n"
-        return out
-    }
-
-    /// For each iChannelN slot in `env`, the access qualifier that should
-    /// appear in the struct declaration. Slot count matches
-    /// ``channelCount(for:)``. Last writer wins if two passes bind the same
-    /// slot to different resources with different access; that's a
-    /// front-matter authoring error that validation should catch, but the
-    /// codegen still needs to produce something.
-    private static func inferAccessBySlot(env: PhosphorEnvironment) -> [TextureAccess] {
-        let count = channelCount(for: env)
-        var result = Array(repeating: TextureAccess.read, count: count)
-        for pass in env.passes {
-            for binding in pass.inputs {
-                guard let index = channelIndex(from: binding.name), index < count else { continue }
-                guard let resource = env.resource(binding.resource) else { continue }
-                result[index] = resource.access
-            }
-        }
-        return result
-    }
-
     /// Auto-generated `UserUniforms` struct.
     ///
     /// Empty struct (no fields) when the environment declares no uniforms;
@@ -296,6 +294,18 @@ public enum PhosphorHeader {
         case .int: return "int"
         case .bool: return "bool"
         case .color: return "float4"
+        }
+    }
+}
+
+extension TextureAccess {
+    /// The MSL access:: token for this binding mode.
+    var metalQualifier: String {
+        switch self {
+        case .read: return "read"
+        case .sample: return "sample"
+        case .write: return "write"
+        case .readWrite: return "read_write"
         }
     }
 }

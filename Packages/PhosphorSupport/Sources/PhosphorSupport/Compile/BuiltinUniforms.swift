@@ -2,21 +2,20 @@ import Foundation
 import Metal
 import simd
 
-/// Swift mirror of the synthetic `struct Uniforms` declared by
-/// ``PhosphorHeader/uniformsDecl()``.
+/// Swift mirror of the leading fields of the per-pass `struct Uniforms`
+/// declared by ``PhosphorHeader/uniformsDecl(pass:)``.
 ///
-/// `Uniforms` is now an **argument buffer**: it carries plain data fields
-/// (time, frame, resolution, mouse, ...) plus device-address pointers to the
-/// audio waveform and spectrum buffers. Kernels take it as
-/// `device const Uniforms*` (not `constant Uniforms&`).
+/// The kernel side's `Uniforms` argument buffer ends with a `Textures`
+/// member whose layout depends on the binding count for that pass. This
+/// Swift struct only carries the *fixed* prefix (scalars + audio
+/// pointers); the runtime is responsible for appending the texture
+/// handles into the same buffer at the right offset.
 ///
-/// Layout must match the MSL declaration exactly. Field order and explicit
-/// padding are chosen to match Metal's struct alignment rules.
+/// Field order and explicit padding match Metal's struct alignment rules.
 public struct BuiltinUniforms: Equatable, Sendable {
     public var time: Float
     public var timeDelta: Float
     public var frame: Float
-    public var channelCount: UInt32
     public var resolution: SIMD2<Float>
     public var mouse: SIMD2<Float>
     public var mouseButtons: UInt32
@@ -36,7 +35,6 @@ public struct BuiltinUniforms: Equatable, Sendable {
         time: Float = 0,
         timeDelta: Float = 0,
         frame: Float = 0,
-        channelCount: UInt32 = 0,
         resolution: SIMD2<Float> = .zero,
         mouse: SIMD2<Float> = .zero,
         mouseButtons: UInt32 = 0,
@@ -48,7 +46,6 @@ public struct BuiltinUniforms: Equatable, Sendable {
         self.time = time
         self.timeDelta = timeDelta
         self.frame = frame
-        self.channelCount = channelCount
         self.resolution = resolution
         self.mouse = mouse
         self.mouseButtons = mouseButtons
