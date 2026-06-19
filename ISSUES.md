@@ -967,10 +967,12 @@ Also along the way:
 ## 31: Pause / play / reset / time-scrub controls
 
 +++
-status: new
+status: closed
 priority: medium
 kind: none
 created: 2026-06-18T23:01:19Z
+updated: 2026-06-19T02:11:29Z
+closed: 2026-06-19T02:11:29Z
 +++
 
 Add playback controls so the user can freeze a shader (and step through it) instead of having it always run at the drawable's refresh rate.
@@ -997,6 +999,15 @@ Stretch:
 - Record/playback time as a video.
 - 'Slow motion' multiplier.
 - 'Step back' is impossible without snapshotting feedback state \u2014 don't promise it.
+
+- `2026-06-19T02:11:29Z`: Done. Three toolbar buttons: Pause/Play toggle (play.fill / pause.fill), Reset (arrow.counterclockwise). No scrub.
+
+Semantics:
+- Pause freezes uniforms->time and uniforms->frame at the values the kernel last saw. Captures the snapshot in PhosphorView's .onWorkloadEnter so it matches the renderer's clock exactly.
+- Play resumes; kernel time picks up at the *current* wall-clock value (so paused duration adds to elapsed time — acceptable for shader playground use).
+- Reset bumps a resetSignal, rebases timeBase/frameBase to whatever the renderer reports next frame, calls runtime.signalReset() which sets resizedFlag (so feedback shaders re-seed) and zeros all ping-pong textures. Reset also clears isPaused so the Play icon updates correctly.
+
+PhosphorView gained isPaused: Binding<Bool>? and resetSignal: Int parameters (both optional / default-zero so existing call sites keep working). PhosphorRuntime gained signalReset() + zeroTexture(_:) helper.
 
 ---
 

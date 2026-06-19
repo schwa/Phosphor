@@ -9,6 +9,8 @@ struct PhosphorDocumentView: View {
     @Bindable var document: PhosphorMetalDocument
     @State private var showHeader: Bool = false
     @State private var showGenerate: Bool = false
+    @State private var isPaused: Bool = false
+    @State private var resetSignal: Int = 0
     @AppStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
     @Environment(\.audioCapture) private var audioCapture
@@ -71,6 +73,26 @@ struct PhosphorDocumentView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {
+                    isPaused.toggle()
+                } label: {
+                    Label(
+                        isPaused ? "Play" : "Pause",
+                        systemImage: isPaused ? "play.fill" : "pause.fill"
+                    )
+                }
+                .help(isPaused ? "Resume" : "Pause time")
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    resetSignal &+= 1
+                    isPaused = false
+                } label: {
+                    Label("Reset", systemImage: "arrow.counterclockwise")
+                }
+                .help("Reset time to 0 and reseed feedback shaders")
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
                     showGenerate = true
                 } label: {
                     Label("Generate", systemImage: "sparkles")
@@ -106,7 +128,11 @@ struct PhosphorDocumentView: View {
 
     @ViewBuilder
     private var previewPane: some View {
-        if let view = PhosphorView(parsed: document.parsed) {
+        if let view = PhosphorView(
+            parsed: document.parsed,
+            isPaused: $isPaused,
+            resetSignal: resetSignal
+        ) {
             view
         } else {
             ContentUnavailableView {

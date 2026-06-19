@@ -17,12 +17,33 @@ public struct PhosphorView: View {
     public let environment: PhosphorEnvironment
     public let source: String
     public let frontMatterDiagnostics: [PhosphorDiagnostic]
+    /// External pause/play state. When `true`, the kernel sees frozen time
+    /// and frame values. Optional so existing call sites (and the smoke
+    /// tests) keep working without an explicit binding.
+    let isPausedExternally: Binding<Bool>?
+    /// External reset signal. Each new value triggers a one-shot reset.
+    let resetSignal: Int
 
     @State private var runtime: PhosphorRuntime?
     @State private var initError: Error?
     @State private var uniformValues: [String: UniformValue] = [:]
     @AppStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
     @Environment(\.audioCapture) private var audioCapture
+
+    /// Reference wall-clock time used as t=0 (subtracted from the renderer's
+    /// time to get the kernel's time). Updated on reset.
+    @State private var timeBase: Float = 0
+    /// Reference frame index.
+    @State private var frameBase: UInt32 = 0
+    /// Snapshot of (time, frame) emitted while paused. Captured from the
+    /// renderer the moment the user pauses.
+    @State private var pausedSnapshot: (time: Float, frame: Float)? = nil
+    /// On the next frame, pull a fresh snapshot from the live values. Set when
+    /// the user pauses; cleared once the snapshot is captured.
+    @State private var capturePauseSnapshot: Bool = false
+    /// On the next frame, set timeBase/frameBase = live values. Set on reset
+    /// or resume; cleared once applied.
+    @State private var rebaseRequested: Bool = false
 
     // Mouse state, in pixel coordinates (matching uniforms.resolution).
     // Updated by gestures on the RenderView; passed into BuiltinUniforms
@@ -34,50 +55,62 @@ public struct PhosphorView: View {
     /// convert mouse coordinates from points to pixels.
     @State private var viewSize: CGSize = .zero
 
-    public init(environment: PhosphorEnvironment, source: String) {
+    public init(
+        environment: PhosphorEnvironment,
+        source: String,
+        isPaused: Binding<Bool>? = nil,
+        resetSignal: Int = 0
+    ) {
         self.environment = environment
         self.source = source
         self.frontMatterDiagnostics = []
+        self.isPausedExternally = isPaused
+        self.resetSignal = resetSignal
     }
 
-    /// Convenience: parses front-matter from `source`, then constructs as
-    /// usual. If the source has no front-matter or parsing fails, returns
-    /// `nil`; the parsed diagnostics flow through `parsed.diagnostics`.
-    public init?(source: String) {
-        self.init(parsed: ParsedPhosphorSource(source: source))
+    public init?(source: String, isPaused: Binding<Bool>? = nil, resetSignal: Int = 0) {
+        self.init(parsed: ParsedPhosphorSource(source: source), isPaused: isPaused, resetSignal: resetSignal)
     }
 
-    /// Construct from an already-parsed source, e.g. when the caller wants to
-    /// inspect diagnostics or environment before deciding to render.
-    public init?(parsed: ParsedPhosphorSource) {
+    public init?(parsed: ParsedPhosphorSource, isPaused: Binding<Bool>? = nil, resetSignal: Int = 0) {
         guard let environment = parsed.environment else { return nil }
         self.environment = environment
         self.source = parsed.body
         self.frontMatterDiagnostics = parsed.diagnostics
+        self.isPausedExternally = isPaused
+        self.resetSignal = resetSignal
     }
 
     public var body: some View {
         ZStack {
             if let runtime {
                 RenderView { context, drawableSize in
-                    let uniforms = BuiltinUniforms(
-                        time: context.frameUniforms.time,
-                        timeDelta: Float(context.frameUniforms.deltaTime),
-                        frame: Float(context.frameUniforms.index),
-                        resolution: SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height)),
-                        mouse: mousePosition,
-                        mouseButtons: mouseButtons,
-                        mouseClickOrigin: mouseClickOrigin
-                    )
                     PhosphorPipeline(
                         runtime: runtime,
-                        uniforms: uniforms,
+                        uniforms: buildUniforms(context: context, drawableSize: drawableSize),
                         userUniformValues: uniformValues,
                         drawableSize: drawableSize
                     )
+                    .onWorkloadEnter { _ in
+                        applyPlaybackSideEffects(context: context)
+                    }
                 }
                 .onGeometryChange(for: CGSize.self, of: \.size) { newSize in
                     viewSize = newSize
+                }
+                .onChange(of: isPausedExternally?.wrappedValue ?? false) { _, newValue in
+                    if newValue {
+                        capturePauseSnapshot = true
+                    } else {
+                        pausedSnapshot = nil
+                        rebaseRequested = true
+                    }
+                }
+                .onChange(of: resetSignal) { _, _ in
+                    rebaseRequested = true
+                    pausedSnapshot = nil
+                    capturePauseSnapshot = false
+                    runtime.signalReset()
                 }
                 .onContinuousHover { phase in
                     switch phase {
@@ -155,6 +188,48 @@ public struct PhosphorView: View {
     /// Converts a point in PhosphorView's coordinate space to pixel
     /// coordinates matching `uniforms.resolution`. Uses the cached `viewSize`
     /// (in points) and assumes the drawable's aspect matches the view.
+    /// Builds the per-frame `BuiltinUniforms`, applying pause/rebase.
+    private func buildUniforms(context: RenderViewContext, drawableSize: CGSize) -> BuiltinUniforms {
+        let kernelTime: Float
+        let kernelFrame: Float
+        let kernelDelta: Float
+        if let paused = pausedSnapshot {
+            kernelTime = paused.time
+            kernelFrame = paused.frame
+            kernelDelta = 0
+        } else {
+            kernelTime = context.frameUniforms.time - timeBase
+            kernelFrame = Float(context.frameUniforms.index &- frameBase)
+            kernelDelta = Float(context.frameUniforms.deltaTime)
+        }
+        return BuiltinUniforms(
+            time: kernelTime,
+            timeDelta: kernelDelta,
+            frame: kernelFrame,
+            resolution: SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height)),
+            mouse: mousePosition,
+            mouseButtons: mouseButtons,
+            mouseClickOrigin: mouseClickOrigin
+        )
+    }
+
+    /// Per-frame state mutation triggered from `.onWorkloadEnter`. Captures
+    /// the pause snapshot if requested, and rebases timeBase/frameBase to
+    /// the renderer's current values on resume / reset.
+    private func applyPlaybackSideEffects(context: RenderViewContext) {
+        if capturePauseSnapshot {
+            let liveTime = context.frameUniforms.time - timeBase
+            let liveFrame = Float(context.frameUniforms.index &- frameBase)
+            pausedSnapshot = (time: liveTime, frame: liveFrame)
+            capturePauseSnapshot = false
+        }
+        if rebaseRequested {
+            timeBase = context.frameUniforms.time
+            frameBase = context.frameUniforms.index
+            rebaseRequested = false
+        }
+    }
+
     private func pixelCoordinate(from point: CGPoint) -> SIMD2<Float> {
         guard viewSize.width > 0, viewSize.height > 0,
               let drawableSize = runtime?.currentDrawableSize,

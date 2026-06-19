@@ -30,9 +30,61 @@ public final class PhosphorRuntime {
     /// are reallocated and zero-filled.
     public private(set) var currentDrawableSize: CGSize = .zero
 
-    /// Set whenever a texture is (re)allocated, cleared by the next call to
-    /// ``writeBuiltinUniforms(_:)``. Surfaced to kernels via `Uniforms.resized`.
+    /// Set whenever a texture is (re)allocated or the host explicitly calls
+    /// ``signalReset()``; cleared by the next call to ``writeBuiltinUniforms(_:)``.
+    /// Surfaced to kernels via `Uniforms.resized`.
     private var resizedFlag: Bool = false
+
+    /// Signals a reset: next frame's `uniforms.resized` will be 1 so feedback
+    /// shaders re-seed. Also zeros all ping-pong textures so any leftover
+    /// state from before the reset doesn't bleed through.
+    public func signalReset() {
+        resizedFlag = true
+        // Best-effort zero of ping-pong buffers. Non-pingpong outputs get
+        // overwritten by the next compute pass anyway.
+        for (id, var pair) in textures {
+            guard pair.pingPong else { continue }
+            zeroTexture(pair.a)
+            zeroTexture(pair.b)
+            _ = id
+            _ = pair
+        }
+    }
+
+    private func zeroTexture(_ texture: MTLTexture) {
+        // Cheapest path: enqueue a blit pass that fills the texture with zero.
+        guard let queue = device.makeCommandQueue(),
+              let commandBuffer = queue.makeCommandBuffer(),
+              let encoder = commandBuffer.makeBlitCommandEncoder() else { return }
+        // Use copy from a zero-filled buffer of the texture's row size.
+        let bytesPerPixel: Int
+        switch texture.pixelFormat {
+        case .rgba8Unorm: bytesPerPixel = 4
+        case .rgba16Float: bytesPerPixel = 8
+        case .rgba32Float: bytesPerPixel = 16
+        default: bytesPerPixel = 16
+        }
+        let bytesPerRow = texture.width * bytesPerPixel
+        let length = bytesPerRow * texture.height
+        guard let zero = device.makeBuffer(length: length, options: .storageModeShared) else {
+            encoder.endEncoding()
+            return
+        }
+        memset(zero.contents(), 0, length)
+        encoder.copy(
+            from: zero,
+            sourceOffset: 0,
+            sourceBytesPerRow: bytesPerRow,
+            sourceBytesPerImage: length,
+            sourceSize: MTLSize(width: texture.width, height: texture.height, depth: 1),
+            to: texture,
+            destinationSlice: 0,
+            destinationLevel: 0,
+            destinationOrigin: MTLOrigin(x: 0, y: 0, z: 0)
+        )
+        encoder.endEncoding()
+        commandBuffer.commit()
+    }
 
     /// Per-pass channel argument buffers (Metal 3 bindless). Rebuilt every
     /// frame against the current parity table to support multi-resource
