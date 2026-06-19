@@ -7,13 +7,14 @@ File format: <https://github.com/schwa/issues-format>
 ## 1: Step 5: TextureInit.image — load CGImage assets into ping-pong textures
 
 +++
-status: blocked
+status: closed
 priority: medium
 kind: feature
 labels: effort:m
 depends: 46
 created: 2026-06-18T20:01:51Z
-updated: 2026-06-19T02:46:48Z
+updated: 2026-06-19T16:11:24Z
+closed: 2026-06-19T16:11:24Z
 +++
 
 The asset-resolution path is wired up to the runtime (host injects `[String: PhosphorAsset]` into `PhosphorView`), but the materializer doesn't yet honor `TextureInit.image(name:)` — all textures start zero-filled.
@@ -25,6 +26,12 @@ Implementation:
 - Add a test that loads a tiny known-color CGImage and verifies the first frame's iChannel0 sample matches.
 
 Diagnostic case to handle: missing name -> emit a non-fatal `PhosphorDiagnostic` and zero-init the texture.
+
+- `2026-06-19T16:11:24Z`: Implemented in commit dd0f2d00 'Phosphor 2: image asset loading via MTKTextureLoader'.
+- `2026-06-19T16:11:24Z`: PhosphorAsset value type carries name + raw bytes.
+- `2026-06-19T16:11:24Z`: PhosphorRuntime accepts assets at init/update and honors TextureInit.image(name:) in allocate() by handing the bytes to MTKTextureLoader and blitting the decoded texture into the pre-allocated private-storage target (both halves of a ping-pong pair).
+- `2026-06-19T16:11:24Z`: PhosphorBundleDocument reads the assets/ subdirectory of a .phosphord bundle into [String: PhosphorAsset]; PhosphorAssetStrip provides a drop target + thumbnails.
+- `2026-06-19T16:11:24Z`: Missing-asset case surfaces as PhosphorDiagnostic.missingAsset and zero-fills the texture so the shader keeps rendering.
 
 ---
 
@@ -272,16 +279,18 @@ Currently TOML syntax highlighting isn't applied to front matter blocks. Extend 
 ## 11: Picker to show ANY in-use texture instead of just output texture
 
 +++
-status: blocked
+status: closed
 priority: medium
 kind: enhancement
 labels: effort:m
-depends: 46
 created: 2026-06-18T21:32:32Z
-updated: 2026-06-19T02:46:48Z
+updated: 2026-06-19T16:15:30Z
+closed: 2026-06-19T16:15:30Z
 +++
 
 Add a picker UI to select and display any texture currently in use, not just the output texture.
+
+- `2026-06-19T16:15:30Z`: Done. Toolbar picker in PhosphorEditorBody lets the host choose which resource gets blitted to the drawable. 'Output' (the default) follows environment.output; other entries select an intermediate resource by id. PhosphorPipeline takes a displayedResource: ResourceID? override and falls back to the declared output when the chosen id isn't allocated. Disabled when the environment has fewer than two resources.
 
 ---
 
@@ -1797,8 +1806,7 @@ a different format later, and matches the document-suffix pattern (`.keyd`,
 
 ## Out of scope
 
-- Migrating already-shipped bundles. Pre-rename builds aren't released.
-
+- `2026-06-19T16:08:19Z`: Migrating already-shipped bundles. Pre-rename builds aren't released.
 - `2026-06-19T16:10:31Z`: Done. UTI string stays io.schwa.phosphor.bundle; Swift symbol stays UTType.phosphorBundle. Only the user-facing extension flips to .phosphord. The flat-file .phosphor format will land in a future change.
 
 ---
