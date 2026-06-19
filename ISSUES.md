@@ -320,12 +320,13 @@ Tests live in Examples/MouseProbe.metal: a soft white glow follows the cursor; b
 ## 13: Add a 'New Shader From Prompt…' preset menu
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: effort:s
 created: 2026-06-18T21:45:48Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-19T01:01:01Z
+closed: 2026-06-19T01:01:01Z
 +++
 
 Add a menu (toolbar split-button or File submenu) that exposes a curated set of starter prompts. Clicking one fills the Generate panel's prompt field with the preset text and either fires generation immediately or just opens the panel so the user can tweak first.
@@ -1158,5 +1159,52 @@ Effort: small. ~30 min. Closes #17 once landed.
 - `2026-06-19T00:52:51Z`: Done. Examples/AudioProbe.metal: top half is an oscilloscope (1024-sample waveform as a green glowing trace), bottom half is a spectrum analyzer (512 FFT bins as bars colored blue at low freq, red at high). Mid-line separator. System prompt updated to document uniforms->waveform and uniforms->spectrum with their sizes and value ranges.
 
 Audio buffers verified end to end: mic toggle enables capture; AudioProbe shows live waveform + spectrum.
+
+---
+
+## 37: System audio input via ScreenCaptureKit
+
++++
+status: new
+priority: low
+kind: none
+created: 2026-06-19T00:59:05Z
++++
+
+Today, audio input is mic only via AVAudioEngine (#17). Add system audio (what's playing through the speakers) as a second source so users can drive shaders from their music.
+
+Use `ScreenCaptureKit` (macOS 13+):
+- `SCContentFilter` configured for `.displayExcludingApplications` or similar; we only want audio, no video.
+- `SCStream` with `.audio` capture type. The video output is irrelevant; we discard it (or use the smallest possible capture region).
+- `SCStreamConfiguration.capturesAudio = true`, `channelCount = 1` (mono mixdown).
+- Receive `CMSampleBuffer`s via SCStreamOutput; pull PCM frames and feed them into the same ring buffer used by AVAudioEngine.
+
+Implementation:
+- Refactor AudioCaptureEngine to abstract its source. A new `SystemAudioCaptureSource` (or similar) wraps SCStream and writes into the same AudioRingStorage; AudioCaptureEngine picks between mic and system based on a setting.
+- Settings UI: source picker (Microphone / System Audio / Off). Persisted via @AppStorage.
+- Toolbar mic toggle stays; its meaning becomes 'enable audio capture from the currently-selected source'.
+
+Permissions / entitlements:
+- ScreenCaptureKit requires the screen-recording permission. Phosphor will need TCC ScreenRecording. Add to entitlements + Info.plist with a clear usage description explaining we only want audio.
+- First use prompts the user. Denied -> falls back to Off, surfaced in the toolbar.
+
+Why not other options:
+- Loopback audio drivers (BlackHole, Loopback.app) require the user to install a kext / system extension. High friction.
+- CoreAudio process tap (macOS 14.4+, AudioHardwareCreateProcessTap) is a newer alternative without the screen-recording prompt, but more code and less Swift-native. Worth revisiting if the screen-recording prompt is confusing for users.
+
+Related: #17 (mic input).
+
+---
+
+## 38: TOML generation is verbose; try to make tomlkit produce a more compact output
+
++++
+status: new
+priority: low
+kind: enhancement
+created: 2026-06-19T01:04:30Z
++++
+
+Current TOML generation produces rather verbose output. Investigate ways to coax tomlkit into emitting a more compact representation (e.g. inline tables, inline arrays, fewer blank lines, compact dict styling) where appropriate.
 
 ---
