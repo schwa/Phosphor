@@ -468,12 +468,13 @@ Once ported, update Examples/ in the README / docs so users can discover them.
 ## 17: Microphone audio input as a shader resource
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: effort:l
 created: 2026-06-18T21:52:56Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-19T00:52:51Z
+closed: 2026-06-19T00:52:51Z
 +++
 
 Expose live microphone audio to kernels as a sampleable texture (or buffer), matching Shadertoy's microphone channel concept.
@@ -494,6 +495,8 @@ Stretch:
 - File input as an alternative to live mic.
 
 Test demos to port from Shadertoy: classic audio visualizers (FFT bars, oscilloscope, beat-reactive bloom). The Bloom demo could pick brightness from audio level.
+
+- `2026-06-19T00:52:51Z`: Closed by the #33/#34/#35/#36 sub-issue chain. Microphone audio capture, FFT spectrum, and the AudioProbe demo are all in place. waveform (1024 floats) and spectrum (512 floats) are now first-class Uniforms fields accessible from any kernel.
 
 ---
 
@@ -1097,10 +1100,12 @@ Note: permission-prompt plumbing through the sandbox audio-input entitlement is 
 ## 35: Audio input v3: FFT for spectrum buffer
 
 +++
-status: new
+status: closed
 priority: low
 kind: none
 created: 2026-06-18T23:50:07Z
+updated: 2026-06-19T00:52:51Z
+closed: 2026-06-19T00:52:51Z
 +++
 
 FFT step for #17. Depends on #34 (capture pipeline landed).
@@ -1119,15 +1124,21 @@ Tests:
 
 Effort: medium. vDSP API surface is fiddly, especially the setup/teardown and the interleaved real/imaginary buffer layouts.
 
+- `2026-06-19T00:52:51Z`: Done. SpectrumAnalyzer (Accelerate framework) wraps vDSP.FFT for forward 1024-point real FFT with a Hann window, linear-magnitude normalization to ~[0,1], and cross-frame smoothing (default α=0.4) so the spectrum doesn't strobe.
+
+PhosphorRuntime.writeAudioBuffers() lazily creates the analyzer and processes the waveform into spectrumBuffer every frame. Zero-fills when the capture engine isn't running.
+
 ---
 
 ## 36: Audio input v4: AudioProbe.metal demo + docs
 
 +++
-status: new
+status: closed
 priority: low
 kind: none
 created: 2026-06-18T23:50:19Z
+updated: 2026-06-19T00:52:51Z
+closed: 2026-06-19T00:52:51Z
 +++
 
 Final step for #17. Depends on #33 (signature change), #34 (capture), and #35 (FFT).
@@ -1143,5 +1154,9 @@ Tests:
 - Toggle mic off in Settings \u2014 visualisation flatlines.
 
 Effort: small. ~30 min. Closes #17 once landed.
+
+- `2026-06-19T00:52:51Z`: Done. Examples/AudioProbe.metal: top half is an oscilloscope (1024-sample waveform as a green glowing trace), bottom half is a spectrum analyzer (512 FFT bins as bars colored blue at low freq, red at high). Mid-line separator. System prompt updated to document uniforms->waveform and uniforms->spectrum with their sizes and value ranges.
+
+Audio buffers verified end to end: mic toggle enables capture; AudioProbe shows live waveform + spectrum.
 
 ---

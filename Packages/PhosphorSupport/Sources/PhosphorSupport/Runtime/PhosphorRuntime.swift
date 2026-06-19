@@ -80,6 +80,9 @@ public final class PhosphorRuntime {
     /// copies its latest samples into ``waveformBuffer`` each frame.
     public weak var audioCapture: AudioCaptureEngine?
 
+    /// FFT helper. Lazily created on first audio frame; reused thereafter.
+    private var spectrumAnalyzer: SpectrumAnalyzer?
+
     public init(device: MTLDevice, environment: PhosphorEnvironment, source: String) throws {
         self.device = device
         self.environment = environment
@@ -245,12 +248,20 @@ public final class PhosphorRuntime {
     /// reference the buffer.
     public func writeAudioBuffers() {
         let waveformPtr = waveformBuffer.contents().bindMemory(to: Float.self, capacity: Self.waveformSampleCount)
+        let spectrumPtr = spectrumBuffer.contents().bindMemory(to: Float.self, capacity: Self.spectrumBinCount)
         if let capture = audioCapture, capture.isRunningNonisolated {
             capture.copyLatestSamples(into: waveformPtr)
+            if spectrumAnalyzer == nil {
+                spectrumAnalyzer = SpectrumAnalyzer(
+                    sampleCount: Self.waveformSampleCount,
+                    binCount: Self.spectrumBinCount
+                )
+            }
+            spectrumAnalyzer?.process(samples: waveformPtr, into: spectrumPtr)
         } else {
             memset(waveformBuffer.contents(), 0, Self.waveformSampleCount * MemoryLayout<Float>.stride)
+            memset(spectrumBuffer.contents(), 0, Self.spectrumBinCount * MemoryLayout<Float>.stride)
         }
-        // Spectrum is left zero-filled until #35 implements the FFT.
     }
 
     public func writeBuiltinUniforms(_ uniforms: BuiltinUniforms) {
