@@ -1,18 +1,21 @@
 import PhosphorSupport
 import SwiftUI
-import Metal
 
 /// Top-level view for a `.phosphord` bundle document. Three-pane layout:
 /// sidebar (shaders) + editor + preview, with the asset thumbnail strip
 /// pinned below the editor.
 struct PhosphorBundleDocumentView: View {
     @Bindable var document: PhosphorBundleDocument
-    @State private var runtime: PhosphorRuntime?
+    @State private var store = PhosphorRuntimeStore()
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
     @AppStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
 
     private var sortedShaderNames: [String] {
         document.shaders.keys.sorted()
+    }
+
+    private var assetNames: Set<String> {
+        Set(document.assets.keys)
     }
 
     private var activeTextBinding: Binding<String> {
@@ -50,34 +53,16 @@ struct PhosphorBundleDocumentView: View {
                 }
             )
         }
-        .environment(runtime)
-        .task(id: RuntimeKey(parsed: document.parsed, assetNames: Set(document.assets.keys))) {
-            await reloadRuntime(parsed: document.parsed, assets: document.assets)
+        .environment(store.runtime)
+        .task(id: ReloadKey(parsed: document.parsed, assetNames: assetNames)) {
+            store.reload(
+                parsed: document.parsed,
+                assets: document.assets,
+                audioCapture: audioCapture
+            )
         }
         .inspector(isPresented: $showInspector) {
-            PhosphorInspector(parsed: document.parsed, runtime: runtime)
-        }
-    }
-
-    @MainActor
-    private func reloadRuntime(parsed: ParsedPhosphorSource, assets: [String: PhosphorAsset]) {
-        guard let environment = parsed.environment else {
-            runtime = nil
-            return
-        }
-        do {
-            if let runtime {
-                try runtime.update(environment: environment, source: parsed.body, assets: assets)
-            } else {
-                guard let device = MTLCreateSystemDefaultDevice() else { return }
-                let newRuntime = try PhosphorRuntime(
-                    device: device, environment: environment, source: parsed.body, assets: assets
-                )
-                newRuntime.audioCapture = audioCapture
-                runtime = newRuntime
-            }
-        } catch {
-            print("PhosphorBundleDocumentView: runtime reload failed: \(error)")
+            PhosphorInspector(parsed: document.parsed, runtime: store.runtime)
         }
     }
 }
@@ -101,6 +86,7 @@ private struct ShaderSidebar: View {
             Button(action: onAdd) {
                 Label("New Shader", systemImage: "plus")
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
             }
             .buttonStyle(.plain)
             .padding(8)
@@ -109,7 +95,7 @@ private struct ShaderSidebar: View {
     }
 }
 
-private struct RuntimeKey: Hashable {
+private struct ReloadKey: Hashable {
     var parsed: ParsedPhosphorSource
     var assetNames: Set<String>
 }
