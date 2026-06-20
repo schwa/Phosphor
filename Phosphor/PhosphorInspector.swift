@@ -6,11 +6,15 @@ import SwiftUI
 struct PhosphorInspector: View {
     let parsed: ParsedPhosphorSource
     let runtime: PhosphorRuntime?
+    @Binding var text: String
 
     var body: some View {
         TabView {
             Tab("Output", systemImage: "rectangle.dashed") {
                 OutputTab(parsed: parsed, runtime: runtime)
+            }
+            Tab("Environment", systemImage: "slider.horizontal.below.rectangle") {
+                EnvironmentTab(parsed: parsed, text: $text)
             }
         }
     }

@@ -29,6 +29,8 @@ struct PhosphorBundleDocumentView: View {
         )
     }
 
+    private var inspectorText: Binding<String> { activeTextBinding }
+
     var body: some View {
         NavigationSplitView {
             BundleSidebar(
@@ -61,7 +63,7 @@ struct PhosphorBundleDocumentView: View {
             )
         }
         .inspector(isPresented: $showInspector) {
-            PhosphorInspector(parsed: document.parsed, runtime: store.runtime)
+            PhosphorInspector(parsed: document.parsed, runtime: store.runtime, text: inspectorText)
         }
     }
 

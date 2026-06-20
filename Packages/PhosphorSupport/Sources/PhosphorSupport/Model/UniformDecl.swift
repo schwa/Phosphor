@@ -21,7 +21,7 @@ public struct UniformDecl: Hashable, Sendable {
 }
 
 /// Scalar/vector kind for a user uniform. Matches the host-side `UniformValue`.
-public enum UniformKind: String, Hashable, Codable, Sendable {
+public enum UniformKind: String, Hashable, Codable, Sendable, CaseIterable {
     case float
     case float2
     case float3
