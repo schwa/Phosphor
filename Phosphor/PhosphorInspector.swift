@@ -1,9 +1,24 @@
 import PhosphorSupport
 import SwiftUI
 
-/// Inspector pane for the editor. Shows live drawable size + pixel format
-/// of the env's output texture.
+/// Inspector pane for the editor. Wraps tab-style sections; currently just
+/// one tab ("Output") showing drawable size + pixel format.
 struct PhosphorInspector: View {
+    let parsed: ParsedPhosphorSource
+    let runtime: PhosphorRuntime?
+
+    var body: some View {
+        TabView {
+            Tab("Output", systemImage: "rectangle.dashed") {
+                OutputTab(parsed: parsed, runtime: runtime)
+            }
+        }
+    }
+}
+
+/// Output tab: live drawable size + pixel format of the env's output
+/// texture.
+private struct OutputTab: View {
     let parsed: ParsedPhosphorSource
     let runtime: PhosphorRuntime?
 
