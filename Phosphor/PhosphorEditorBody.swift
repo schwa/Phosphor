@@ -66,13 +66,13 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
         .frame(minWidth: 800, minHeight: 500)
         .focusedSceneValue(\.shaderText, $text)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .principal) {
                 ResourcePicker(
                     environment: parsed.environment,
                     displayedResource: $displayedResource
                 )
             }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .principal) {
                 Button {
                     showHeader.toggle()
                 } label: {
@@ -82,7 +82,7 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
                     HeaderPopover(environment: parsed.environment ?? PhosphorEnvironment(output: "image"))
                 }
             }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .principal) {
                 Toggle(isOn: $showUniformsPanel) {
                     Label("Uniforms", systemImage: "slider.horizontal.3")
                 }
@@ -92,7 +92,7 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
                     ? "Show or hide the uniforms panel"
                     : "No uniforms declared in this shader")
             }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .principal) {
                 Toggle(isOn: micToggleBinding) {
                     Label("Microphone", systemImage: micEnabled ? "mic.fill" : "mic.slash")
                 }
@@ -102,7 +102,7 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
                     ? "Microphone access was denied. Enable it in System Settings → Privacy & Security."
                     : "Enable microphone input for audio-reactive shaders")
             }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .principal) {
                 Button {
                     isPaused.toggle()
                 } label: {
@@ -113,7 +113,7 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
                 }
                 .help(isPaused ? "Resume" : "Pause time")
             }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .principal) {
                 Button {
                     resetSignal &+= 1
                     isPaused = false
@@ -122,7 +122,7 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
                 }
                 .help("Reset time to 0 and reseed feedback shaders")
             }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .principal) {
                 Button {
                     showGenerate = true
                 } label: {
@@ -131,10 +131,11 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
                 .keyboardShortcut("p", modifiers: [.command, .shift])
             }
             ToolbarItem(placement: .primaryAction) {
-                Toggle(isOn: $showInspector) {
+                Button {
+                    showInspector.toggle()
+                } label: {
                     Label("Inspector", systemImage: "sidebar.right")
                 }
-                .toggleStyle(.button)
                 .keyboardShortcut("i", modifiers: [.command, .option])
                 .help("Toggle inspector panel")
             }
