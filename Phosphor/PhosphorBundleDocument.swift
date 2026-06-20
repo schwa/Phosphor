@@ -107,16 +107,38 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
     /// appends a number suffix.
     @discardableResult
     func addShader() -> String {
-        let base = "Untitled"
+        let filename = uniqueShaderName(forBase: "Untitled")
+        shaders[filename] = Self.template
+        activeShader = filename
+        refreshParsed()
+        return filename
+    }
+
+    /// Import an existing `.metal` file as a new shader in the bundle.
+    /// The file's basename is used as the key, with a numeric suffix on
+    /// collision. Returns the filename actually used, or nil on read
+    /// failure.
+    @discardableResult
+    func addShader(from url: URL) -> String? {
+        guard let data = try? Data(contentsOf: url),
+              let text = String(data: data, encoding: .utf8) else { return nil }
+        let base = url.deletingPathExtension().lastPathComponent
+        let filename = uniqueShaderName(forBase: base)
+        shaders[filename] = text
+        activeShader = filename
+        refreshParsed()
+        return filename
+    }
+
+    /// Returns a filename with `.metal` extension not currently in use.
+    /// Appends `" N"` before the extension if the base is taken.
+    private func uniqueShaderName(forBase base: String) -> String {
         var candidate = "\(base).metal"
         var counter = 2
         while shaders[candidate] != nil {
             candidate = "\(base) \(counter).metal"
             counter += 1
         }
-        shaders[candidate] = Self.template
-        activeShader = candidate
-        refreshParsed()
         return candidate
     }
 

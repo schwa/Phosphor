@@ -54,6 +54,7 @@ public struct MetalSourceView: View {
 
         case .editable(let binding):
             TextEditor(text: attributedEditingBinding(plainTextBinding: binding))
+                .scrollContentBackground(.hidden)
         }
     }
 

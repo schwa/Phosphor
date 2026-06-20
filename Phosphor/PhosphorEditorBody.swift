@@ -7,16 +7,12 @@ import SwiftUI
 /// ``PhosphorDocumentView`` (flat `.metal`) or
 /// ``PhosphorBundleDocumentView`` (`.phosphor` package). All persistence
 /// concerns stay with the wrapping per-doc view.
-struct PhosphorEditorBody<EditorAccessory: View>: View {
+struct PhosphorEditorBody: View {
     @Binding var text: String
     let parsed: ParsedPhosphorSource
     let assets: [String: PhosphorAsset]
     let onTextChange: () -> Void
     let isUntouchedTemplate: Bool
-    /// Pinned below the code editor on the left side. Plain `.metal`
-    /// documents pass `EmptyView()`; `.phosphor` bundles pass a
-    /// ``PhosphorAssetStrip``.
-    @ViewBuilder let editorAccessory: () -> EditorAccessory
 
     @State private var showHeader: Bool = false
     @State private var showGenerate: Bool = false
@@ -28,6 +24,7 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
     @AppStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
     @AppStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
+    @SceneStorage("phosphor.ui.layoutMode") private var layoutMode: LayoutMode = .sideBySide
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
 
     /// True if the current document has at least one declared uniform.
@@ -48,24 +45,28 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
     }
 
     var body: some View {
-        HSplitView {
-            VStack(spacing: 0) {
-                CodePane(text: $text, onTextChange: onTextChange)
-                editorAccessory()
+        Group {
+            switch layoutMode {
+            case .sideBySide:
+                sideBySideLayout
+            case .overlay:
+                overlayLayout
             }
-            .frame(minWidth: 280)
-            PreviewPane(
-                parsed: parsed,
-                assets: assets,
-                isPaused: $isPaused,
-                resetSignal: resetSignal,
-                displayedResource: displayedResource
-            )
-            .frame(minWidth: 360)
         }
         .frame(minWidth: 800, minHeight: 500)
         .focusedSceneValue(\.shaderText, $text)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Button {
+                    layoutMode.toggle()
+                } label: {
+                    Label(
+                        layoutMode == .sideBySide ? "Overlay Layout" : "Side-by-Side Layout",
+                        systemImage: layoutMode == .sideBySide ? "rectangle.on.rectangle" : "rectangle.split.2x1"
+                    )
+                }
+                .help(layoutMode == .sideBySide ? "Switch to overlay layout" : "Switch to side-by-side layout")
+            }
             ToolbarItem(placement: .principal) {
                 ResourcePicker(
                     environment: parsed.environment,
@@ -151,16 +152,65 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
             .frame(minWidth: 480, minHeight: 240)
         }
     }
+
+    // MARK: - Layouts
+
+    @ViewBuilder
+    private var sideBySideLayout: some View {
+        HSplitView {
+            CodePane(text: $text, onTextChange: onTextChange)
+                .frame(minWidth: 280)
+            PreviewPane(
+                parsed: parsed,
+                assets: assets,
+                isPaused: $isPaused,
+                resetSignal: resetSignal,
+                displayedResource: displayedResource
+            )
+            .frame(minWidth: 360)
+        }
+    }
+
+    @ViewBuilder
+    private var overlayLayout: some View {
+        ZStack {
+            PreviewPane(
+                parsed: parsed,
+                assets: assets,
+                isPaused: $isPaused,
+                resetSignal: resetSignal,
+                displayedResource: displayedResource
+            )
+            .ignoresSafeArea()
+
+            CodePane(text: $text, onTextChange: onTextChange, opaque: false)
+        }
+    }
+}
+
+/// User-facing layout mode for the editor: side-by-side splitter
+/// (default) or code panel overlaid on a full-bleed preview.
+enum LayoutMode: String, CaseIterable {
+    case sideBySide
+    case overlay
+
+    mutating func toggle() {
+        self = self == .sideBySide ? .overlay : .sideBySide
+    }
 }
 
 /// Left side of the document split: the editable Metal source.
 private struct CodePane: View {
     @Binding var text: String
     let onTextChange: () -> Void
+    /// When true (the default), paints an opaque text-background color
+    /// behind the editor. Overlay layout passes `false` so the panel's
+    /// material background shows through.
+    var opaque: Bool = true
 
     var body: some View {
         MetalSourceView(text: $text)
-            .background(Color(.textBackgroundColor))
+            .background(opaque ? Color(.textBackgroundColor) : .clear)
             .onChange(of: text) { _, _ in
                 onTextChange()
             }

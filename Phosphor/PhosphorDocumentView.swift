@@ -16,8 +16,7 @@ struct PhosphorDocumentView: View {
             parsed: document.parsed,
             assets: [:],
             onTextChange: { document.refreshParsed() },
-            isUntouchedTemplate: document.isUntouchedTemplate,
-            editorAccessory: { EmptyView() }
+            isUntouchedTemplate: document.isUntouchedTemplate
         )
         .environment(store.runtime)
         .task(id: document.parsed) {

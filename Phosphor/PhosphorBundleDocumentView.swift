@@ -1,9 +1,9 @@
 import PhosphorSupport
 import SwiftUI
+import UniformTypeIdentifiers
 
-/// Top-level view for a `.phosphord` bundle document. Three-pane layout:
-/// sidebar (shaders) + editor + preview, with the asset thumbnail strip
-/// pinned below the editor.
+/// Top-level view for a `.phosphord` bundle document. Sidebar lists the
+/// bundled shaders and assets; detail pane is the editor + preview.
 struct PhosphorBundleDocumentView: View {
     @Bindable var document: PhosphorBundleDocument
     @State private var store = PhosphorRuntimeStore()
@@ -12,6 +12,10 @@ struct PhosphorBundleDocumentView: View {
 
     private var sortedShaderNames: [String] {
         document.shaders.keys.sorted()
+    }
+
+    private var sortedAssetNames: [String] {
+        document.assets.keys.sorted()
     }
 
     private var assetNames: Set<String> {
@@ -27,15 +31,17 @@ struct PhosphorBundleDocumentView: View {
 
     var body: some View {
         NavigationSplitView {
-            ShaderSidebar(
+            BundleSidebar(
                 shaderNames: sortedShaderNames,
+                assetNames: sortedAssetNames,
                 selection: Binding(
                     get: { document.activeShader },
                     set: { newValue in
                         if let newValue { document.selectShader(newValue) }
                     }
                 ),
-                onAdd: { document.addShader() }
+                onAddShader: { document.addShader() },
+                onImport: { urls in importURLs(urls) }
             )
         } detail: {
             PhosphorEditorBody(
@@ -43,14 +49,7 @@ struct PhosphorBundleDocumentView: View {
                 parsed: document.parsed,
                 assets: document.assets,
                 onTextChange: { document.refreshParsed() },
-                isUntouchedTemplate: document.isUntouchedTemplate,
-                editorAccessory: {
-                    PhosphorAssetStrip(
-                        assets: document.assets,
-                        onAdd: { urls in urls.forEach(document.addAsset(at:)) },
-                        onRemove: { name in document.removeAsset(name: name) }
-                    )
-                }
+                isUntouchedTemplate: document.isUntouchedTemplate
             )
         }
         .environment(store.runtime)
@@ -65,33 +64,87 @@ struct PhosphorBundleDocumentView: View {
             PhosphorInspector(parsed: document.parsed, runtime: store.runtime)
         }
     }
+
+    /// Routes a dropped or imported file URL into either the shaders or
+    /// assets dict based on its extension. `.metal` becomes a shader;
+    /// anything else is treated as an asset.
+    private func importURLs(_ urls: [URL]) {
+        for url in urls {
+            if url.pathExtension.lowercased() == "metal" {
+                document.addShader(from: url)
+            } else {
+                document.addAsset(at: url)
+            }
+        }
+    }
 }
 
-/// Left sidebar: list of shaders + a `+` button at the bottom.
-private struct ShaderSidebar: View {
+/// Sidebar for a `.phosphord` bundle. Two sections (Sources, Assets) plus
+/// toolbar buttons at the bottom for "New Shader" and "Import…". Accepts
+/// drag-and-drop of `.metal` files (added as shaders) and other files
+/// (added as assets).
+private struct BundleSidebar: View {
     let shaderNames: [String]
+    let assetNames: [String]
     @Binding var selection: String?
-    let onAdd: () -> Void
+    let onAddShader: () -> Void
+    let onImport: ([URL]) -> Void
+
+    @State private var showImporter: Bool = false
 
     var body: some View {
-        List(selection: $selection) {
-            ForEach(shaderNames, id: \.self) { name in
-                Label(name, systemImage: "doc.text")
-                    .tag(name)
+        VStack(spacing: 0) {
+            List(selection: $selection) {
+                Section("Sources") {
+                    ForEach(shaderNames, id: \.self) { name in
+                        Label(name, systemImage: "doc.text")
+                            .tag(name)
+                    }
+                }
+                Section("Assets") {
+                    ForEach(assetNames, id: \.self) { name in
+                        Label(name, systemImage: "photo")
+                    }
+                }
             }
-        }
-        .listStyle(.sidebar)
-        .navigationTitle("Shaders")
-        .safeAreaInset(edge: .bottom) {
-            Button(action: onAdd) {
-                Label("New Shader", systemImage: "plus")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(.rect)
+            .listStyle(.sidebar)
+            .dropDestination(for: URL.self) { urls, _ in
+                onImport(urls)
+                return !urls.isEmpty
             }
-            .buttonStyle(.plain)
+
+            Divider()
+            HStack(spacing: 8) {
+                Button {
+                    onAddShader()
+                } label: {
+                    Label("New Shader", systemImage: "plus")
+                        .frame(maxWidth: .infinity)
+                        .contentShape(.rect)
+                }
+                Button {
+                    showImporter = true
+                } label: {
+                    Label("Import", systemImage: "square.and.arrow.down")
+                        .frame(maxWidth: .infinity)
+                        .contentShape(.rect)
+                }
+            }
+            .labelStyle(.titleAndIcon)
+            .buttonStyle(.bordered)
             .padding(8)
             .background(.background.secondary)
+            .fileImporter(
+                isPresented: $showImporter,
+                allowedContentTypes: [.metalSource, .image, .data],
+                allowsMultipleSelection: true
+            ) { result in
+                if case .success(let urls) = result {
+                    onImport(urls)
+                }
+            }
         }
+        .navigationTitle("Bundle")
     }
 }
 
