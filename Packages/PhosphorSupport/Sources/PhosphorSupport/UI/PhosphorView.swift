@@ -257,11 +257,11 @@ private struct UniformsOverlay: View {
     var body: some View {
         if !uniforms.isEmpty, showPanel {
             VStack(alignment: .leading, spacing: 0) {
-                Text("Uniforms").font(.caption).bold().foregroundStyle(.white)
+                Text("Uniforms").font(.caption).bold()
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background { Color.black.opacity(0.6) }
+                    .background(.thickMaterial)
 
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(uniforms, id: \.name) { uniform in
@@ -275,10 +275,9 @@ private struct UniformsOverlay: View {
                     }
                 }
                 .padding(8)
-                .background { Color.black.opacity(0.5) }
-                .foregroundStyle(.white)
+                .background(.regularMaterial)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .clipShape(.rect(cornerRadius: 6))
             .frame(maxWidth: 320)
             .padding(8)
         }
@@ -304,7 +303,7 @@ private struct DiagnosticsOverlay: View {
                 }
                 .padding(8)
             }
-            .background(.red.opacity(0.85), in: RoundedRectangle(cornerRadius: 6))
+            .background(.red.opacity(0.85), in: .rect(cornerRadius: 6))
             .frame(maxWidth: 720, maxHeight: 400)
             .padding(8)
         }
