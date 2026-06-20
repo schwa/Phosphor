@@ -99,7 +99,8 @@ static inline float fbm(float3 p) {
 static inline float2x2 rot2(float an) {
     float c = cos(an);
     float s = sin(an);
-    return float2x2(c, s, -s, c);
+    // GLSL mat2(c, -s, s, c) is column-major: col0=(c,-s), col1=(s,c).
+    return float2x2(c, -s, s, c);
 }
 
 static inline float4 mapScene(float3 p, float time) {
