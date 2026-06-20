@@ -37,31 +37,6 @@ public struct PhosphorView: View {
     @State private var uniformValues: [String: UniformValue] = [:]
     @AppStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
 
-    /// Reference wall-clock time used as t=0 (subtracted from the renderer's
-    /// time to get the kernel's time). Updated on reset.
-    @State private var timeBase: Float = 0
-    /// Reference frame index.
-    @State private var frameBase: UInt32 = 0
-    /// Snapshot of (time, frame) emitted while paused. Captured from the
-    /// renderer the moment the user pauses.
-    @State private var pausedSnapshot: (time: Float, frame: Float)?
-    /// On the next frame, pull a fresh snapshot from the live values. Set when
-    /// the user pauses; cleared once the snapshot is captured.
-    @State private var capturePauseSnapshot: Bool = false
-    /// On the next frame, set timeBase/frameBase = live values. Set on reset
-    /// or resume; cleared once applied.
-    @State private var rebaseRequested: Bool = false
-
-    // Mouse state, in pixel coordinates (matching uniforms.resolution).
-    // Updated by gestures on the RenderView; passed into BuiltinUniforms
-    // each frame.
-    @State private var mousePosition: SIMD2<Float> = .zero
-    @State private var mouseButtons: UInt32 = 0
-    @State private var mouseClickOrigin: SIMD2<Float> = .zero
-    /// Logical view size (in points). Combined with the drawable size to
-    /// convert mouse coordinates from points to pixels.
-    @State private var viewSize: CGSize = .zero
-
     public init(
         environment: PhosphorEnvironment,
         source: String,
@@ -113,85 +88,127 @@ public struct PhosphorView: View {
     }
 
     public var body: some View {
-        ZStack {
-            if let runtime {
-                RenderView { context, drawableSize in
-                    PhosphorPipeline(
-                        runtime: runtime,
-                        uniforms: buildUniforms(context: context, drawableSize: drawableSize),
-                        userUniformValues: uniformValues,
-                        drawableSize: drawableSize,
-                        displayedResource: displayedResource
-                    )
-                    .onWorkloadEnter { _ in
-                        applyPlaybackSideEffects(context: context)
-                    }
-                }
-                .onGeometryChange(for: CGSize.self, of: \.size) { newSize in
-                    viewSize = newSize
-                }
-                .onChange(of: isPausedExternally?.wrappedValue ?? false) { _, newValue in
-                    if newValue {
-                        capturePauseSnapshot = true
-                    } else {
-                        pausedSnapshot = nil
-                        rebaseRequested = true
-                    }
-                }
-                .onChange(of: resetSignal) { _, _ in
-                    rebaseRequested = true
-                    pausedSnapshot = nil
-                    capturePauseSnapshot = false
-                    runtime.signalReset()
-                }
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let point):
-                        mousePosition = pixelCoordinate(from: point)
+        if let runtime {
+            PhosphorRunningView(
+                runtime: runtime,
+                environment: environment,
+                frontMatterDiagnostics: frontMatterDiagnostics,
+                isPausedExternally: isPausedExternally,
+                resetSignal: resetSignal,
+                displayedResource: displayedResource,
+                uniformValues: $uniformValues,
+                showUniformsPanel: showUniformsPanel
+            )
+            .onChange(of: environment) { _, newEnvironment in
+                uniformValues = UserUniformsLayout.defaultsDictionary(newEnvironment.uniforms)
+            }
+            .task {
+                uniformValues = UserUniformsLayout.defaultsDictionary(environment.uniforms)
+            }
+        } else {
+            PhosphorLoadingView()
+        }
+    }
+}
 
-                    case .ended:
-                        break
-                    }
-                }
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            mousePosition = pixelCoordinate(from: value.location)
-                            if mouseButtons & 0b1 == 0 {
-                                // First frame of the press: record click origin.
-                                mouseClickOrigin = pixelCoordinate(from: value.startLocation)
-                            }
-                            mouseButtons |= 0b1
-                        }
-                        .onEnded { _ in
-                            mouseButtons &= ~0b1
-                        }
-                )
-                .overlay(alignment: .topLeading) {
-                    DiagnosticsOverlay(diagnostics: frontMatterDiagnostics + runtime.diagnostics)
-                }
-                .overlay(alignment: .topTrailing) {
-                    UniformsOverlay(
-                        uniforms: environment.uniforms,
-                        showPanel: showUniformsPanel,
-                        uniformValues: $uniformValues
-                    )
-                }
-            } else {
-                Color.black
+/// The body when the runtime is live. Owns playback-clock and mouse-input
+/// state. Driving the `RenderView`, wiring overlays, and handling the
+/// pause / reset signals all live here.
+private struct PhosphorRunningView: View {
+    let runtime: PhosphorRuntime
+    let environment: PhosphorEnvironment
+    let frontMatterDiagnostics: [PhosphorDiagnostic]
+    let isPausedExternally: Binding<Bool>?
+    let resetSignal: Int
+    let displayedResource: ResourceID?
+    @Binding var uniformValues: [String: UniformValue]
+    let showUniformsPanel: Bool
+
+    /// Reference wall-clock time used as t=0 (subtracted from the
+    /// renderer's time to get the kernel's time). Updated on reset.
+    @State private var timeBase: Float = 0
+    /// Reference frame index.
+    @State private var frameBase: UInt32 = 0
+    /// Snapshot of (time, frame) emitted while paused. Captured from the
+    /// renderer the moment the user pauses.
+    @State private var pausedSnapshot: (time: Float, frame: Float)?
+    /// On the next frame, pull a fresh snapshot from the live values.
+    @State private var capturePauseSnapshot: Bool = false
+    /// On the next frame, set timeBase/frameBase = live values.
+    @State private var rebaseRequested: Bool = false
+
+    // Mouse state, in pixel coordinates (matching uniforms.resolution).
+    @State private var mousePosition: SIMD2<Float> = .zero
+    @State private var mouseButtons: UInt32 = 0
+    @State private var mouseClickOrigin: SIMD2<Float> = .zero
+    /// Logical view size (in points). Combined with the drawable size to
+    /// convert mouse coordinates from points to pixels.
+    @State private var viewSize: CGSize = .zero
+
+    var body: some View {
+        RenderView { context, drawableSize in
+            PhosphorPipeline(
+                runtime: runtime,
+                uniforms: buildUniforms(context: context, drawableSize: drawableSize),
+                userUniformValues: uniformValues,
+                drawableSize: drawableSize,
+                displayedResource: displayedResource
+            )
+            .onWorkloadEnter { _ in
+                applyPlaybackSideEffects(context: context)
             }
         }
-        .onChange(of: environment) { _, newEnvironment in
-            uniformValues = UserUniformsLayout.defaultsDictionary(newEnvironment.uniforms)
+        .onGeometryChange(for: CGSize.self, of: \.size) { newSize in
+            viewSize = newSize
         }
-        .task {
-            uniformValues = UserUniformsLayout.defaultsDictionary(environment.uniforms)
+        .onChange(of: isPausedExternally?.wrappedValue ?? false) { _, newValue in
+            if newValue {
+                capturePauseSnapshot = true
+            } else {
+                pausedSnapshot = nil
+                rebaseRequested = true
+            }
+        }
+        .onChange(of: resetSignal) { _, _ in
+            rebaseRequested = true
+            pausedSnapshot = nil
+            capturePauseSnapshot = false
+            runtime.signalReset()
+        }
+        .onContinuousHover { phase in
+            switch phase {
+            case .active(let point):
+                mousePosition = pixelCoordinate(from: point)
+            case .ended:
+                break
+            }
+        }
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    mousePosition = pixelCoordinate(from: value.location)
+                    if mouseButtons & 0b1 == 0 {
+                        // First frame of the press: record click origin.
+                        mouseClickOrigin = pixelCoordinate(from: value.startLocation)
+                    }
+                    mouseButtons |= 0b1
+                }
+                .onEnded { _ in
+                    mouseButtons &= ~0b1
+                }
+        )
+        .overlay(alignment: .topLeading) {
+            DiagnosticsOverlay(diagnostics: frontMatterDiagnostics + runtime.diagnostics)
+        }
+        .overlay(alignment: .topTrailing) {
+            UniformsOverlay(
+                uniforms: environment.uniforms,
+                showPanel: showUniformsPanel,
+                uniformValues: $uniformValues
+            )
         }
     }
 
-    /// Converts a point in PhosphorView's coordinate space to pixel
-    /// coordinates matching `uniforms.resolution`. Uses the cached `viewSize`
-    /// (in points) and assumes the drawable's aspect matches the view.
     /// Builds the per-frame `BuiltinUniforms`, applying pause/rebase.
     private func buildUniforms(context: RenderViewContext, drawableSize: CGSize) -> BuiltinUniforms {
         let kernelTime: Float
@@ -217,9 +234,7 @@ public struct PhosphorView: View {
         )
     }
 
-    /// Per-frame state mutation triggered from `.onWorkloadEnter`. Captures
-    /// the pause snapshot if requested, and rebases timeBase/frameBase to
-    /// the renderer's current values on resume / reset.
+    /// Per-frame state mutation triggered from `.onWorkloadEnter`.
     private func applyPlaybackSideEffects(context: RenderViewContext) {
         if capturePauseSnapshot {
             let liveTime = context.frameUniforms.time - timeBase
@@ -234,9 +249,11 @@ public struct PhosphorView: View {
         }
     }
 
+    /// Converts a point in the view's coordinate space to pixel coordinates
+    /// matching `uniforms.resolution`.
     private func pixelCoordinate(from point: CGPoint) -> SIMD2<Float> {
+        let drawableSize = runtime.currentDrawableSize
         guard viewSize.width > 0, viewSize.height > 0,
-              let drawableSize = runtime?.currentDrawableSize,
               drawableSize.width > 0, drawableSize.height > 0 else {
             return SIMD2<Float>(Float(point.x), Float(point.y))
         }
@@ -244,7 +261,15 @@ public struct PhosphorView: View {
         let scaleY = Float(drawableSize.height / viewSize.height)
         return SIMD2<Float>(Float(point.x) * scaleX, Float(point.y) * scaleY)
     }
+}
 
+/// Placeholder shown when the runtime isn't ready yet (no parsed env, or
+/// first frame hasn't fired). Plain black so it blends with the rest of
+/// the chrome.
+private struct PhosphorLoadingView: View {
+    var body: some View {
+        Color.black
+    }
 }
 
 /// Translucent panel listing every declared user-uniform with live controls.
