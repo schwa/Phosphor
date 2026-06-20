@@ -53,7 +53,6 @@ struct PhosphorEditorBody: View {
                 overlayLayout
             }
         }
-        .frame(minWidth: 800, minHeight: 500)
         .focusedSceneValue(\.shaderText, $text)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -149,7 +148,6 @@ struct PhosphorEditorBody: View {
                 isUntouchedTemplate: isUntouchedTemplate,
                 onTextChange: onTextChange
             )
-            .frame(minWidth: 480, minHeight: 240)
         }
     }
 
@@ -159,7 +157,6 @@ struct PhosphorEditorBody: View {
     private var sideBySideLayout: some View {
         HSplitView {
             CodePane(text: $text, onTextChange: onTextChange)
-                .frame(minWidth: 280)
             PreviewPane(
                 parsed: parsed,
                 assets: assets,
@@ -167,7 +164,6 @@ struct PhosphorEditorBody: View {
                 resetSignal: resetSignal,
                 displayedResource: displayedResource
             )
-            .frame(minWidth: 360)
         }
     }
 
@@ -183,7 +179,8 @@ struct PhosphorEditorBody: View {
             )
             .ignoresSafeArea()
 
-            CodePane(text: $text, onTextChange: onTextChange, opaque: false)
+            CodePane(text: $text, onTextChange: onTextChange, opaque: false, palette: .withBackdrop)
+                .padding(16)
         }
     }
 }
@@ -204,12 +201,15 @@ private struct CodePane: View {
     @Binding var text: String
     let onTextChange: () -> Void
     /// When true (the default), paints an opaque text-background color
-    /// behind the editor. Overlay layout passes `false` so the panel's
-    /// material background shows through.
+    /// behind the editor. Overlay layout passes `false` so the underlying
+    /// preview shows through.
     var opaque: Bool = true
+    /// Syntax palette to use. Defaults to ``SyntaxPalette/default``;
+    /// overlay layout passes ``SyntaxPalette/highContrast``.
+    var palette: SyntaxPalette = .default
 
     var body: some View {
-        MetalSourceView(text: $text)
+        MetalSourceView(text: $text, palette: palette)
             .background(opaque ? Color(.textBackgroundColor) : .clear)
             .onChange(of: text) { _, _ in
                 onTextChange()
@@ -261,7 +261,6 @@ private struct HeaderPopover: View {
             MetalSourceView(text: PhosphorHeader.source(for: environment))
                 .padding(12)
         }
-        .frame(minWidth: 480, minHeight: 320)
     }
 }
 
