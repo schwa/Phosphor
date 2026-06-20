@@ -1,7 +1,24 @@
 /* phosphor:environment
 flipY = true
 output = "image"
-uniforms = []
+
+[[uniforms]]
+default = 0.35
+kind = "float"
+name = "stepScale"
+ui = { slider = { max = 1.0, min = 0.1 } }
+
+[[uniforms]]
+default = 0.0025
+kind = "float"
+name = "normalEps"
+ui = { slider = { max = 0.02, min = 0.0005 } }
+
+[[uniforms]]
+default = 0.07
+kind = "float"
+name = "noiseAmount"
+ui = { slider = { max = 0.2, min = 0.0 } }
 
 [[passes]]
 enabled = true
@@ -103,7 +120,7 @@ static inline float2x2 rot2(float an) {
     return float2x2(c, -s, s, c);
 }
 
-static inline float4 mapScene(float3 p, float time) {
+static inline float4 mapScene(float3 p, float time, float noiseAmount) {
     {
         float an = 6.2831 * time / 40.0;
         p.xz = rot2(an) * p.xz;
@@ -135,7 +152,7 @@ static inline float4 mapScene(float3 p, float time) {
     float d1 = sdBox3(p, float3(0.05, 0.12 + 0.05 * h3, 0.3 + 0.10 * h2)) - 0.1;
 
     float f = fbm(op / 0.15);
-    d1 += 0.07 * f;
+    d1 += noiseAmount * f;
 
     float d2 = sdTube(op - float3(0.0, -1.0, 0.0), 1.45, 1.5, 0.15);
     d2 += 0.02 * f;
@@ -146,25 +163,25 @@ static inline float4 mapScene(float3 p, float time) {
 
 #define ZERO 0
 
-static inline float3 calcNormal(float3 pos, float time) {
+static inline float3 calcNormal(float3 pos, float time, float noiseAmount, float normalEps) {
     float3 n = float3(0.0);
     for (int i = ZERO; i < 4; i++) {
         float3 e = 0.5773 * (2.0 * float3(float((((i + 3) >> 1) & 1)),
                                           float(((i >> 1) & 1)),
                                           float((i & 1))) - 1.0);
-        n += e * mapScene(pos + 0.0025 * e, time).x;
+        n += e * mapScene(pos + normalEps * e, time, noiseAmount).x;
     }
     return normalize(n);
 }
 
-static inline float calcAO(float3 pos, float3 nor, float time) {
+static inline float calcAO(float3 pos, float3 nor, float time, float noiseAmount) {
     float occ = 0.0;
     float sca = 1.0;
     for (int i = 0; i < 8; i++) {
         float h = 0.005 + 0.2 * float(i) / 8.0;
         float3 dir = normalize(nor + 0.85 * sin(h * 31.31 + float3(0, 2, 4)));
         dir *= sign(dot(dir, nor));
-        float d = mapScene(pos + h * dir, time).x;
+        float d = mapScene(pos + h * dir, time, noiseAmount).x;
         occ += max(h - d, 0.0) * sca;
         sca *= 0.95;
         if (occ > 1.0 / 1.5) { break; }
@@ -172,12 +189,12 @@ static inline float calcAO(float3 pos, float3 nor, float time) {
     return clamp(1.0 - 1.5 * occ, 0.0, 1.0);
 }
 
-static inline float calcSoftshadow(float3 ro, float3 rd, float k, float time) {
+static inline float calcSoftshadow(float3 ro, float3 rd, float k, float time, float noiseAmount) {
     float res = 1.0;
     float tmax = cylIntersect(ro, rd, 1.75).y;
     float t = 0.001;
     for (int i = 0; i < 128; i++) {
-        float h = mapScene(ro + rd * t, time).x;
+        float h = mapScene(ro + rd * t, time, noiseAmount).x;
         res = min(res, k * h / t);
         t += clamp(h * 0.5, 0.02, 0.25);
         if (res < 0.01 || t > tmax) { break; }
@@ -185,16 +202,16 @@ static inline float calcSoftshadow(float3 ro, float3 rd, float k, float time) {
     return clamp(res, 0.0, 1.0);
 }
 
-static inline float4 intersectScene(float3 ro, float3 rd, float time) {
+static inline float4 intersectScene(float3 ro, float3 rd, float time, float noiseAmount, float stepScale) {
     float4 res = float4(-1.0);
     float2 bb = cylIntersect(ro, rd, 1.73);
     if (bb.y > 0.0) {
         float t = max(bb.x, 0.0);
         float tmax = bb.y;
         for (int i = 0; i < 256 && t < tmax; i++) {
-            float4 h = mapScene(ro + t * rd, time);
+            float4 h = mapScene(ro + t * rd, time, noiseAmount);
             if (h.x < 0.002) { res = float4(t, h.yzw); break; }
-            t += h.x * 0.35;
+            t += h.x * stepScale;
         }
     }
     return res;
@@ -215,6 +232,9 @@ kernel void image(
     float2 fragCoord = float2(gid) + 0.5;
     float2 iResolution = uniforms.resolution;
     float time = uniforms.time;
+    float stepScale = userUniforms.stepScale;
+    float normalEps = userUniforms.normalEps;
+    float noiseAmount = userUniforms.noiseAmount;
 
     float3 tot = float3(0.0);
 
@@ -237,10 +257,10 @@ kernel void image(
 
         float3 col = float3(1.0 + rd.y) * 0.03;
 
-        float4 tuvw = intersectScene(ro, rd, time);
+        float4 tuvw = intersectScene(ro, rd, time, noiseAmount, stepScale);
         if (tuvw.x > 0.0) {
             float3 pos = ro + tuvw.x * rd;
-            float3 nor = calcNormal(pos, time);
+            float3 nor = calcNormal(pos, time, noiseAmount, normalEps);
 
             float3 brickColor = float3(0.2, 0.04, 0.02);
             brickColor *= 1.0 + 0.4 * tuvw.z;
@@ -251,7 +271,7 @@ kernel void image(
 
             float3 lig = normalize(float3(0.3, 0.4, -0.9));
             float dif = max(0.0, dot(nor, lig));
-            float sha = calcSoftshadow(pos + nor * 0.001, lig, 32.0, time);
+            float sha = calcSoftshadow(pos + nor * 0.001, lig, 32.0, time, noiseAmount);
             float3 hal = normalize(lig - rd);
             float spe = pow(clamp(dot(nor, hal), 0.0, 1.0), 8.0);
             spe *= dif * sha;
@@ -260,7 +280,7 @@ kernel void image(
             col = dif * sha * mate * float3(4.0, 2.0, 1.0);
             col += spe * float3(5.0);
 
-            float occ = calcAO(pos, nor, time) * (1.0 + 0.4 * nor.y);
+            float occ = calcAO(pos, nor, time, noiseAmount) * (1.0 + 0.4 * nor.y);
             col += mate * occ * float3(0.5, 0.7, 1.5) * 1.3;
         }
 
