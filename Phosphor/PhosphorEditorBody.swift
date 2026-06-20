@@ -179,7 +179,7 @@ struct PhosphorEditorBody: View {
             )
             .ignoresSafeArea()
 
-            CodePane(text: $text, onTextChange: onTextChange, opaque: false, palette: .withBackdrop)
+            CodePane(text: $text, onTextChange: onTextChange, opaque: false, palette: .darkWithBackdrop)
                 .padding(16)
         }
     }
@@ -204,12 +204,19 @@ private struct CodePane: View {
     /// behind the editor. Overlay layout passes `false` so the underlying
     /// preview shows through.
     var opaque: Bool = true
-    /// Syntax palette to use. Defaults to ``SyntaxPalette/default``;
-    /// overlay layout passes ``SyntaxPalette/highContrast``.
-    var palette: SyntaxPalette = .default
+    /// Optional explicit palette. When nil, picks ``SyntaxPalette/dark``
+    /// or ``SyntaxPalette/default`` based on the current color scheme.
+    var palette: SyntaxPalette?
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var resolvedPalette: SyntaxPalette {
+        if let palette { return palette }
+        return colorScheme == .dark ? .dark : .default
+    }
 
     var body: some View {
-        MetalSourceView(text: $text, palette: palette)
+        MetalSourceView(text: $text, palette: resolvedPalette)
             .background(opaque ? Color(.textBackgroundColor) : .clear)
             .onChange(of: text) { _, _ in
                 onTextChange()

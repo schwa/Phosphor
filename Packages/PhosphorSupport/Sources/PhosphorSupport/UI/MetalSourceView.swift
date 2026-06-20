@@ -92,6 +92,11 @@ public struct MetalSourceView: View {
     static func format(_ source: String, palette: SyntaxPalette) throws -> AttributedString {
         var attributed = AttributedString(source)
 
+        // Default foreground for everything not specifically recognized
+        // by the walker (punctuation, operators, whitespace, etc.).
+        let fullRange = attributed.startIndex..<attributed.endIndex
+        attributed[fullRange].foregroundColor = palette.foreground
+
         // Per-line backdrop pass. Done before the colored tokens so the
         // backdrop applies to every character on every line, including
         // whitespace and unrecognized tokens.
