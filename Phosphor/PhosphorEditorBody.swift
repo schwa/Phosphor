@@ -27,7 +27,8 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
     @State private var displayedResource: ResourceID?
     @AppStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
-    @Environment(\.audioCapture) private var audioCapture
+    @AppStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
+    @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
 
     /// True if the current document has at least one declared uniform.
     private var hasUniforms: Bool {
@@ -128,6 +129,14 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
                     Label("Generate", systemImage: "sparkles")
                 }
                 .keyboardShortcut("p", modifiers: [.command, .shift])
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Toggle(isOn: $showInspector) {
+                    Label("Inspector", systemImage: "sidebar.right")
+                }
+                .toggleStyle(.button)
+                .keyboardShortcut("i", modifiers: [.command, .option])
+                .help("Toggle inspector panel")
             }
         }
         .sheet(isPresented: $showGenerate) {

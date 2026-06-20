@@ -87,7 +87,7 @@ struct GeneratePanel: View {
             }
         }
         .padding(20)
-        .frame(minWidth: 480, idealWidth: 560)
+        .frame(minWidth: 480)
     }
 
     private func generate() async {

@@ -11,7 +11,7 @@ struct PhosphorApp: App {
     var body: some Scene {
         DocumentGroup { document in
             PhosphorDocumentView(document: document)
-                .environment(\.audioCapture, audioCapture)
+                .environment(audioCapture)
                 .onAppear { syncMicState() }
         } makeDocument: { configuration, _ in
             PhosphorMetalDocument(configuration: configuration)
@@ -30,7 +30,7 @@ struct PhosphorApp: App {
 
         DocumentGroup { document in
             PhosphorBundleDocumentView(document: document)
-                .environment(\.audioCapture, audioCapture)
+                .environment(audioCapture)
                 .onAppear { syncMicState() }
         } makeDocument: { configuration, _ in
             PhosphorBundleDocument(configuration: configuration)

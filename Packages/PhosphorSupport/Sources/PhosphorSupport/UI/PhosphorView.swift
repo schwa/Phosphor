@@ -33,11 +33,9 @@ public struct PhosphorView: View {
     /// intermediate ping-pong / scratch buffer for debugging.
     let displayedResource: ResourceID?
 
-    @State private var runtime: PhosphorRuntime?
-    @State private var initError: Error?
+    @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime?
     @State private var uniformValues: [String: UniformValue] = [:]
     @AppStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
-    @Environment(\.audioCapture) private var audioCapture
 
     /// Reference wall-clock time used as t=0 (subtracted from the renderer's
     /// time to get the kernel's time). Updated on reset.
@@ -179,14 +177,14 @@ public struct PhosphorView: View {
                         uniformValues: $uniformValues
                     )
                 }
-            } else if let initError {
-                PhosphorErrorView(message: "\(initError)")
             } else {
                 Color.black
             }
         }
-        .task(id: SourceKey(environment: environment, source: source, assetNames: Set(assets.keys))) {
-            await updateRuntime()
+        .onChange(of: environment) { _, newEnvironment in
+            uniformValues = UserUniformsLayout.defaultsDictionary(newEnvironment.uniforms)
+        }
+        .task {
             uniformValues = UserUniformsLayout.defaultsDictionary(environment.uniforms)
         }
     }
@@ -247,28 +245,6 @@ public struct PhosphorView: View {
         return SIMD2<Float>(Float(point.x) * scaleX, Float(point.y) * scaleY)
     }
 
-    @MainActor
-    private func updateRuntime() {
-        do {
-            if let runtime {
-                try runtime.update(environment: environment, source: source, assets: assets)
-            } else {
-                guard let device = MTLCreateSystemDefaultDevice() else {
-                    initError = NSError(domain: "PhosphorView", code: 1, userInfo: [
-                        NSLocalizedDescriptionKey: "No Metal device available"
-                    ])
-                    return
-                }
-                let newRuntime = try PhosphorRuntime(
-                    device: device, environment: environment, source: source, assets: assets
-                )
-                newRuntime.audioCapture = audioCapture
-                runtime = newRuntime
-            }
-        } catch {
-            initError = error
-        }
-    }
 }
 
 /// Translucent panel listing every declared user-uniform with live controls.
@@ -382,14 +358,6 @@ private struct PhosphorErrorView: View {
                 .font(.system(.body, design: .monospaced))
         }
     }
-}
-
-private struct SourceKey: Hashable {
-    var environment: PhosphorEnvironment
-    var source: String
-    /// Just the asset names — enough to retrigger reload when the set of
-    /// assets changes, without hashing every asset's bytes on every keystroke.
-    var assetNames: Set<String>
 }
 
 // MARK: - Previews
