@@ -52,7 +52,7 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
                 CodePane(text: $text, onTextChange: onTextChange)
                 editorAccessory()
             }
-            .frame(minWidth: 280, idealWidth: 420)
+            .frame(minWidth: 280)
             PreviewPane(
                 parsed: parsed,
                 assets: assets,
@@ -60,7 +60,7 @@ struct PhosphorEditorBody<EditorAccessory: View>: View {
                 resetSignal: resetSignal,
                 displayedResource: displayedResource
             )
-            .frame(minWidth: 360, idealWidth: 640)
+            .frame(minWidth: 360)
         }
         .frame(minWidth: 800, minHeight: 500)
         .focusedSceneValue(\.shaderText, $text)
@@ -201,7 +201,7 @@ private struct HeaderPopover: View {
             MetalSourceView(text: PhosphorHeader.source(for: environment))
                 .padding(12)
         }
-        .frame(minWidth: 480, idealWidth: 600, minHeight: 320, idealHeight: 480)
+        .frame(minWidth: 480, minHeight: 320)
     }
 }
 

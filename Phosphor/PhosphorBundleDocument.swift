@@ -3,71 +3,92 @@ import PhosphorSupport
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Document model for a `.phosphor` bundle (file package).
+/// Document model for a `.phosphord` bundle (file package).
 ///
 /// Layout on disk:
 ///
-///     Foo.phosphor/
-///       shader.metal   # the active source (front-matter + body)
-///       assets/        # optional directory for embedded textures, audio, etc.
+///     Foo.phosphord/
+///       shaders/
+///         hello.metal
+///         plasma.metal
+///         ...
+///       assets/         # optional, embedded textures/audio
 ///
-/// v1 only stores `shader.metal`. The `assets/` subdirectory is reserved
-/// for future texture/audio embedding (see #1, #11). For now the bundle is
-/// a fancier wrapper around a single source file; the value over flat
-/// `.metal` is that it can grow assets without breaking sandbox rules.
+/// A bundle holds one or more `.metal` shaders. The view picks one at a
+/// time to edit; the document keeps every shader's text in memory and
+/// writes the whole tree back on save.
 @Observable
 final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
     static let readableContentTypes: [UTType] = [.phosphorBundle]
     static let writableContentTypes: [UTType] = [.phosphorBundle]
 
-    /// The user's raw Metal source. Same shape as `PhosphorMetalDocument.text`.
-    var text: String
+    /// All shaders in the bundle keyed by filename (e.g. `"hello.metal"`).
+    var shaders: [String: String]
 
-    /// Cached parse of `text`. Rebuilt by ``refreshParsed()``.
+    /// Filename of the shader currently shown in the editor. nil only
+    /// briefly before the first shader is selected on read.
+    var activeShader: String?
+
+    /// Cached parse of the active shader's text. Rebuilt by
+    /// ``refreshParsed()``.
     @ObservationIgnored
     private(set) var parsed: ParsedPhosphorSource
 
     /// Bundled image / audio assets keyed by name (filename without
-    /// extension). Populated from `assets/` at read time; surfaced to the
-    /// runtime so texture resources whose `initial = "image"` resolve
-    /// against this map.
+    /// extension). Shared across all shaders in the bundle.
     var assets: [String: PhosphorAsset]
 
     /// Backing file URL when opened from / saved to disk.
     var fileURL: URL?
 
     /// The `FileWrapper` representing the last successful read or write.
-    /// Carried across saves so unchanged children (the still-empty
-    /// `assets/` directory, future asset files) survive incremental writes
-    /// without us having to materialize them again.
+    /// Carried across saves so unchanged children survive incremental
+    /// writes without us having to materialize them again.
     @ObservationIgnored
     private var previousFileWrapper: FileWrapper?
 
     init(configuration: URLDocumentConfiguration) {
-        let initialText = configuration.fileURL == nil ? Self.template : ""
-        self.text = initialText
+        if configuration.fileURL == nil {
+            // Brand-new bundle: seed with one starter shader.
+            self.shaders = [Self.defaultShaderFilename: Self.template]
+            self.activeShader = Self.defaultShaderFilename
+            self.parsed = ParsedPhosphorSource(source: Self.template)
+        } else {
+            // Read populates these in `apply(snapshot:previous:)`.
+            self.shaders = [:]
+            self.activeShader = nil
+            self.parsed = ParsedPhosphorSource(source: "")
+        }
         self.assets = [:]
         self.fileURL = configuration.fileURL
-        self.parsed = ParsedPhosphorSource(source: initialText)
     }
 
-    /// True if `text` is the untouched starter template (used by the
-    /// Generate panel to switch between fresh-generation and modify flows).
+    /// Text of the active shader. Returns "" when no shader is active.
+    var activeText: String {
+        get { shaders[activeShader ?? ""] ?? "" }
+        set {
+            guard let name = activeShader else { return }
+            shaders[name] = newValue
+            refreshParsed()
+        }
+    }
+
+    /// True if the active shader is the unmodified starter template.
     var isUntouchedTemplate: Bool {
-        text == Self.template
+        activeText == Self.template
     }
 
-    /// Filename inside the bundle for the active shader source. Stable so
-    /// future versions can locate it without a manifest.
-    static let shaderFilename = "shader.metal"
+    /// Subdirectory inside the bundle that holds the .metal shaders.
+    static let shadersDirectoryName = "shaders"
 
     /// Subdirectory inside the bundle that holds image / audio assets.
     static let assetsDirectoryName = "assets"
 
-    /// Minimal-viable shader used to seed brand-new bundles. Mirrors
-    /// `PhosphorMetalDocument.template` so the two document types start
-    /// from the same place.
-    private static let template: String = """
+    /// Default filename for the lone shader in a brand-new bundle.
+    static let defaultShaderFilename = "Untitled.metal"
+
+    /// Minimal-viable shader used to seed brand-new bundles.
+    static let template: String = """
         /* phosphor:environment
         output = "image"
 
@@ -93,11 +114,37 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
 
         """
 
-    /// Force a fresh parse from `text`. Call after any mutation that
-    /// should be reflected in `parsed`.
+    /// Force a fresh parse from the active shader's text.
     func refreshParsed() {
-        parsed = ParsedPhosphorSource(source: text)
+        parsed = ParsedPhosphorSource(source: activeText)
     }
+
+    /// Switch the editor to a different shader. Re-parses on the way.
+    func selectShader(_ filename: String) {
+        guard shaders[filename] != nil else { return }
+        activeShader = filename
+        refreshParsed()
+    }
+
+    /// Add a new untitled shader, make it active, return its filename.
+    /// Uses ``template`` for the body. If the chosen name already exists,
+    /// appends a number suffix.
+    @discardableResult
+    func addShader() -> String {
+        let base = "Untitled"
+        var candidate = "\(base).metal"
+        var counter = 2
+        while shaders[candidate] != nil {
+            candidate = "\(base) \(counter).metal"
+            counter += 1
+        }
+        shaders[candidate] = Self.template
+        activeShader = candidate
+        refreshParsed()
+        return candidate
+    }
+
+    // MARK: - Assets
 
     /// Imports a file URL as a new asset, keyed by the file's name stem.
     /// Existing assets with the same key are replaced.
@@ -114,10 +161,12 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
 
     // MARK: - ReadableDocument
 
-    /// Snapshot type for the bundle: source text + assets, plus the prior
-    /// directory `FileWrapper` so the writer can reuse unchanged children.
+    /// Snapshot type for the bundle: every shader's text + assets + the
+    /// prior directory `FileWrapper` so the writer can reuse unchanged
+    /// children.
     struct Snapshot: @unchecked Sendable {
-        var text: String
+        var shaders: [String: String]
+        var activeShader: String?
         var assets: [String: PhosphorAsset]
         var previousFileWrapper: FileWrapper?
     }
@@ -134,17 +183,25 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
     /// through `DocumentReader`.
     static func decode(directory: FileWrapper) -> Snapshot {
         let children = directory.fileWrappers ?? [:]
-        let text: String
-        if let data = children[Self.shaderFilename]?.regularFileContents,
-           let decoded = String(data: data, encoding: .utf8) {
-            text = decoded
-        } else {
-            text = ""
+
+        // Decode shaders/<name>.metal. Each regular .metal file becomes
+        // an entry in the dict keyed by its filename.
+        var shaders: [String: String] = [:]
+        if let shadersDirectory = children[Self.shadersDirectoryName],
+           let shaderChildren = shadersDirectory.fileWrappers {
+            for (filename, wrapper) in shaderChildren where wrapper.isRegularFile {
+                guard filename.hasSuffix(".metal"),
+                      let data = wrapper.regularFileContents,
+                      let text = String(data: data, encoding: .utf8) else { continue }
+                shaders[filename] = text
+            }
         }
 
-        // Decode `assets/`. Each regular file becomes a PhosphorAsset
-        // keyed by its filename stem (drop extension). Subdirectories
-        // and non-regular wrappers are ignored.
+        // Pick first shader alphabetically as active. None == no shaders
+        // in the bundle (we'll show an empty editor).
+        let activeShader = shaders.keys.sorted().first
+
+        // Decode `assets/`.
         var assets: [String: PhosphorAsset] = [:]
         if let assetsDirectory = children[Self.assetsDirectoryName],
            let assetChildren = assetsDirectory.fileWrappers {
@@ -155,12 +212,18 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
             }
         }
 
-        return Snapshot(text: text, assets: assets, previousFileWrapper: directory)
+        return Snapshot(
+            shaders: shaders,
+            activeShader: activeShader,
+            assets: assets,
+            previousFileWrapper: directory
+        )
     }
 
     @MainActor
     func apply(snapshot: Snapshot, previous _: Snapshot?) {
-        self.text = snapshot.text
+        self.shaders = snapshot.shaders
+        self.activeShader = snapshot.activeShader
         self.assets = snapshot.assets
         self.previousFileWrapper = snapshot.previousFileWrapper
         refreshParsed()
@@ -182,19 +245,20 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
         let directory = snapshot.previousFileWrapper
             ?? FileWrapper(directoryWithFileWrappers: [:])
 
-        // Replace shader.metal in place.
-        if let existing = directory.fileWrappers?[Self.shaderFilename] {
+        // Rebuild shaders/ from scratch. Small N; perf isn't a concern.
+        if let existing = directory.fileWrappers?[Self.shadersDirectoryName] {
             directory.removeFileWrapper(existing)
         }
-        let shaderData = Data(snapshot.text.utf8)
-        let shaderWrapper = FileWrapper(regularFileWithContents: shaderData)
-        shaderWrapper.preferredFilename = Self.shaderFilename
-        directory.addFileWrapper(shaderWrapper)
+        let shadersDirectory = FileWrapper(directoryWithFileWrappers: [:])
+        shadersDirectory.preferredFilename = Self.shadersDirectoryName
+        for (filename, text) in snapshot.shaders {
+            let wrapper = FileWrapper(regularFileWithContents: Data(text.utf8))
+            wrapper.preferredFilename = filename
+            shadersDirectory.addFileWrapper(wrapper)
+        }
+        directory.addFileWrapper(shadersDirectory)
 
-        // Materialize the assets/ subdirectory from snapshot.assets.
-        // Drop any previous assets/ wrapper and rebuild from the dict so
-        // adds and removes both round-trip. (We're writing a small
-        // handful of assets; perf isn't a concern yet.)
+        // Rebuild assets/ from scratch.
         if let existingAssets = directory.fileWrappers?[Self.assetsDirectoryName] {
             directory.removeFileWrapper(existingAssets)
         }
@@ -214,10 +278,7 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
     }
 
     /// Picks the on-disk filename for an asset by sniffing its bytes for a
-    /// known image format and appending the matching extension. Falls back
-    /// to no extension if the format isn't recognized; the bundle reader
-    /// keys assets by stem so this still round-trips, just with an ugly
-    /// filename.
+    /// known image format and appending the matching extension.
     private static func filenameForAsset(_ asset: PhosphorAsset) -> String {
         let extensionGuess: String?
         let header = asset.data.prefix(8)
@@ -238,13 +299,18 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
 
     @MainActor
     func snapshot(contentType _: UTType) -> Snapshot {
-        Snapshot(text: text, assets: assets, previousFileWrapper: previousFileWrapper)
+        Snapshot(
+            shaders: shaders,
+            activeShader: activeShader,
+            assets: assets,
+            previousFileWrapper: previousFileWrapper
+        )
     }
 }
 
 extension UTType {
-    /// `.phosphor` file-package documents: a directory holding `shader.metal`
-    /// plus optional embedded assets.
+    /// `.phosphord` file-package documents: a directory holding one or
+    /// more `.metal` shaders plus optional embedded assets.
     static let phosphorBundle = UTType(
         exportedAs: "io.schwa.phosphor.bundle",
         conformingTo: .package
