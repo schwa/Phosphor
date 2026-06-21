@@ -130,6 +130,18 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
         return filename
     }
 
+    /// Removes the shader with the given filename. If it was the active
+    /// shader, selects another (alphabetically first) or clears the
+    /// selection when none remain. No-op if not present.
+    func removeShader(filename: String) {
+        guard shaders[filename] != nil else { return }
+        shaders.removeValue(forKey: filename)
+        if activeShader == filename {
+            activeShader = shaders.keys.sorted().first
+            refreshParsed()
+        }
+    }
+
     /// Returns a filename with `.metal` extension not currently in use.
     /// Appends `" N"` before the extension if the base is taken.
     private func uniqueShaderName(forBase base: String) -> String {

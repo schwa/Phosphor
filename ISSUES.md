@@ -2377,11 +2377,15 @@ Fix belongs in schwa/MetalSprockets: early-return from draw(in:) when view.drawa
 ## 61: Bundle UI: swipe to delete assets and shaders
 
 +++
-status: new
+status: closed
 priority: low
 kind: feature
 created: 2026-06-21T00:03:03Z
+updated: 2026-06-21T04:48:16Z
+closed: 2026-06-21T04:48:16Z
 +++
+
+- `2026-06-21T04:48:16Z`: Swipe-to-delete added for both Sources and Assets in BundleSidebar; PhosphorBundleDocument.removeShader(filename:) handles active-shader fixup.
 
 ---
 

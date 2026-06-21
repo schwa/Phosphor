@@ -43,7 +43,9 @@ struct PhosphorBundleDocumentView: View {
                     }
                 ),
                 onAddShader: { document.addShader() },
-                onImport: { urls in importURLs(urls) }
+                onImport: { urls in importURLs(urls) },
+                onDeleteShader: { document.removeShader(filename: $0) },
+                onDeleteAsset: { document.removeAsset(name: $0) }
             )
         } detail: {
             ShaderEditorView(
@@ -90,6 +92,8 @@ private struct BundleSidebar: View {
     @Binding var selection: String?
     let onAddShader: () -> Void
     let onImport: ([URL]) -> Void
+    let onDeleteShader: (String) -> Void
+    let onDeleteAsset: (String) -> Void
 
     @State private var showImporter: Bool = false
 
@@ -100,11 +104,21 @@ private struct BundleSidebar: View {
                     ForEach(shaderNames, id: \.self) { name in
                         Label(name, systemImage: "doc.text")
                             .tag(name)
+                            .swipeActions(edge: .trailing) {
+                                Button("Delete", systemImage: "trash", role: .destructive) {
+                                    onDeleteShader(name)
+                                }
+                            }
                     }
                 }
                 Section("Assets") {
                     ForEach(assetNames, id: \.self) { name in
                         Label(name, systemImage: "photo")
+                            .swipeActions(edge: .trailing) {
+                                Button("Delete", systemImage: "trash", role: .destructive) {
+                                    onDeleteAsset(name)
+                                }
+                            }
                     }
                 }
             }
