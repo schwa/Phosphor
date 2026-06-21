@@ -43,6 +43,7 @@ struct PhosphorRenderSurfaceView: View {
                 applyPlaybackSideEffects(context: context)
             }
         }
+        .onFrameTimingChange { model.frameTimingStatistics = $0 }
         .onChange(of: model.isPaused) { _, newValue in
             if newValue {
                 capturePauseSnapshot = true

@@ -1,3 +1,4 @@
+import MetalSprocketsUI
 import PhosphorSupport
 import SwiftUI
 
@@ -22,6 +23,7 @@ struct ShaderEditorLayoutView: View {
 
     @SceneStorage("phosphor.ui.layoutMode") private var layoutMode: LayoutMode = .sideBySide
     @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
+    @SceneStorage("phosphor.ui.showFrameTiming") private var showFrameTiming: Bool = true
     @Environment(EditorModel.self) private var model
     @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
 
@@ -37,6 +39,9 @@ struct ShaderEditorLayoutView: View {
                     .overlay(alignment: .topLeading) {
                         DiagnosticsView(diagnostics: parsed.diagnostics + runtime.diagnostics)
                             .allowsHitTesting(false)
+                    }
+                    .overlay(alignment: .topTrailing) {
+                        frameTiming
                     }
                     .overlay(alignment: .bottom) {
                         UniformsPanelView(
@@ -58,6 +63,9 @@ struct ShaderEditorLayoutView: View {
                 DiagnosticsView(diagnostics: parsed.diagnostics + runtime.diagnostics)
                     .allowsHitTesting(false)
             }
+            .overlay(alignment: .topTrailing) {
+                frameTiming
+            }
             .overlay(alignment: .bottom) {
                 UniformsPanelView(
                     uniforms: parsed.configuration.uniforms,
@@ -65,6 +73,14 @@ struct ShaderEditorLayoutView: View {
                     uniformValues: $model.uniformValues
                 )
             }
+        }
+    }
+
+    @ViewBuilder
+    private var frameTiming: some View {
+        if showFrameTiming, let statistics = model.frameTimingStatistics {
+            FrameTimingView(statistics: statistics, options: [.fps, .frameTime, .gpuTime])
+                .allowsHitTesting(false)
         }
     }
 }

@@ -1,3 +1,4 @@
+import MetalSprocketsUI
 import Observation
 import PhosphorSupport
 
@@ -24,6 +25,10 @@ final class EditorModel {
     /// Live user-uniform values, shared between the render surface and the
     /// uniforms panel. Seeded from the configuration's declared defaults.
     var uniformValues: [String: UniformValue] = [:]
+
+    /// Most recent frame-timing statistics from the render surface, used to
+    /// drive the FPS / timing overlay. `nil` until the first frame.
+    var frameTimingStatistics: FrameTimingStatistics?
 
     init() {}
 

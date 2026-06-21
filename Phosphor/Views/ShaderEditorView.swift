@@ -17,6 +17,7 @@ struct ShaderEditorView: View {
     @State private var showHeader: Bool = false
     @State private var showGenerate: Bool = false
     @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
+    @SceneStorage("phosphor.ui.showFrameTiming") private var showFrameTiming: Bool = true
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
     @SceneStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
     @SceneStorage("phosphor.ui.layoutMode") private var layoutMode: LayoutMode = .sideBySide
@@ -94,6 +95,13 @@ struct ShaderEditorView: View {
                 .help(hasUniforms
                     ? "Show or hide the uniforms panel"
                     : "No uniforms declared in this shader")
+            }
+            ToolbarItem(placement: .principal) {
+                Toggle(isOn: $showFrameTiming) {
+                    Label("Frame Timing", systemImage: "gauge.with.needle")
+                }
+                .toggleStyle(.button)
+                .help("Show or hide the FPS / frame-timing overlay")
             }
             ToolbarItem(placement: .principal) {
                 Toggle(isOn: micToggleBinding) {
