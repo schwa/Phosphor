@@ -18,6 +18,7 @@ struct SettingsView: View {
 struct ModelsSettingsView: View {
     @State private var anthropicKey: String = ""
     @State private var savedFlash: Bool = false
+    @State private var readError: String?
 
     var body: some View {
         Form {
@@ -38,6 +39,11 @@ struct ModelsSettingsView: View {
                             .foregroundStyle(.secondary)
                             .font(.callout)
                     }
+                    if let readError {
+                        Text(readError)
+                            .foregroundStyle(.red)
+                            .font(.callout)
+                    }
                     Spacer()
                 }
             } header: {
@@ -50,7 +56,16 @@ struct ModelsSettingsView: View {
         }
         .formStyle(.grouped)
         .onAppear {
-            anthropicKey = KeychainStore.read(account: KeychainAccount.anthropicAPIKey) ?? ""
+            switch KeychainStore.readResult(account: KeychainAccount.anthropicAPIKey) {
+            case .found(let value):
+                anthropicKey = value
+            case .notFound:
+                anthropicKey = ""
+            case .failed(let status):
+                // Don't clobber the field (or let the user think the key is
+                // gone) on a transient keychain read failure.
+                readError = "Couldn't read the saved key (status \(status)). Try reopening Settings."
+            }
         }
     }
 

@@ -196,9 +196,16 @@ public struct ShaderGenerator {
             )
 
         case .anthropic(let anthropicModel):
-            guard let apiKey = KeychainStore.read(account: KeychainAccount.anthropicAPIKey),
-                  !apiKey.isEmpty else {
+            let apiKey: String
+            switch KeychainStore.readResult(account: KeychainAccount.anthropicAPIKey) {
+            case .found(let value) where !value.isEmpty:
+                apiKey = value
+            case .found, .notFound:
                 throw ShaderGeneratorError.missingAPIKey(model)
+            case .failed(let status):
+                // Transient keychain failure — the key may well be set. Report
+                // it distinctly so the user retries instead of re-entering it.
+                throw ShaderGeneratorError.keychainReadFailed(model: model, status: status)
             }
             let anthropic = AnthropicLanguageModel(
                 apiKey: apiKey,
@@ -428,6 +435,7 @@ public enum GenerationPhase: Hashable, Sendable {
 /// Errors that ``ShaderGenerator`` may raise before reaching the model.
 public enum ShaderGeneratorError: Error, LocalizedError {
     case missingAPIKey(GenerationModel)
+    case keychainReadFailed(model: GenerationModel, status: OSStatus)
     case emptyBody(GenerationModel)
     case malformedResponse(model: GenerationModel, underlying: String)
 
@@ -435,6 +443,9 @@ public enum ShaderGeneratorError: Error, LocalizedError {
         switch self {
         case .missingAPIKey(let model):
             return "Missing API key for \(model.displayName). Set it in Settings → Models."
+
+        case .keychainReadFailed(let model, let status):
+            return "Couldn't read the API key for \(model.displayName) from the Keychain (status \(status)). The key is likely still set — try again."
 
         case .emptyBody(let model):
             return "\(model.displayName) returned a response with no kernel body. Try a different model or rephrase your prompt."

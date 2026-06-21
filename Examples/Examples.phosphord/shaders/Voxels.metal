@@ -35,6 +35,10 @@ name = "fogDensity"
 ui = { slider = { max = 0.1, min = 0.0 } }
 */
 
+#include "Phosphor.h"
+
+uint2 gid [[thread_position_in_grid]];
+
 // Simple hash for noise
 float hash(float2 p) {
     return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);
@@ -165,20 +169,17 @@ float4 rayMarchVoxels(float3 ro, float3 rd, float voxelSize, float fogDensity) {
 /// Renders a procedural voxel terrain using DDA ray traversal.
 /// Camera orbits around the scene, terrain colored by height (water, sand, grass, rock, snow).
 kernel void image(
-    texture2d<float, access::write> outTexture     [[texture(0)]],
-    device const ChannelBindings&   channels       [[buffer(1)]],
-    device const Uniforms*          uniforms       [[buffer(0)]],
-    device const UserUniforms*      userUniforms   [[buffer(2)]],
-    uint2 gid                                      [[thread_position_in_grid]])
+    device const Uniforms&     uniforms     [[buffer(0)]],
+    device const UserUniforms& userUniforms [[buffer(1)]])
 {
-    float2 uv = (float2(gid) - 0.5 * uniforms->resolution) / uniforms->resolution.y;
+    float2 uv = (float2(gid) - 0.5 * uniforms.resolution) / uniforms.resolution.y;
     
-    float camHeight = userUniforms->cameraHeight;
-    float voxelSize = userUniforms->voxelSize;
-    float fogDensity = userUniforms->fogDensity;
+    float camHeight = userUniforms.cameraHeight;
+    float voxelSize = userUniforms.voxelSize;
+    float fogDensity = userUniforms.fogDensity;
     
     // Camera setup - orbiting around
-    float angle = uniforms->time * 0.3;
+    float angle = uniforms.time * 0.3;
     float3 ro = float3(sin(angle) * 10.0, camHeight + 3.0, cos(angle) * 10.0);
     float3 target = float3(0.0, 1.0, 0.0);
     
@@ -191,5 +192,5 @@ kernel void image(
     
     float4 col = rayMarchVoxels(ro, rd, voxelSize, fogDensity);
     
-    outTexture.write(col, gid);
+    uniforms.textures.image.write(col, gid);
 }

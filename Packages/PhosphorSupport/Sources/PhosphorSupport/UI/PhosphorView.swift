@@ -146,6 +146,22 @@ private struct PhosphorRunningView: View {
     @State private var viewSize: CGSize = .zero
 
     var body: some View {
+        // Only mount the RenderView (and its MTKView) once we have a
+        // non-degenerate size. During the window-sizing race at document
+        // load the view briefly reports zero width/height; instantiating a
+        // Metal drawable at that size crashes (nextDrawable returns nil).
+        Color.clear
+            .overlay {
+                if viewSize.width > 0, viewSize.height > 0 {
+                    renderView
+                }
+            }
+            .onGeometryChange(for: CGSize.self, of: \.size) { newSize in
+                viewSize = newSize
+            }
+    }
+
+    private var renderView: some View {
         RenderView { context, drawableSize in
             PhosphorPipeline(
                 runtime: runtime,
@@ -157,9 +173,6 @@ private struct PhosphorRunningView: View {
             .onWorkloadEnter { _ in
                 applyPlaybackSideEffects(context: context)
             }
-        }
-        .onGeometryChange(for: CGSize.self, of: \.size) { newSize in
-            viewSize = newSize
         }
         .onChange(of: isPausedExternally?.wrappedValue ?? false) { _, newValue in
             if newValue {
