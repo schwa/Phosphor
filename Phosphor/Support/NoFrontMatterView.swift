@@ -12,7 +12,7 @@ struct NoFrontMatterView: View {
             if diagnostics.isEmpty {
                 Text("This file has no /* phosphor:environment ... */ block.")
             } else {
-                DiagnosticsListView(diagnostics: diagnostics)
+                DiagnosticsView(diagnostics: diagnostics)
             }
         }
         .frame(maxHeight: .infinity)
