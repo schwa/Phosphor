@@ -2525,3 +2525,26 @@ created: 2026-06-21T06:07:58Z
 Export a shader as a fully baked Xcode project.
 
 ---
+
+## 71: ⌘⇧N (New Phosphor Bundle) not working
+
++++
+status: new
+priority: medium
+kind: bug
+created: 2026-06-21T06:14:42Z
++++
+
+The `⌘⇧N` keyboard shortcut for 'New Phosphor Bundle' doesn't trigger.
+
+Both New commands are defined in PhosphorApp.swift:
+- `⌘N` → New Metal Shader
+- `⌘⇧N` → New Phosphor Bundle (PhosphorApp.swift:24)
+
+Likely cause: there are two DocumentGroup scenes (one per content type). The second DocumentGroup (.phosphorBundle) injects its own default New menu item, which conflicts with the custom MyNewDocumentButton shortcut in the first group's .commands { CommandGroup(replacing: .newItem) }. SwiftUI's handling of New commands across multiple DocumentGroups is the usual source of this.
+
+Repro: launch app, press ⌘⇧N — nothing happens (or the wrong document type opens).
+
+Not yet root-caused; needs verification.
+
+---
