@@ -1,6 +1,7 @@
 import Foundation
 import MetalSprockets
 import MetalSprocketsUI
+import PhosphorSupport
 import SwiftUI
 
 /// The Metal render surface plus its mouse-tracking gestures.

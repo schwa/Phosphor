@@ -1,3 +1,4 @@
+import PhosphorSupport
 import SwiftUI
 
 /// Renders a single SwiftUI control for one ``UniformDecl``.

@@ -1,3 +1,4 @@
+import PhosphorSupport
 import SwiftUI
 
 /// Translucent panel listing every declared user-uniform with live controls.

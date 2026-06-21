@@ -2,6 +2,7 @@ import Foundation
 import Metal
 import MetalSprockets
 import MetalSprocketsUI
+import PhosphorSupport
 import SwiftUI
 
 /// SwiftUI surface for a Phosphor 2 effect.
@@ -14,15 +15,15 @@ import SwiftUI
 /// (`PhosphorView` keeps a `[String: UniformValue]` of live values, seeded
 /// from the declared defaults; each frame the runtime packs them into the
 /// user-uniforms buffer).
-public struct PhosphorView: View {
-    public let environment: PhosphorEnvironment
-    public let source: String
-    public let frontMatterDiagnostics: [PhosphorDiagnostic]
+struct PhosphorView: View {
+    let environment: PhosphorEnvironment
+    let source: String
+    let frontMatterDiagnostics: [PhosphorDiagnostic]
     /// Host-supplied binary assets keyed by name. Texture resources whose
     /// `initial = "image"` reference these by `name`. Empty for plain
     /// `.metal` documents; populated from the `assets/` directory for
     /// `.phosphor` bundles.
-    public let assets: [String: PhosphorAsset]
+    let assets: [String: PhosphorAsset]
     /// External pause/play state. When `true`, the kernel sees frozen time
     /// and frame values. Optional so existing call sites (and the smoke
     /// tests) keep working without an explicit binding.
@@ -38,7 +39,7 @@ public struct PhosphorView: View {
     @State private var uniformValues: [String: UniformValue] = [:]
     @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
 
-    public init(
+    init(
         environment: PhosphorEnvironment,
         source: String,
         assets: [String: PhosphorAsset] = [:],
@@ -55,7 +56,7 @@ public struct PhosphorView: View {
         self.displayedResource = displayedResource
     }
 
-    public init?(
+    init?(
         source: String,
         assets: [String: PhosphorAsset] = [:],
         isPaused: Binding<Bool>? = nil,
@@ -71,7 +72,7 @@ public struct PhosphorView: View {
         )
     }
 
-    public init?(
+    init?(
         parsed: ParsedPhosphorSource,
         assets: [String: PhosphorAsset] = [:],
         isPaused: Binding<Bool>? = nil,
@@ -88,7 +89,7 @@ public struct PhosphorView: View {
         self.displayedResource = displayedResource
     }
 
-    public var body: some View {
+    var body: some View {
         if let runtime {
             PhosphorRunningView(
                 runtime: runtime,
