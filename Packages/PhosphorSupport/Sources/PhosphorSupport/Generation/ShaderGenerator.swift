@@ -184,13 +184,13 @@ public struct ShaderGenerator {
         case .onDevice:
             return LanguageModelSession(
                 model: SystemLanguageModel.default,
-                instructions: Self.instructions
+                instructions: Self.instructions(for: model)
             )
 
         case .privateCloudCompute:
             return LanguageModelSession(
                 model: PrivateCloudComputeLanguageModel(),
-                instructions: Self.instructions
+                instructions: Self.instructions(for: model)
             )
 
         case .anthropic(let anthropicModel):
@@ -211,7 +211,7 @@ public struct ShaderGenerator {
             )
             return LanguageModelSession(
                 model: anthropic,
-                instructions: Self.instructions
+                instructions: Self.instructions(for: model)
             )
         }
     }
@@ -420,6 +420,59 @@ public struct ShaderGenerator {
         existing structure and approach, change only what the user asks for. Output the
         complete updated shader (resources, passes, uniforms, full body).
     """
+
+    /// Compact instructions for the on-device model, whose context window is
+    /// small (~4096 tokens). Covers just the essentials; the full ``instructions``
+    /// blow past the limit.
+    private static let onDeviceInstructions: String = """
+        You generate Metal compute shaders for the Phosphor playground.
+
+        RULES:
+        - `body` MUST contain one or more `kernel void` functions. No vertex/fragment.
+        - Declare `gid` ONCE at file scope: `uint2 gid [[thread_position_in_grid]];`
+        - Each pass kernel has exactly this signature (change only the name):
+            kernel void <id>(
+                device const Uniforms&     uniforms     [[buffer(0)]],
+                device const UserUniforms& userUniforms [[buffer(1)]]) { ... }
+        - Write output with `uniforms.textures.<output_id>.write(float4(r,g,b,a), gid);`
+        - Read an input with `uniforms.textures.<input_id>.read(gid)` (returns float4).
+        - Only reference resources you declared. If you sample no inputs, `inputs` is empty.
+        - Use `image` as the output resource id; for a single effect declare ONE resource
+          `image` and ONE pass `image`. `outputResourceID` = "image".
+
+        UNIFORMS (read via `uniforms.<field>`, dot not arrow):
+        time (float, seconds), timeDelta, frame, resolution (float2 pixels),
+        mouse (float2), gid.y = 0 is TOP.
+
+        MSL is stricter than GLSL: no implicit vector conversions, bound loops (<=64),
+        clamp colors, avoid divide-by-zero. Keep kernels short. No `#include`.
+
+        EXAMPLE (animated gradient):
+        - resources: [{ id: "image", format: "rgba32Float", pingPong: false }]
+        - passes:    [{ id: "image", output: "image", inputs: [] }]
+        - uniforms:  []
+        - outputResourceID: "image"
+        - body:
+            uint2 gid [[thread_position_in_grid]];
+            kernel void image(
+                device const Uniforms&     uniforms     [[buffer(0)]],
+                device const UserUniforms& userUniforms [[buffer(1)]])
+            {
+                float2 uv = float2(gid) / uniforms.resolution;
+                float r = 0.5 + 0.5 * sin(uniforms.time + uv.x * 6.28);
+                uniforms.textures.image.write(float4(r, uv.y, 0.2, 1.0), gid);
+            }
+
+        If given an existing shader, modify it minimally and output the complete shader.
+    """
+
+    /// Selects the instruction set sized for the model's context window.
+    private static func instructions(for model: GenerationModel) -> String {
+        switch model {
+        case .onDevice: return onDeviceInstructions
+        case .privateCloudCompute, .anthropic: return instructions
+        }
+    }
 }
 
 /// Reported by ``ShaderGenerator/generate(prompt:model:existingSource:progress:)``
