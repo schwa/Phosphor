@@ -21,9 +21,9 @@ struct ShaderEditorView: View {
     /// Which resource the preview blits to the drawable. `nil` falls back
     /// to the environment's declared output (the normal case).
     @State private var displayedResource: ResourceID?
-    @AppStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
+    @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
-    @AppStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
+    @SceneStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
     @SceneStorage("phosphor.ui.layoutMode") private var layoutMode: LayoutMode = .sideBySide
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
 
@@ -81,7 +81,10 @@ struct ShaderEditorView: View {
                     Label("Phosphor.h", systemImage: "doc.text.magnifyingglass")
                 }
                 .popover(isPresented: $showHeader, arrowEdge: .top) {
-                    HeaderView(environment: parsed.environment ?? PhosphorEnvironment(output: "image"))
+                    ScrollView([.horizontal, .vertical]) {
+                        MetalSourceView(text: PhosphorHeader.source(for: parsed.environment ?? PhosphorEnvironment(output: "image")))
+                            .padding(12)
+                    }
                 }
             }
             ToolbarItem(placement: .principal) {

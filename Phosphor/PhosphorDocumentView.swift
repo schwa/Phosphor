@@ -8,7 +8,7 @@ struct PhosphorDocumentView: View {
     @Bindable var document: PhosphorMetalDocument
     @State private var store = PhosphorRuntimeStore()
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
-    @AppStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
+    @SceneStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
 
     var body: some View {
         ShaderEditorView(

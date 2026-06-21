@@ -36,7 +36,7 @@ public struct PhosphorView: View {
 
     @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime?
     @State private var uniformValues: [String: UniformValue] = [:]
-    @AppStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
+    @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
 
     public init(
         environment: PhosphorEnvironment,
