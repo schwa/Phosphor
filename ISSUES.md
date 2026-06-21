@@ -241,12 +241,13 @@ Affects every demo that uses a frame-0 seed: GameOfLife. Will affect any reactio
 ## 9: Memory grows over time while running Game of Life demo
 
 +++
-status: open
+status: closed
 priority: medium
 kind: bug
 labels: effort:m
 created: 2026-06-18T20:05:56Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-21T04:49:44Z
+closed: 2026-06-21T04:49:44Z
 +++
 
 Reported: while the Game of Life demo runs, app memory usage grows continuously (no plateau). Needs investigation — could be leak, could be expected (caches), could be observation-system retention.
@@ -258,6 +259,8 @@ Suspects, in rough likelihood order:
 4. GPU residency tracker / Metal logging buffer if MS_METAL_LOGGING=1 is on — known to grow.
 
 Action: profile under Instruments Allocations + Leaks for ~60 sec of steady-state GoL playback, attribute growth to a category, then fix or close as expected.
+
+- `2026-06-21T04:49:44Z`: Not reproducing in current builds — memory reaches a plateau during steady-state Game of Life playback. Closing as not reproducible; reopen with an Instruments Allocations trace if it recurs.
 
 ---
 
@@ -2414,5 +2417,70 @@ closed: 2026-06-21T04:30:14Z
 Intermittently the Anthropic API key fails to load and comes back blank. Likely a load-order/timing or keychain-read race.
 
 - `2026-06-21T04:30:14Z`: Addressed: KeychainStore distinguishes transient read failures from missing items, logs the failing OSStatus, and writes with kSecAttrAccessibleAfterFirstUnlock; callers no longer treat a transient failure as a blank key. Closing as resolved.
+
+---
+
+## 64: Highlight sidebar on drag & drop of files
+
++++
+status: new
+priority: low
+kind: enhancement
+created: 2026-06-21T05:00:15Z
++++
+
+When dragging files over the bundle sidebar drop target, give visual feedback (highlight the drop area) so the user knows it will accept the drop. Currently dropDestination accepts files but provides no hover highlight.
+
+---
+
+## 65: Handle selection of image assets
+
++++
+status: new
+priority: low
+kind: feature
+created: 2026-06-21T05:00:30Z
++++
+
+In the bundle sidebar, asset rows aren't selectable/previewable. Selecting an image asset should do something useful — e.g. show a preview/thumbnail and metadata (dimensions, format) in the detail or inspector area.
+
+---
+
+## 66: Model display names show (possibly wrong) version numbers
+
++++
+status: new
+priority: low
+kind: bug
+created: 2026-06-21T05:02:21Z
++++
+
+Generate panel lists models with hardcoded version numbers in displayName: 'Claude Opus 4.5', 'Claude Sonnet 4.5', 'Claude Haiku 4.5' (ids claude-opus-4-5 / claude-sonnet-4-5 / claude-haiku-4-5 in ShaderGenerator.swift AnthropicModel). These versions are likely wrong/invented. Either drop the version numbers from the user-facing display names (just 'Claude Opus' etc.) or make sure the version numbers + model ids are actually correct.
+
+---
+
+## 67: Infer texture size from image asset
+
++++
+status: new
+priority: low
+kind: feature
+created: 2026-06-21T05:04:54Z
++++
+
+When a texture is init = { kind = "image", file = ... }, allow omitting size so the texture is allocated at the decoded image's native dimensions. Today TextureSize only supports drawable/scaledDrawable/fixed, so an image-backed texture must hardcode size (e.g. mandrill is 512x512) or it's allocated at drawable size and the image is copied into the corner. Add a size mode (e.g. "image"/auto, or treat missing size on an image init as native) in TextureSize + Resource+Codable + PhosphorRuntime.pixelDimensions/allocate, and update TextureDemo.metal to use it.
+
+---
+
+## 68: Support more/all pixel formats
+
++++
+status: new
+priority: low
+kind: feature
+created: 2026-06-21T05:09:15Z
++++
+
+PhosphorPixelFormat currently only exposes rgba8Unorm, bgra8Unorm, rgba16Float, rgba32Float. Expand to cover the rest of the useful MTLPixelFormat set (e.g. r8/rg8/r16f/rg16f/r32f/rg32f, rgba8Unorm_srgb/bgra8Unorm_srgb, rgb10a2, rg11b10f, etc.). Touch points: PhosphorPixelFormat enum (Resource.swift) + mtlPixelFormat() and bytesPerPixel switch in PhosphorRuntime.swift. Consider deriving bytesPerPixel from the format rather than a hand-maintained switch.
 
 ---
