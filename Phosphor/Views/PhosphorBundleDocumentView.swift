@@ -53,7 +53,12 @@ struct PhosphorBundleDocumentView: View {
                 isUntouchedTemplate: document.isUntouchedTemplate
             )
         }
-        .task(id: ReloadKey(parsed: document.parsed, assetNames: assetNames)) {
+        // Debounce recompiles so mid-edit syntax errors don't flicker back (#53);
+        // see PhosphorDocumentView. Keyed on the active text + asset set so a new
+        // keystroke (or shader/asset change) cancels and restarts the task.
+        .task(id: ReloadKey(text: document.activeText, assetNames: assetNames)) {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
             runtime.reload(
                 parsed: document.parsed,
                 assets: document.assets,
@@ -156,6 +161,6 @@ private struct BundleSidebar: View {
 }
 
 private struct ReloadKey: Hashable {
-    var parsed: ParsedPhosphorSource
+    var text: String
     var assetNames: Set<String>
 }

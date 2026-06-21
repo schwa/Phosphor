@@ -16,7 +16,13 @@ struct PhosphorDocumentView: View {
             onTextChange: { document.refreshParsed() },
             isUntouchedTemplate: document.isUntouchedTemplate
         )
-        .task(id: document.parsed) {
+        // Debounce recompiles: re-parsing stays instant (cheap, drives editor
+        // diagnostics), but the expensive compile waits until typing pauses so
+        // mid-edit syntax errors don't flicker back (#53). A new keystroke
+        // changes `document.text`, cancelling and restarting this task.
+        .task(id: document.text) {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
             runtime.reload(parsed: document.parsed, assets: [:], audioCapture: audioCapture)
         }
         .environment(runtime)

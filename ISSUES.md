@@ -2194,14 +2194,17 @@ Every example shader's front-matter changes. ~35 files. Mostly mechanical.
 ## 53: Debounce or wait-for-quiescent edit before recompiling shader
 
 +++
-status: new
+status: closed
 priority: medium
 kind: bug
 created: 2026-06-19T16:48:27Z
-updated: 2026-06-19T16:48:45Z
+updated: 2026-06-21T05:24:21Z
+closed: 2026-06-21T05:24:21Z
 +++
 
 After fixing a syntax error and the shader compiles fine, hitting space causes the syntax error to come back.
+
+- `2026-06-21T05:24:21Z`: Debounced recompiles: parsing stays instant (live editor diagnostics) but the compile waits 300ms after the last keystroke via .task(id: text) + Task.sleep(for:). A new keystroke cancels/restarts, so mid-edit syntax errors no longer flicker back.
 
 ---
 
