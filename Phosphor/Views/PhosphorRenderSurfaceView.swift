@@ -14,7 +14,7 @@ struct PhosphorRenderSurfaceView: View {
     let configuration: PhosphorConfiguration
     let uniformValues: [String: UniformValue]
     let displayedResource: ResourceID?
-    let isPausedExternally: Binding<Bool>?
+    let isPaused: Bool
     let resetSignal: Int
     let viewSize: CGSize
 
@@ -40,7 +40,7 @@ struct PhosphorRenderSurfaceView: View {
                 applyPlaybackSideEffects(context: context)
             }
         }
-        .onChange(of: isPausedExternally?.wrappedValue ?? false) { _, newValue in
+        .onChange(of: isPaused) { _, newValue in
             if newValue {
                 capturePauseSnapshot = true
             } else {

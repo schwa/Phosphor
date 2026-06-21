@@ -10,20 +10,12 @@ import SwiftUI
 struct ShaderEditorView: View {
     @Binding var text: String
     let parsed: ParsedPhosphorSource
-    let assets: [String: PhosphorAsset]
     let onTextChange: () -> Void
     let isUntouchedTemplate: Bool
 
+    @State private var model = EditorModel()
     @State private var showHeader: Bool = false
     @State private var showGenerate: Bool = false
-    @State private var isPaused: Bool = false
-    @State private var resetSignal: Int = 0
-    /// Which resource the preview blits to the drawable. `nil` falls back
-    /// to the configuration's declared output (the normal case).
-    @State private var displayedResource: ResourceID?
-    /// Live user-uniform values, shared between the render surface and the
-    /// uniforms panel. Seeded from the configuration's declared defaults.
-    @State private var uniformValues: [String: UniformValue] = [:]
     @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
     @SceneStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
@@ -52,20 +44,16 @@ struct ShaderEditorView: View {
             layoutMode: layoutMode,
             text: $text,
             parsed: parsed,
-            assets: assets,
             onTextChange: onTextChange,
-            isPaused: $isPaused,
-            resetSignal: resetSignal,
-            displayedResource: displayedResource,
-            uniformValues: $uniformValues,
             showUniformsPanel: showUniformsPanel,
             frontMatterDiagnostics: parsed.diagnostics
         )
+        .environment(model)
         .onChange(of: parsed.configuration) { _, newConfiguration in
-            uniformValues = UserUniformsLayout.defaultsDictionary(newConfiguration.uniforms)
+            model.seedUniformDefaults(for: newConfiguration)
         }
         .task {
-            uniformValues = UserUniformsLayout.defaultsDictionary(parsed.configuration.uniforms)
+            model.seedUniformDefaults(for: parsed.configuration)
         }
         .focusedSceneValue(\.shaderText, $text)
         .toolbar {
@@ -83,7 +71,7 @@ struct ShaderEditorView: View {
             ToolbarItem(placement: .principal) {
                 ResourcePickerView(
                     configuration: parsed.configuration,
-                    displayedResource: $displayedResource
+                    displayedResource: $model.displayedResource
                 )
             }
             ToolbarItem(placement: .principal) {
@@ -121,19 +109,18 @@ struct ShaderEditorView: View {
             }
             ToolbarItem(placement: .principal) {
                 Button {
-                    isPaused.toggle()
+                    model.isPaused.toggle()
                 } label: {
                     Label(
-                        isPaused ? "Play" : "Pause",
-                        systemImage: isPaused ? "play.fill" : "pause.fill"
+                        model.isPaused ? "Play" : "Pause",
+                        systemImage: model.isPaused ? "play.fill" : "pause.fill"
                     )
                 }
-                .help(isPaused ? "Resume" : "Pause time")
+                .help(model.isPaused ? "Resume" : "Pause time")
             }
             ToolbarItem(placement: .principal) {
                 Button {
-                    resetSignal &+= 1
-                    isPaused = false
+                    model.reset()
                 } label: {
                     Label("Reset", systemImage: "arrow.counterclockwise")
                 }

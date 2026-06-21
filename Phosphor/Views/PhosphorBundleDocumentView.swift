@@ -49,7 +49,6 @@ struct PhosphorBundleDocumentView: View {
             ShaderEditorView(
                 text: activeTextBinding,
                 parsed: document.parsed,
-                assets: document.assets,
                 onTextChange: { document.refreshParsed() },
                 isUntouchedTemplate: document.isUntouchedTemplate
             )

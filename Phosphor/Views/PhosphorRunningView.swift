@@ -8,12 +8,10 @@ import SwiftUI
 /// state and drives the render surface. The diagnostics + uniforms panels
 /// are overlaid one level up, in ``ShaderEditorLayoutView``.
 struct PhosphorRunningView: View {
-    let runtime: PhosphorRuntime
     let configuration: PhosphorConfiguration
-    let isPausedExternally: Binding<Bool>?
-    let resetSignal: Int
-    let displayedResource: ResourceID?
-    let uniformValues: [String: UniformValue]
+
+    @Environment(EditorModel.self) private var model
+    @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
 
     /// Reference wall-clock time used as t=0 (subtracted from the
     /// renderer's time to get the kernel's time). Updated on reset.
@@ -46,10 +44,10 @@ struct PhosphorRunningView: View {
                 PhosphorRenderSurfaceView(
                     runtime: runtime,
                     configuration: configuration,
-                    uniformValues: uniformValues,
-                    displayedResource: displayedResource,
-                    isPausedExternally: isPausedExternally,
-                    resetSignal: resetSignal,
+                    uniformValues: model.uniformValues,
+                    displayedResource: model.displayedResource,
+                    isPaused: model.isPaused,
+                    resetSignal: model.resetSignal,
                     viewSize: viewSize,
                     mousePosition: $mousePosition,
                     mouseButtons: $mouseButtons,

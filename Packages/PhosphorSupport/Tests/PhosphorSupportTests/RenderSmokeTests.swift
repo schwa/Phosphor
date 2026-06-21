@@ -43,14 +43,14 @@ struct RenderSmokeTests {
         let url = Self.examplesDirectory.appendingPathComponent("\(name).metal")
         let source = try String(contentsOf: url, encoding: .utf8)
         let parsed = ParsedPhosphorSource(source: source)
-        guard let configuration = parsed.configuration else {
+        guard parsed.hasFrontMatter else {
             Issue.record("\(name): no front-matter / failed to parse")
             return
         }
         let validationDiagnostics = parsed.diagnostics
         #expect(validationDiagnostics.isEmpty, "\(name) validation diagnostics: \(validationDiagnostics)")
 
-        let runtime = PhosphorRuntime(configuration: configuration, source: parsed.body)
+        let runtime = PhosphorRuntime(configuration: parsed.configuration, source: parsed.body)
         #expect(runtime.diagnostics.isEmpty, "\(name) compile diagnostics: \(runtime.diagnostics)")
 
         let size = CGSize(width: 256, height: 256)
