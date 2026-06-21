@@ -46,7 +46,7 @@ struct PhosphorBundleDocumentView: View {
                 onImport: { urls in importURLs(urls) }
             )
         } detail: {
-            PhosphorEditorBody(
+            ShaderEditorView(
                 text: activeTextBinding,
                 parsed: document.parsed,
                 assets: document.assets,

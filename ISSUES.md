@@ -2309,10 +2309,12 @@ created: 2026-06-21T00:02:57Z
 ## 58: User uniforms overlay should be anchored at bottom center of screen
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 created: 2026-06-21T00:02:57Z
+updated: 2026-06-21T02:33:05Z
+closed: 2026-06-21T02:33:05Z
 +++
 
 ---
@@ -2320,10 +2322,12 @@ created: 2026-06-21T00:02:57Z
 ## 59: User uniforms overlay should respect safe areas
 
 +++
-status: new
+status: closed
 priority: low
 kind: bug
 created: 2026-06-21T00:02:58Z
+updated: 2026-06-21T02:33:06Z
+closed: 2026-06-21T02:33:06Z
 +++
 
 ---
