@@ -2488,3 +2488,16 @@ created: 2026-06-21T05:09:15Z
 PhosphorPixelFormat currently only exposes rgba8Unorm, bgra8Unorm, rgba16Float, rgba32Float. Expand to cover the rest of the useful MTLPixelFormat set (e.g. r8/rg8/r16f/rg16f/r32f/rg32f, rgba8Unorm_srgb/bgra8Unorm_srgb, rgb10a2, rg11b10f, etc.). Touch points: PhosphorPixelFormat enum (Resource.swift) + mtlPixelFormat() and bytesPerPixel switch in PhosphorRuntime.swift. Consider deriving bytesPerPixel from the format rather than a hand-maintained switch.
 
 ---
+
+## 69: Rename assets/shaders directories
+
++++
+status: new
+priority: low
+kind: none
+created: 2026-06-21T05:12:29Z
++++
+
+Rename the assets/ and shaders/ directories (e.g. under Examples/Examples.phosphord/) to clearer/consistent names.
+
+---
