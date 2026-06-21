@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Inspector pane for the editor. Wraps tab-style sections; currently just
 /// one tab ("Output") showing drawable size + pixel format.
-struct PhosphorInspector: View {
+struct PhosphorInspectorView: View {
     let parsed: ParsedPhosphorSource
     let runtime: PhosphorRuntime?
     @Binding var text: String
