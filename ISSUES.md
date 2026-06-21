@@ -1478,11 +1478,13 @@ In-process. Pure value plumbing.
 ## 43: Architecture: extract playback clock as deep module
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 labels: architecture
 created: 2026-06-19T02:16:32Z
+updated: 2026-06-21T05:59:12Z
+closed: 2026-06-21T05:59:12Z
 +++
 
 ## Problem

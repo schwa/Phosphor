@@ -21,14 +21,9 @@ struct PhosphorRenderSurfaceView: View {
     @State private var mouseButtons: UInt32 = 0
     @State private var mouseClickOrigin: SIMD2<Float> = .zero
 
-    // Playback clock bookkeeping. `timeBase`/`frameBase` are subtracted from
-    // the renderer's values to get the kernel's time/frame; the snapshot/flags
-    // implement pause and reset.
-    @State private var timeBase: Float = 0
-    @State private var frameBase: UInt32 = 0
-    @State private var pausedSnapshot: (time: Float, frame: Float)?
-    @State private var capturePauseSnapshot: Bool = false
-    @State private var rebaseRequested: Bool = false
+    // Translates the renderer's free-running clock into the kernel time/frame a
+    // shader sees, applying pause and reset.
+    @State private var playbackClock = PlaybackClock()
 
     var body: some View {
         RenderView { context, drawableSize in
@@ -46,16 +41,13 @@ struct PhosphorRenderSurfaceView: View {
         .onFrameTimingChange { model.frameTimingStatistics = $0 }
         .onChange(of: model.isPaused) { _, newValue in
             if newValue {
-                capturePauseSnapshot = true
+                playbackClock.pause()
             } else {
-                pausedSnapshot = nil
-                rebaseRequested = true
+                playbackClock.resume()
             }
         }
         .onChange(of: model.resetSignal) { _, _ in
-            rebaseRequested = true
-            pausedSnapshot = nil
-            capturePauseSnapshot = false
+            playbackClock.reset()
             runtime.signalReset()
         }
         .onContinuousHover { phase in
@@ -85,22 +77,11 @@ struct PhosphorRenderSurfaceView: View {
 
     /// Builds the per-frame `BuiltinUniforms`, applying pause/rebase.
     private func buildUniforms(context: RenderViewContext, drawableSize: CGSize) -> BuiltinUniforms {
-        let kernelTime: Float
-        let kernelFrame: Float
-        let kernelDelta: Float
-        if let paused = pausedSnapshot {
-            kernelTime = paused.time
-            kernelFrame = paused.frame
-            kernelDelta = 0
-        } else {
-            kernelTime = context.frameUniforms.time - timeBase
-            kernelFrame = Float(context.frameUniforms.index &- frameBase)
-            kernelDelta = Float(context.frameUniforms.deltaTime)
-        }
+        let sample = playbackClock.kernelSample(wallClock: wallClock(from: context))
         return BuiltinUniforms(
-            time: kernelTime,
-            timeDelta: kernelDelta,
-            frame: kernelFrame,
+            time: sample.time,
+            timeDelta: sample.delta,
+            frame: sample.frame,
             resolution: SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height)),
             mouse: mousePosition,
             mouseButtons: mouseButtons,
@@ -110,17 +91,15 @@ struct PhosphorRenderSurfaceView: View {
 
     /// Per-frame state mutation triggered from `.onWorkloadEnter`.
     private func applyPlaybackSideEffects(context: RenderViewContext) {
-        if capturePauseSnapshot {
-            let liveTime = context.frameUniforms.time - timeBase
-            let liveFrame = Float(context.frameUniforms.index &- frameBase)
-            pausedSnapshot = (time: liveTime, frame: liveFrame)
-            capturePauseSnapshot = false
-        }
-        if rebaseRequested {
-            timeBase = context.frameUniforms.time
-            frameBase = context.frameUniforms.index
-            rebaseRequested = false
-        }
+        playbackClock.commit(wallClock: wallClock(from: context))
+    }
+
+    private func wallClock(from context: RenderViewContext) -> PlaybackClock.WallClock {
+        PlaybackClock.WallClock(
+            time: context.frameUniforms.time,
+            frame: context.frameUniforms.index,
+            delta: Float(context.frameUniforms.deltaTime)
+        )
     }
 
     /// Converts a point in the view's coordinate space to pixel coordinates
