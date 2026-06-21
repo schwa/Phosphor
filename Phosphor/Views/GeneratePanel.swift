@@ -131,7 +131,7 @@ struct GeneratePanel: View {
         text: .constant(""),
         parsed: ParsedPhosphorSource(source: ""),
         isUntouchedTemplate: true
-    )        {}
+    ) {}
 }
 
 #Preview("Modify") {
@@ -140,5 +140,5 @@ struct GeneratePanel: View {
         text: .constant("// existing kernel\nkernel void image() {}"),
         parsed: ParsedPhosphorSource(source: ""),
         isUntouchedTemplate: false
-    )        {}
+    ) {}
 }

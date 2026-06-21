@@ -7,9 +7,9 @@
 target = "Phosphor"
 # xcode_version = "16.0"        # Xcode version to use
 
+# Tests live in the PhosphorSupport package, not the app scheme.
+[defaults.test]
+target = "PhosphorSupport"
+
 [output]
 # formatter = "xcbeautify"      # "raw", "xcpretty", or "xcbeautify"
-
-[new]
-# license = "MIT"               # Default license (run `licensor -l` for options)
-# copyright = "Your Name"       # Default copyright holder
