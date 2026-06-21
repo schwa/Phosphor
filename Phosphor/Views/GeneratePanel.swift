@@ -99,9 +99,9 @@ struct GeneratePanel: View {
         }
 
         do {
-            let source = try await ShaderGenerator().generate(
+            let adapter = try FoundationModelAdapter.make(model: selectedModel)
+            let source = try await ShaderGenerator(model: adapter).generate(
                 prompt: prompt,
-                model: selectedModel,
                 existingSource: isModifying ? text : ""
             ) { phase in
                 statusMessage = phaseMessage(phase)
