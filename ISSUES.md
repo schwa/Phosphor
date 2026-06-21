@@ -2510,3 +2510,16 @@ updated: 2026-06-21T05:54:41Z
 Add the ability to rename files (not directories) from the UI.
 
 ---
+
+## 70: Export as Xcode project
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-06-21T06:07:58Z
++++
+
+Export a shader as a fully baked Xcode project.
+
+---
