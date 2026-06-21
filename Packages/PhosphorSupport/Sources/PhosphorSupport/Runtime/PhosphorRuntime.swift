@@ -146,7 +146,7 @@ public final class PhosphorRuntime {
             memset(spectrumBuffer.contents(), 0, spectrumLength)
             self.spectrumBuffer = spectrumBuffer
 
-            try recompile()
+            recompile()
         } catch {
             // TODO: surface this instead of trapping once we have a UI path.
             fatalError("PhosphorRuntime initialization failed: \(error)")
@@ -183,7 +183,7 @@ public final class PhosphorRuntime {
             }
             self.userUniformsLayout = newLayout
 
-            try recompile()
+            recompile()
         } catch {
             // TODO: surface this instead of trapping once we have a UI path.
             fatalError("PhosphorRuntime update failed: \(error)")
@@ -191,36 +191,11 @@ public final class PhosphorRuntime {
     }
 
     private func recompile() {
-        var diagnostics = validate(configuration)
-        let fatal = diagnostics.contains(where: \.isFatal)
-        if fatal {
-            self.diagnostics = diagnostics
-            self.library = nil
-            self.passFunctions = [:]
-            return
-        }
-
-        let compiler = PhosphorCompiler(device: device)
-        do {
-            let library = try compiler.compileLibrary(configuration: configuration, userSource: source)
-            self.library = library
-            var functions: [ResourceID: MTLFunction] = [:]
-            for pass in configuration.passes where pass.enabled {
-                do {
-                    functions[pass.id] = try compiler.makeFunction(library: library, for: pass.id)
-                } catch {
-                    diagnostics.append(.compile(.init(passID: pass.id, rawError: "\(error)")))
-                }
-            }
-            self.passFunctions = functions
-        } catch {
-            let attributedTo = configuration.passes.first(where: \.enabled)?.id ?? "library"
-            diagnostics.append(.compile(.init(passID: attributedTo, rawError: "\(error)")))
-            self.library = nil
-            self.passFunctions = [:]
-        }
-        self.diagnostics = diagnostics
-        logDiagnostics(diagnostics)
+        let compiled = ShaderCompiler.compile(configuration: configuration, userSource: source, device: device)
+        self.library = compiled.library
+        self.passFunctions = compiled.passFunctions
+        self.diagnostics = compiled.diagnostics
+        logDiagnostics(compiled.diagnostics)
     }
 
     private func logDiagnostics(_ diagnostics: [PhosphorDiagnostic]) {

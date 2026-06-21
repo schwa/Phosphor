@@ -10,8 +10,8 @@ import Foundation
 ///    `kernel void <passid>` declaration so the user can write the
 ///    canonical names in their kernel body.
 /// 5. Concatenating header + (transformed) user source.
-public enum SourceAssembler {
-    public static func assemble(configuration: PhosphorConfiguration, userSource: String) -> String {
+enum SourceAssembler {
+    static func assemble(configuration: PhosphorConfiguration, userSource: String) -> String {
         let cleaned = stripFrontMatter(stripPhosphorHeaderInclude(userSource))
         let injected = injectPassDefines(into: cleaned, config: configuration)
         let prelude = PhosphorHeader.source(for: configuration)

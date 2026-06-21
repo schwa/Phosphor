@@ -1374,11 +1374,13 @@ In-process. `MTLDevice` and the user's `AudioCaptureEngine` are the only externa
 ## 41: Architecture: deepen shader compile pipeline
 
 +++
-status: new
+status: closed
 priority: medium
 kind: enhancement
 labels: architecture
 created: 2026-06-19T02:15:58Z
+updated: 2026-06-21T06:04:34Z
+closed: 2026-06-21T06:04:34Z
 +++
 
 ## Problem

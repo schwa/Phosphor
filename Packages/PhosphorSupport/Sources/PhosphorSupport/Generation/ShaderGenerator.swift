@@ -225,17 +225,12 @@ public struct ShaderGenerator {
     private static func tryCompile(source: String, device: MTLDevice) -> String? {
         let parsed = ParsedPhosphorSource(source: source)
         guard parsed.hasFrontMatter else { return nil }
-        let config = parsed.configuration
-        let compiler = PhosphorCompiler(device: device)
-        do {
-            let library = try compiler.compileLibrary(configuration: config, userSource: parsed.body)
-            for pass in config.passes where pass.enabled {
-                _ = try compiler.makeFunction(library: library, for: pass.id)
-            }
-            return nil
-        } catch {
-            return "\(error)"
-        }
+        let compiled = ShaderCompiler.compile(
+            configuration: parsed.configuration,
+            userSource: parsed.body,
+            device: device
+        )
+        return compiled.firstCompileError
     }
 
     private static func buildRetryPrompt(compileError: String) -> String {

@@ -3,19 +3,15 @@ import Metal
 
 /// Compiles assembled Metal source into an `MTLLibrary`, and extracts
 /// per-pass `MTLComputePipelineState`s by kernel name.
-public struct PhosphorCompiler {
-    public let device: MTLDevice
-
-    public init(device: MTLDevice) {
-        self.device = device
-    }
+struct PhosphorCompiler {
+    let device: MTLDevice
 
     /// Assembles + compiles a `MTLLibrary` for the configuration.
     ///
     /// `userSource` is the full user-supplied Metal text (front-matter and
     /// `#include "Phosphor.h"` lines are tolerated and stripped). The
     /// returned library contains every kernel declared in the user source.
-    public func compileLibrary(configuration: PhosphorConfiguration, userSource: String) throws -> MTLLibrary {
+    func compileLibrary(configuration: PhosphorConfiguration, userSource: String) throws -> MTLLibrary {
         let assembled = SourceAssembler.assemble(configuration: configuration, userSource: userSource)
         let options = MTLCompileOptions()
         // Allow runtime-compiled kernels to use `os_log_default` for debugging.
@@ -29,7 +25,7 @@ public struct PhosphorCompiler {
     /// Returns an `MTLFunction` rather than an `MTLComputePipelineState`
     /// because MetalSprockets owns pipeline-state creation/caching via
     /// `ComputeKernel`.
-    public func makeFunction(library: MTLLibrary, for passID: ResourceID) throws -> MTLFunction {
+    func makeFunction(library: MTLLibrary, for passID: ResourceID) throws -> MTLFunction {
         guard let function = library.makeFunction(name: passID.raw) else {
             throw PhosphorCompileFailure.functionNotFound(passID)
         }
