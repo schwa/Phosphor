@@ -26,33 +26,48 @@ struct ShaderEditorLayoutView: View {
     let displayedResource: ResourceID?
 
     var body: some View {
-        switch layoutMode {
-        case .sideBySide:
-            HSplitView {
-                CodePaneView(text: $text, onTextChange: onTextChange)
-                PreviewPaneView(
-                    parsed: parsed,
-                    assets: assets,
-                    isPaused: $isPaused,
-                    resetSignal: resetSignal,
-                    displayedResource: displayedResource
-                )
-            }
-        case .overlay:
-            ZStack {
-                PreviewPaneView(
-                    parsed: parsed,
-                    assets: assets,
-                    isPaused: $isPaused,
-                    resetSignal: resetSignal,
-                    displayedResource: displayedResource
-                )
-                .ignoresSafeArea()
+        Group {
+            switch layoutMode {
+            case .sideBySide:
+                HSplitView {
+                    CodePaneView(text: $text, onTextChange: onTextChange)
+                    PreviewPaneView(
+                        parsed: parsed,
+                        assets: assets,
+                        isPaused: $isPaused,
+                        resetSignal: resetSignal,
+                        displayedResource: displayedResource
+                    )
+                }
+            case .overlay:
+                ZStack {
+                    PreviewPaneView(
+                        parsed: parsed,
+                        assets: assets,
+                        isPaused: $isPaused,
+                        resetSignal: resetSignal,
+                        displayedResource: displayedResource
+                    )
+                    .ignoresSafeArea()
 
-                CodePaneView(text: $text, onTextChange: onTextChange, opaque: false, palette: .darkWithBackdrop)
-                    .padding(16)
+                    CodePaneView(text: $text, onTextChange: onTextChange, opaque: false, palette: .darkWithBackdrop)
+                        .padding(16)
+                }
             }
         }
+//        .overlay {
+//            DiagnosticsView(diagnostics: frontMatterDiagnostics + runtime.diagnostics)
+//                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+//                .allowsHitTesting(false)
+//
+//        }
+//        .overlay {
+//            UniformsPanelView(
+//                uniforms: environment.uniforms,
+//                showPanel: showUniformsPanel,
+//                uniformValues: $uniformValues
+//            )
+//        }
     }
 }
 

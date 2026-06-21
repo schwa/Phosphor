@@ -108,7 +108,9 @@ struct PhosphorView: View {
                 uniformValues = UserUniformsLayout.defaultsDictionary(environment.uniforms)
             }
         } else {
-            PhosphorLoadingView()
+            // Runtime not ready yet (no parsed env, or first frame hasn't
+            // fired). Plain black blends with the rest of the chrome.
+            Color.black
         }
     }
 }
