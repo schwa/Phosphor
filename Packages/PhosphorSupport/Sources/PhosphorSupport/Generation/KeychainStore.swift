@@ -42,9 +42,11 @@ public enum KeychainStore {
             }
             logger.debug("Keychain read for account '\(account, privacy: .public)' found a value (\(string.count) chars)")
             return .found(string)
+
         case errSecItemNotFound:
             logger.info("Keychain read for account '\(account, privacy: .public)': item not found")
             return .notFound
+
         default:
             // Transient/permission failures (e.g. errSecInteractionNotAllowed)
             // are NOT "no key" — report them so callers can retry rather than

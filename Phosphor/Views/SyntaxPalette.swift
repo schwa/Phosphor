@@ -61,7 +61,7 @@ struct SyntaxPalette: Hashable, Sendable {
 
     /// Default palette used on the side-by-side editor pane (text on a
     /// system text-background color).
-    static let `default` = SyntaxPalette(
+    static let `default` = Self(
         foreground: .primary,
         comment: .green,
         identifier: .blue,
@@ -78,7 +78,7 @@ struct SyntaxPalette: Hashable, Sendable {
 
     /// Dark-mode palette: light, slightly desaturated colors that read
     /// well against a dark editor background.
-    static let dark = SyntaxPalette(
+    static let dark = Self(
         foreground: Color(white: 0.85),
         comment: Color(red: 0.45, green: 0.7, blue: 0.45),
         identifier: Color(red: 0.55, green: 0.8, blue: 1.0),
@@ -96,7 +96,7 @@ struct SyntaxPalette: Hashable, Sendable {
     /// Same as ``dark`` but with a translucent dark backdrop behind every
     /// line of code. Used by the overlay layout so tokens stay legible
     /// against the live shader render.
-    static let darkWithBackdrop = SyntaxPalette(
+    static let darkWithBackdrop = Self(
         foreground: Color(white: 0.85),
         comment: Color(red: 0.45, green: 0.7, blue: 0.45),
         identifier: Color(red: 0.55, green: 0.8, blue: 1.0),

@@ -190,7 +190,7 @@ public final class PhosphorRuntime {
         }
     }
 
-    private func recompile() throws {
+    private func recompile() {
         var diagnostics = validate(configuration)
         let fatal = diagnostics.contains(where: \.isFatal)
         if fatal {
@@ -229,6 +229,7 @@ public final class PhosphorRuntime {
             switch diagnostic {
             case .compile(let error):
                 Self.logger.error("[Phosphor] compile error in '\(error.passID.raw, privacy: .public)':\n\(error.rawError, privacy: .public)")
+
             default:
                 Self.logger.error("[Phosphor] \(String(describing: diagnostic), privacy: .public)")
             }
@@ -337,6 +338,7 @@ public final class PhosphorRuntime {
                     switch binding.access {
                     case .write, .readWrite:
                         texture = pair.writeTexture(currentIsA: resourceParity)
+
                     case .read, .sample:
                         let isSelfFeedback = pass.textures.contains { $0.id == binding.id && ($0.access == .write || $0.access == .readWrite) }
                         if !isSelfFeedback, alreadyWritten.contains(binding.id) {
@@ -411,15 +413,18 @@ public final class PhosphorRuntime {
         switch texture.initialContents {
         case .zero:
             break  // Storage mode .private + first compute write zero-fills implicitly.
+
         case .fill:
             // TODO(#52): implement fill via a small init compute or blit-with-color.
             break
+
         case .image(let file):
             do {
                 try seedTextureFromAsset(file: file, into: a, alsoInto: pingPong ? b : nil)
             } catch {
                 appendDiagnostic(.missingAsset(name: file, in: texture.id))
             }
+
         case .noise:
             // TODO(#52): implement noise init.
             break
@@ -486,8 +491,10 @@ public final class PhosphorRuntime {
         switch size {
         case .drawable:
             return (max(1, Int(drawableSize.width.rounded())), max(1, Int(drawableSize.height.rounded())))
+
         case .fixed(let width, let height):
             return (max(1, width), max(1, height))
+
         case .scaledDrawable(let scale):
             return (
                 max(1, Int((Float(drawableSize.width) * scale).rounded())),

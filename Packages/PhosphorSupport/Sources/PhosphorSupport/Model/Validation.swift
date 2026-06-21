@@ -45,6 +45,7 @@ public func validate(_ config: PhosphorConfiguration) -> [PhosphorDiagnostic] {
             switch binding.access {
             case .write, .readWrite:
                 writeBindings.append(binding)
+
             case .read, .sample:
                 readBindings.append(binding)
             }

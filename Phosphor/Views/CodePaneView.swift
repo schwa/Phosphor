@@ -30,6 +30,6 @@ struct CodePaneView: View {
 }
 
 #Preview("Code pane") {
-    CodePaneView(text: .constant("kernel void image() {}\n"), onTextChange: {})
+    CodePaneView(text: .constant("kernel void image() {}\n")) {}
         .frame(width: 400, height: 300)
 }

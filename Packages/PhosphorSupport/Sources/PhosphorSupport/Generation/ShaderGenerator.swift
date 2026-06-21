@@ -198,8 +198,10 @@ public struct ShaderGenerator {
             switch KeychainStore.readResult(account: KeychainAccount.anthropicAPIKey) {
             case .found(let value) where !value.isEmpty:
                 apiKey = value
+
             case .found, .notFound:
                 throw ShaderGeneratorError.missingAPIKey(model)
+
             case .failed(let status):
                 // Transient keychain failure — the key may well be set. Report
                 // it distinctly so the user retries instead of re-entering it.

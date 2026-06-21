@@ -41,7 +41,6 @@ struct PhosphorApp: App {
         }
     }
 
-
     /// Pushes the persisted toggle state into the engine on app launch and
     /// after any change. The engine handles permission-prompt on enable.
     private func syncMicState() {

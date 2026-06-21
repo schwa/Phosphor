@@ -59,8 +59,10 @@ struct ModelsSettingsView: View {
             switch KeychainStore.readResult(account: KeychainAccount.anthropicAPIKey) {
             case .found(let value):
                 anthropicKey = value
+
             case .notFound:
                 anthropicKey = ""
+
             case .failed(let status):
                 // Don't clobber the field (or let the user think the key is
                 // gone) on a transient keychain read failure.

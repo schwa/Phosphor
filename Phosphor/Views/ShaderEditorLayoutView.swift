@@ -51,6 +51,7 @@ struct ShaderEditorLayoutView: View {
                         )
                     }
             }
+
         case .overlay:
             ZStack {
                 PreviewPaneView(parsed: parsed)
@@ -84,4 +85,3 @@ struct ShaderEditorLayoutView: View {
         }
     }
 }
-

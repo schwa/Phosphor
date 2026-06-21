@@ -62,6 +62,7 @@ struct PhosphorRenderSurfaceView: View {
             switch phase {
             case .active(let point):
                 mousePosition = pixelCoordinate(from: point)
+
             case .ended:
                 break
             }

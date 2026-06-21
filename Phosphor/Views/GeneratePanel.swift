@@ -87,7 +87,6 @@ struct GeneratePanel: View {
             }
         }
         .padding(20)
-
     }
 
     private func generate() async {
@@ -131,9 +130,8 @@ struct GeneratePanel: View {
         isPresented: .constant(true),
         text: .constant(""),
         parsed: ParsedPhosphorSource(source: ""),
-        isUntouchedTemplate: true,
-        onTextChange: {}
-    )
+        isUntouchedTemplate: true
+    )        {}
 }
 
 #Preview("Modify") {
@@ -141,7 +139,6 @@ struct GeneratePanel: View {
         isPresented: .constant(true),
         text: .constant("// existing kernel\nkernel void image() {}"),
         parsed: ParsedPhosphorSource(source: ""),
-        isUntouchedTemplate: false,
-        onTextChange: {}
-    )
+        isUntouchedTemplate: false
+    )        {}
 }

@@ -93,8 +93,8 @@ struct ShaderEditorView: View {
                 .toggleStyle(.button)
                 .disabled(!hasUniforms)
                 .help(hasUniforms
-                    ? "Show or hide the uniforms panel"
-                    : "No uniforms declared in this shader")
+                        ? "Show or hide the uniforms panel"
+                        : "No uniforms declared in this shader")
             }
             ToolbarItem(placement: .principal) {
                 Toggle(isOn: $showFrameTiming) {
@@ -110,8 +110,8 @@ struct ShaderEditorView: View {
                 .toggleStyle(.button)
                 .disabled(audioCapture?.isPermissionDenied ?? false)
                 .help(audioCapture?.isPermissionDenied == true
-                    ? "Microphone access was denied. Enable it in System Settings → Privacy & Security."
-                    : "Enable microphone input for audio-reactive shaders")
+                        ? "Microphone access was denied. Enable it in System Settings → Privacy & Security."
+                        : "Enable microphone input for audio-reactive shaders")
             }
             ToolbarItem(placement: .principal) {
                 Button {

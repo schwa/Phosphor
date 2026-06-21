@@ -19,8 +19,7 @@ struct PhosphorRunningView: View {
         Group {
             if viewSize.width > 0, viewSize.height > 0 {
                 PhosphorRenderSurfaceView(configuration: configuration, viewSize: viewSize)
-            }
-            else {
+            } else {
                 Color.black
             }
         }

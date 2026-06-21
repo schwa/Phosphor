@@ -28,7 +28,6 @@ struct PhosphorBundleDocumentView: View {
         )
     }
 
-
     var body: some View {
         NavigationSplitView {
             BundleSidebar(

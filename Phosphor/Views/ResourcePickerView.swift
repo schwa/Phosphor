@@ -30,8 +30,8 @@ struct ResourcePickerView: View {
         .frame(maxWidth: 180)
         .disabled(isDisabled)
         .help(isDisabled
-            ? "Only one resource declared—nothing to switch to"
-            : "Preview a specific resource instead of the declared output")
+                ? "Only one resource declared—nothing to switch to"
+                : "Preview a specific resource instead of the declared output")
     }
 }
 

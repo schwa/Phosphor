@@ -215,7 +215,7 @@ struct MetalSourceView: View {
         _ attributed: inout AttributedString,
         range: Range<AttributedString.Index>,
         foreground: Color,
-        palette: SyntaxPalette
+        palette _: SyntaxPalette
     ) {
         attributed[range].foregroundColor = foreground
     }

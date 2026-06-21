@@ -219,6 +219,7 @@ private struct TextureSizeField: View {
             switch kind {
             case .drawable:
                 EmptyView()
+
             case .fixed:
                 HStack {
                     TextField("Width", value: $width, formatter: NumberFormatter())
@@ -226,6 +227,7 @@ private struct TextureSizeField: View {
                 }
                 .onChange(of: width) { _, _ in commit() }
                 .onChange(of: height) { _, _ in commit() }
+
             case .scaled:
                 TextField("Scale", value: $scale, formatter: NumberFormatter())
                     .onChange(of: scale) { _, _ in commit() }
@@ -238,8 +240,10 @@ private struct TextureSizeField: View {
     private func hydrate() {
         switch size {
         case .drawable: kind = .drawable
+
         case .fixed(let w, let h):
             kind = .fixed; width = w; height = h
+
         case .scaledDrawable(let s):
             kind = .scaled; scale = s
         }
@@ -281,13 +285,16 @@ private struct TextureInitField: View {
             switch kind {
             case .zero:
                 EmptyView()
+
             case .fill:
                 ColorPicker("Color", selection: $color, supportsOpacity: true)
                     .onChange(of: color) { _, _ in commit() }
+
             case .image:
                 TextField("File", text: $filename)
                     .textFieldStyle(.roundedBorder)
                     .onChange(of: filename) { _, _ in commit() }
+
             case .noise:
                 TextField("Seed", value: $seed, formatter: NumberFormatter())
                     .onChange(of: seed) { _, _ in commit() }
@@ -300,11 +307,14 @@ private struct TextureInitField: View {
     private func hydrate() {
         switch `init` {
         case .zero: kind = .zero
+
         case .fill(let rgba):
             kind = .fill
             color = Color(red: Double(rgba.x), green: Double(rgba.y), blue: Double(rgba.z), opacity: Double(rgba.w))
+
         case .image(let file):
             kind = .image; filename = file
+
         case .noise(let s):
             kind = .noise; seed = s
         }
@@ -314,11 +324,14 @@ private struct TextureInitField: View {
         switch kind {
         case .zero:
             `init` = .zero
+
         case .fill:
             let resolved = color.resolve(in: .init())
             `init` = .fill(.init(resolved.red, resolved.green, resolved.blue, resolved.opacity))
+
         case .image:
             `init` = .image(file: filename)
+
         case .noise:
             `init` = .noise(seed: seed)
         }

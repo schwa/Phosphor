@@ -4,7 +4,7 @@ import SwiftUI
 /// Focused-value key carrying the active editor's `text` binding so a
 /// top-level `commands { }` block can mutate the doc the user is looking at.
 extension FocusedValues {
-    @Entry var shaderText: Binding<String>? = nil
+    @Entry var shaderText: Binding<String>?
 }
 
 /// `Edit` menu item that re-encodes the active document's front-matter via
