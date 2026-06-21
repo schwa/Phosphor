@@ -1,6 +1,15 @@
 {
-  "originHash" : "0f95010c6481a9313655089b0fdc7d4a5accd4dbd316817dc2d2795d9dc7d7d6",
+  "originHash" : "b6506538a747b27eb7d5a2ba3143182f037f1fa8982e1f9246b48dadf4562417",
   "pins" : [
+    {
+      "identity" : "foundationmodelbackends",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/schwa/FoundationModelBackends.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "da94362a481bd8723eb6adb1cdb7706cc48d419f"
+      }
+    },
     {
       "identity" : "geometrylite2d",
       "kind" : "remoteSourceControl",
