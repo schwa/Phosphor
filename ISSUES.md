@@ -2229,11 +2229,13 @@ Likely shape: `SwapTiming.immediate` (already modeled, today's #4) means 'flip p
 ## 55: Multi-shader .phosphord bundles with sidebar picker
 
 +++
-status: new
+status: closed
 priority: medium
 kind: feature
 labels: architecture
 created: 2026-06-20T18:46:36Z
+updated: 2026-06-21T04:30:14Z
+closed: 2026-06-21T04:30:14Z
 +++
 
 Today a .phosphord bundle holds one shader.metal. Expand to many.
@@ -2273,15 +2275,19 @@ Open questions to decide during impl:
 - Cross-shader references — out of scope for v1; each shader is its
   own environment.
 
+- `2026-06-21T04:30:14Z`: Implemented: PhosphorBundleDocumentView uses NavigationSplitView with a BundleSidebar listing Sources + Assets; selecting a shader opens it in the shared editor.
+
 ---
 
 ## 56: Side-by-side mode: dragging splitter resizes window instead of panes
 
 +++
-status: new
+status: closed
 priority: low
 kind: bug
 created: 2026-06-20T20:15:30Z
+updated: 2026-06-21T04:30:14Z
+closed: 2026-06-21T04:30:14Z
 +++
 
 Repro: in side-by-side layout, drag the HSplitView splitter to give the editor more or less width. Instead of redistributing between editor and preview, the window itself grows or shrinks.
@@ -2289,20 +2295,26 @@ Repro: in side-by-side layout, drag the HSplitView splitter to give the editor m
 Likely cause: TextEditor inside MetalSourceView reports an intrinsic minimum size driven by the longest unbroken line of source. NSSplitView won't let the divider drop below that minimum, so any drag below the threshold pushes the window outward.
 
 Possible fixes to try:
-- .frame(minWidth: 0) on CodePane to force-zero the lower bound (lets the editor clip / scroll horizontally instead of growing the window).
-- Wrap MetalSourceView in a horizontal ScrollView so its intrinsic width detaches from its content width.
-- Set NSSplitView's holding priority via a UIViewRepresentable bridge \u2014 invasive.
+
+- `2026-06-20T20:15:30Z`: .frame(minWidth: 0) on CodePane to force-zero the lower bound (lets the editor clip / scroll horizontally instead of growing the window).
+- `2026-06-20T20:15:30Z`: Wrap MetalSourceView in a horizontal ScrollView so its intrinsic width detaches from its content width.
+- `2026-06-20T20:15:30Z`: Set NSSplitView's holding priority via a UIViewRepresentable bridge \u2014 invasive.
+- `2026-06-21T04:30:14Z`: Fixed: ShaderEditorLayoutView sets .frame(minWidth: 300) on both code and preview panes so the HSplitView divider redistributes between panes instead of resizing the window.
 
 ---
 
 ## 57: Header popover needs minimum sizes
 
 +++
-status: new
+status: closed
 priority: low
 kind: bug
 created: 2026-06-21T00:02:57Z
+updated: 2026-06-21T04:30:42Z
+closed: 2026-06-21T04:30:42Z
 +++
+
+- `2026-06-21T04:30:42Z`: Header popover now has sensible minimum sizes.
 
 ---
 
@@ -2335,10 +2347,12 @@ closed: 2026-06-21T02:33:06Z
 ## 60: App crashes when loading document (race condition with window sizing)
 
 +++
-status: new
+status: closed
 priority: high
 kind: bug
 created: 2026-06-21T00:03:03Z
+updated: 2026-06-21T02:33:44Z
+closed: 2026-06-21T02:33:44Z
 +++
 
 App often crashes when loading a doc, but not always — appears to be a race condition with window sizing. Crash log to be attached.
@@ -2355,6 +2369,8 @@ Crash is in the MetalSprockets dependency (not Phosphor): MetalSprocketsUI/Rende
 When drawableSize has a zero dimension during initial window sizing, currentDrawable is nil and orThrow fatal-errors instead of skipping the frame.
 
 Fix belongs in schwa/MetalSprockets: early-return from draw(in:) when view.drawableSize.width <= 0 || height <= 0 (and/or guard-let currentDrawable to skip the frame). Then bump the MetalSprockets pin in Phosphor. Audio init lines in the log are unrelated noise.
+
+- `2026-06-21T02:33:44Z`: Fixed in 47a47b75: PhosphorRunningView only mounts the render surface (MTKView) once viewSize has non-zero width/height, tracked via onGeometryChange. Prevents instantiating a Metal drawable at zero size during the window-sizing race.
 
 ---
 
@@ -2383,12 +2399,16 @@ created: 2026-06-21T00:03:03Z
 ## 63: Anthropic API key occasionally loads blank
 
 +++
-status: new
+status: closed
 priority: medium
 kind: bug
 created: 2026-06-21T00:14:01Z
+updated: 2026-06-21T04:30:14Z
+closed: 2026-06-21T04:30:14Z
 +++
 
 Intermittently the Anthropic API key fails to load and comes back blank. Likely a load-order/timing or keychain-read race.
+
+- `2026-06-21T04:30:14Z`: Addressed: KeychainStore distinguishes transient read failures from missing items, logs the failing OSStatus, and writes with kSecAttrAccessibleAfterFirstUnlock; callers no longer treat a transient failure as a blank key. Closing as resolved.
 
 ---
