@@ -116,22 +116,19 @@ private struct BundleSidebar: View {
 
             Divider()
             HStack(spacing: 8) {
-                Button {
+                Button("New Shader", systemImage: "plus") {
                     onAddShader()
-                } label: {
-                    Label("New Shader", systemImage: "plus")
-                        .frame(maxWidth: .infinity)
-                        .contentShape(.rect)
                 }
-                Button {
+                .help("New Shader")
+
+                Button("Import", systemImage: "square.and.arrow.down") {
                     showImporter = true
-                } label: {
-                    Label("Import", systemImage: "square.and.arrow.down")
-                        .frame(maxWidth: .infinity)
-                        .contentShape(.rect)
                 }
+                .help("Import a shader or asset")
+
+                Spacer()
             }
-            .labelStyle(.titleAndIcon)
+            .labelStyle(.iconOnly)
             .buttonStyle(.bordered)
             .padding(8)
             .background(.background.secondary)

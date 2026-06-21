@@ -82,6 +82,7 @@ struct ShaderEditorView: View {
                         MetalSourceView(text: PhosphorHeader.source(for: parsed.configuration))
                             .padding(12)
                     }
+                    .frame(minWidth: 480, minHeight: 360)
                 }
             }
             ToolbarItem(placement: .principal) {
