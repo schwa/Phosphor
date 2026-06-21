@@ -5,13 +5,12 @@ import SwiftUI
 /// one tab ("Output") showing drawable size + pixel format.
 struct PhosphorInspectorView: View {
     let parsed: ParsedPhosphorSource
-    let runtime: PhosphorRuntime
     @Binding var text: String
 
     var body: some View {
         TabView {
             Tab("Output", systemImage: "rectangle.dashed") {
-                OutputTab(parsed: parsed, runtime: runtime)
+                OutputTab(parsed: parsed)
             }
             Tab("Configuration", systemImage: "slider.horizontal.below.rectangle") {
                 PhosphorConfigurationEditorView(parsed: parsed, text: $text)
@@ -24,7 +23,7 @@ struct PhosphorInspectorView: View {
 /// texture.
 private struct OutputTab: View {
     let parsed: ParsedPhosphorSource
-    let runtime: PhosphorRuntime
+    @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
 
     var body: some View {
         Form {

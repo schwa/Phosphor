@@ -45,8 +45,7 @@ struct ShaderEditorView: View {
             text: $text,
             parsed: parsed,
             onTextChange: onTextChange,
-            showUniformsPanel: showUniformsPanel,
-            frontMatterDiagnostics: parsed.diagnostics
+            showUniformsPanel: showUniformsPanel
         )
         .environment(model)
         .onChange(of: parsed.configuration) { _, newConfiguration in

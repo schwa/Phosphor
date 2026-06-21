@@ -21,7 +21,6 @@ struct ShaderEditorLayoutView: View {
     let parsed: ParsedPhosphorSource
     let onTextChange: () -> Void
     let showUniformsPanel: Bool
-    let frontMatterDiagnostics: [PhosphorDiagnostic]
 
     @Environment(EditorModel.self) private var model
     @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
@@ -36,7 +35,7 @@ struct ShaderEditorLayoutView: View {
                 PreviewPaneView(parsed: parsed)
                     .frame(minWidth: 300)
                     .overlay(alignment: .topLeading) {
-                        DiagnosticsView(diagnostics: frontMatterDiagnostics + runtime.diagnostics)
+                        DiagnosticsView(diagnostics: parsed.diagnostics + runtime.diagnostics)
                             .allowsHitTesting(false)
                     }
                     .overlay(alignment: .bottom) {
@@ -56,7 +55,7 @@ struct ShaderEditorLayoutView: View {
                     .padding(16)
             }
             .overlay(alignment: .topLeading) {
-                DiagnosticsView(diagnostics: frontMatterDiagnostics + runtime.diagnostics)
+                DiagnosticsView(diagnostics: parsed.diagnostics + runtime.diagnostics)
                     .allowsHitTesting(false)
             }
             .overlay(alignment: .bottom) {

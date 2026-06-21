@@ -22,7 +22,7 @@ struct PhosphorDocumentView: View {
             runtime.reload(parsed: document.parsed, assets: [:], audioCapture: audioCapture)
         }
         .inspector(isPresented: $showInspector) {
-            PhosphorInspectorView(parsed: document.parsed, runtime: runtime, text: $document.text)
+            PhosphorInspectorView(parsed: document.parsed, text: $document.text)
         }
     }
 }

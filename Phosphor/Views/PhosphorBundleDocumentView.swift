@@ -62,7 +62,7 @@ struct PhosphorBundleDocumentView: View {
             )
         }
         .inspector(isPresented: $showInspector) {
-            PhosphorInspectorView(parsed: document.parsed, runtime: runtime, text: inspectorText)
+            PhosphorInspectorView(parsed: document.parsed, text: inspectorText)
         }
     }
 
