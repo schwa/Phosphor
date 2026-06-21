@@ -16,12 +16,12 @@ enum LayoutMode: String, CaseIterable {
 /// ``LayoutMode``: side-by-side splitter or code overlaid on a full-bleed
 /// preview.
 struct ShaderEditorLayoutView: View {
-    let layoutMode: LayoutMode
     @Binding var text: String
     let parsed: ParsedPhosphorSource
     let onTextChange: () -> Void
-    let showUniformsPanel: Bool
 
+    @SceneStorage("phosphor.ui.layoutMode") private var layoutMode: LayoutMode = .sideBySide
+    @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
     @Environment(EditorModel.self) private var model
     @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
 

@@ -53,7 +53,6 @@ struct PhosphorBundleDocumentView: View {
                 isUntouchedTemplate: document.isUntouchedTemplate
             )
         }
-        .environment(runtime)
         .task(id: ReloadKey(parsed: document.parsed, assetNames: assetNames)) {
             runtime.reload(
                 parsed: document.parsed,
@@ -64,6 +63,7 @@ struct PhosphorBundleDocumentView: View {
         .inspector(isPresented: $showInspector) {
             PhosphorInspectorView(parsed: document.parsed, text: inspectorText)
         }
+        .environment(runtime)
     }
 
     /// Routes a dropped or imported file URL into either the shaders or

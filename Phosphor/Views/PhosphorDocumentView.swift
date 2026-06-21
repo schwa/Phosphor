@@ -17,12 +17,12 @@ struct PhosphorDocumentView: View {
             onTextChange: { document.refreshParsed() },
             isUntouchedTemplate: document.isUntouchedTemplate
         )
-        .environment(runtime)
         .task(id: document.parsed) {
             runtime.reload(parsed: document.parsed, assets: [:], audioCapture: audioCapture)
         }
         .inspector(isPresented: $showInspector) {
             PhosphorInspectorView(parsed: document.parsed, text: $document.text)
         }
+        .environment(runtime)
     }
 }
