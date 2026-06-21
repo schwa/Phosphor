@@ -77,11 +77,9 @@ public struct AnthropicModel: Hashable, Sendable {
         self.displayName = displayName
     }
 
-    public static let opus = Self(id: "claude-opus-4-5", displayName: "Claude Opus")
-    public static let sonnet = Self(id: "claude-sonnet-4-5", displayName: "Claude Sonnet")
-    public static let haiku = Self(id: "claude-haiku-4-5", displayName: "Claude Haiku")
+    public static let opus = Self(id: "claude-opus-4-8", displayName: "Claude Opus")
 
-    public static let all: [Self] = [.opus, .sonnet, .haiku]
+    public static let all: [Self] = [.opus]
 }
 
 /// Generates a Phosphor `.metal` source from a natural-language prompt via
