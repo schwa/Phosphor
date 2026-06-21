@@ -92,8 +92,8 @@
 			isa = PBXGroup;
 			children = (
 				45CFGGRP2F64AA9A005F944D /* Configuration */,
-				45PKGGRP2F64AAA6005F944D /* Packages */,
 				45C80D332E84475800136D6D /* Phosphor */,
+				45PKGGRP2F64AAA6005F944D /* Packages */,
 				45C80D322E84475800136D6D /* Products */,
 			);
 			sourceTree = "<group>";

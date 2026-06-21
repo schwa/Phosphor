@@ -159,5 +159,8 @@ struct ShaderEditorView: View {
                 onTextChange: onTextChange
             )
         }
+        .inspector(isPresented: $showInspector) {
+            PhosphorInspectorView(parsed: parsed, text: $text)
+        }
     }
 }

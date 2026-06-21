@@ -43,6 +43,7 @@ public enum TextureSize: Hashable, Sendable {
 /// Pixel format options. Maps to `MTLPixelFormat` at runtime.
 public enum PhosphorPixelFormat: String, Hashable, Codable, Sendable, CaseIterable {
     case rgba8Unorm
+    case bgra8Unorm
     case rgba16Float
     case rgba32Float
 }

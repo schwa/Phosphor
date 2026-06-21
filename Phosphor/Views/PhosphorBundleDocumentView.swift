@@ -8,7 +8,6 @@ struct PhosphorBundleDocumentView: View {
     @Bindable var document: PhosphorBundleDocument
     @State private var runtime = PhosphorRuntime()
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
-    @AppStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
 
     private var sortedShaderNames: [String] {
         document.shaders.keys.sorted()
@@ -29,7 +28,6 @@ struct PhosphorBundleDocumentView: View {
         )
     }
 
-    private var inspectorText: Binding<String> { activeTextBinding }
 
     var body: some View {
         NavigationSplitView {
@@ -61,9 +59,6 @@ struct PhosphorBundleDocumentView: View {
                 assets: document.assets,
                 audioCapture: audioCapture
             )
-        }
-        .inspector(isPresented: $showInspector) {
-            PhosphorInspectorView(parsed: document.parsed, text: inspectorText)
         }
         .environment(runtime)
     }

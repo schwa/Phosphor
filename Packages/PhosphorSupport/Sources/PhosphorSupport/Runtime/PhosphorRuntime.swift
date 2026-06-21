@@ -50,6 +50,7 @@ public final class PhosphorRuntime {
         let bytesPerPixel: Int
         switch texture.pixelFormat {
         case .rgba8Unorm: bytesPerPixel = 4
+        case .bgra8Unorm: bytesPerPixel = 4
         case .rgba16Float: bytesPerPixel = 8
         case .rgba32Float: bytesPerPixel = 16
         default: bytesPerPixel = 16
@@ -505,6 +506,7 @@ public final class PhosphorRuntime {
     private func mtlPixelFormat(_ format: PhosphorPixelFormat) -> MTLPixelFormat {
         switch format {
         case .rgba8Unorm: return .rgba8Unorm
+        case .bgra8Unorm: return .bgra8Unorm
         case .rgba16Float: return .rgba16Float
         case .rgba32Float: return .rgba32Float
         }
