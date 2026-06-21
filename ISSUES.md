@@ -2449,13 +2449,17 @@ In the bundle sidebar, asset rows aren't selectable/previewable. Selecting an im
 ## 66: Model display names show (possibly wrong) version numbers
 
 +++
-status: new
+status: closed
 priority: low
 kind: bug
 created: 2026-06-21T05:02:21Z
+updated: 2026-06-21T05:12:25Z
+closed: 2026-06-21T05:12:25Z
 +++
 
 Generate panel lists models with hardcoded version numbers in displayName: 'Claude Opus 4.5', 'Claude Sonnet 4.5', 'Claude Haiku 4.5' (ids claude-opus-4-5 / claude-sonnet-4-5 / claude-haiku-4-5 in ShaderGenerator.swift AnthropicModel). These versions are likely wrong/invented. Either drop the version numbers from the user-facing display names (just 'Claude Opus' etc.) or make sure the version numbers + model ids are actually correct.
+
+- `2026-06-21T05:12:25Z`: Dropped version numbers from user-facing display names (now 'Claude Opus' / 'Claude Sonnet' / 'Claude Haiku'); model ids unchanged.
 
 ---
 

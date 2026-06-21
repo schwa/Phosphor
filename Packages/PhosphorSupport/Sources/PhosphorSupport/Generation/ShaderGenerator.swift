@@ -77,9 +77,9 @@ public struct AnthropicModel: Hashable, Sendable {
         self.displayName = displayName
     }
 
-    public static let opus = Self(id: "claude-opus-4-5", displayName: "Claude Opus 4.5")
-    public static let sonnet = Self(id: "claude-sonnet-4-5", displayName: "Claude Sonnet 4.5")
-    public static let haiku = Self(id: "claude-haiku-4-5", displayName: "Claude Haiku 4.5")
+    public static let opus = Self(id: "claude-opus-4-5", displayName: "Claude Opus")
+    public static let sonnet = Self(id: "claude-sonnet-4-5", displayName: "Claude Sonnet")
+    public static let haiku = Self(id: "claude-haiku-4-5", displayName: "Claude Haiku")
 
     public static let all: [Self] = [.opus, .sonnet, .haiku]
 }
