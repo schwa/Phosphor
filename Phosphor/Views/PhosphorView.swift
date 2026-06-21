@@ -18,7 +18,6 @@ import SwiftUI
 struct PhosphorView: View {
     let configuration: PhosphorConfiguration
     let source: String
-    let frontMatterDiagnostics: [PhosphorDiagnostic]
     /// Host-supplied binary assets keyed by name. Texture resources whose
     /// `initial = "image"` reference these by `name`. Empty for plain
     /// `.metal` documents; populated from the `assets/` directory for
@@ -35,9 +34,8 @@ struct PhosphorView: View {
     /// intermediate ping-pong / scratch buffer for debugging.
     let displayedResource: ResourceID?
 
+    @Binding var uniformValues: [String: UniformValue]
     @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
-    @State private var uniformValues: [String: UniformValue] = [:]
-    @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
 
     init(
         configuration: PhosphorConfiguration,
@@ -45,66 +43,45 @@ struct PhosphorView: View {
         assets: [String: PhosphorAsset] = [:],
         isPaused: Binding<Bool>? = nil,
         resetSignal: Int = 0,
-        displayedResource: ResourceID? = nil
+        displayedResource: ResourceID? = nil,
+        uniformValues: Binding<[String: UniformValue]>
     ) {
         self.configuration = configuration
         self.source = source
-        self.frontMatterDiagnostics = []
         self.assets = assets
         self.isPausedExternally = isPaused
         self.resetSignal = resetSignal
         self.displayedResource = displayedResource
+        self._uniformValues = uniformValues
     }
 
-    init?(
-        source: String,
-        assets: [String: PhosphorAsset] = [:],
-        isPaused: Binding<Bool>? = nil,
-        resetSignal: Int = 0,
-        displayedResource: ResourceID? = nil
-    ) {
-        self.init(
-            parsed: ParsedPhosphorSource(source: source),
-            assets: assets,
-            isPaused: isPaused,
-            resetSignal: resetSignal,
-            displayedResource: displayedResource
-        )
-    }
-
-    init?(
+    init(
         parsed: ParsedPhosphorSource,
         assets: [String: PhosphorAsset] = [:],
         isPaused: Binding<Bool>? = nil,
         resetSignal: Int = 0,
-        displayedResource: ResourceID? = nil
+        displayedResource: ResourceID? = nil,
+        uniformValues: Binding<[String: UniformValue]>
     ) {
-        guard let configuration = parsed.configuration else { return nil }
-        self.configuration = configuration
-        self.source = parsed.body
-        self.frontMatterDiagnostics = parsed.diagnostics
-        self.assets = assets
-        self.isPausedExternally = isPaused
-        self.resetSignal = resetSignal
-        self.displayedResource = displayedResource
+        self.init(
+            configuration: parsed.configuration,
+            source: parsed.body,
+            assets: assets,
+            isPaused: isPaused,
+            resetSignal: resetSignal,
+            displayedResource: displayedResource,
+            uniformValues: uniformValues
+        )
     }
 
     var body: some View {
         PhosphorRunningView(
             runtime: runtime,
             configuration: configuration,
-            frontMatterDiagnostics: frontMatterDiagnostics,
             isPausedExternally: isPausedExternally,
             resetSignal: resetSignal,
             displayedResource: displayedResource,
-            uniformValues: $uniformValues,
-            showUniformsPanel: showUniformsPanel
+            uniformValues: uniformValues
         )
-        .onChange(of: configuration) { _, newConfiguration in
-            uniformValues = UserUniformsLayout.defaultsDictionary(newConfiguration.uniforms)
-        }
-        .task {
-            uniformValues = UserUniformsLayout.defaultsDictionary(configuration.uniforms)
-        }
     }
 }

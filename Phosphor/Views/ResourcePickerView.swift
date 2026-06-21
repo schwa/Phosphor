@@ -6,11 +6,11 @@ import SwiftUI
 /// output; other choices are individual texture resources. Disabled when
 /// the configuration has only one resource (or none).
 struct ResourcePickerView: View {
-    let configuration: PhosphorConfiguration?
+    let configuration: PhosphorConfiguration
     @Binding var displayedResource: ResourceID?
 
     private var resourceIDs: [ResourceID] {
-        configuration?.textures.map(\.id) ?? []
+        configuration.textures.map(\.id)
     }
 
     private var isDisabled: Bool {
@@ -19,7 +19,7 @@ struct ResourcePickerView: View {
 
     var body: some View {
         Picker("Preview", selection: $displayedResource) {
-            Text("Output (\(configuration?.output.raw ?? "—"))").tag(ResourceID?.none)
+            Text("Output (\(configuration.output.raw))").tag(ResourceID?.none)
             Divider()
             ForEach(resourceIDs, id: \.self) { id in
                 Text(id.raw).tag(Optional(id))

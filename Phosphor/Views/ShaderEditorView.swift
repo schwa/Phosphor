@@ -21,6 +21,9 @@ struct ShaderEditorView: View {
     /// Which resource the preview blits to the drawable. `nil` falls back
     /// to the configuration's declared output (the normal case).
     @State private var displayedResource: ResourceID?
+    /// Live user-uniform values, shared between the render surface and the
+    /// uniforms panel. Seeded from the configuration's declared defaults.
+    @State private var uniformValues: [String: UniformValue] = [:]
     @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
     @SceneStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
@@ -29,7 +32,7 @@ struct ShaderEditorView: View {
 
     /// True if the current document has at least one declared uniform.
     private var hasUniforms: Bool {
-        !(parsed.configuration?.uniforms.isEmpty ?? true)
+        !parsed.configuration.uniforms.isEmpty
     }
 
     /// Two-way binding for the mic toggle: writes the AppStorage flag AND
@@ -53,8 +56,17 @@ struct ShaderEditorView: View {
             onTextChange: onTextChange,
             isPaused: $isPaused,
             resetSignal: resetSignal,
-            displayedResource: displayedResource
+            displayedResource: displayedResource,
+            uniformValues: $uniformValues,
+            showUniformsPanel: showUniformsPanel,
+            frontMatterDiagnostics: parsed.diagnostics
         )
+        .onChange(of: parsed.configuration) { _, newConfiguration in
+            uniformValues = UserUniformsLayout.defaultsDictionary(newConfiguration.uniforms)
+        }
+        .task {
+            uniformValues = UserUniformsLayout.defaultsDictionary(parsed.configuration.uniforms)
+        }
         .focusedSceneValue(\.shaderText, $text)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -82,7 +94,7 @@ struct ShaderEditorView: View {
                 }
                 .popover(isPresented: $showHeader, arrowEdge: .top) {
                     ScrollView([.horizontal, .vertical]) {
-                        MetalSourceView(text: PhosphorHeader.source(for: parsed.configuration ?? PhosphorConfiguration(output: "image")))
+                        MetalSourceView(text: PhosphorHeader.source(for: parsed.configuration))
                             .padding(12)
                     }
                 }

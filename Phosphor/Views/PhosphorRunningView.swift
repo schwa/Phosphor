@@ -5,17 +5,15 @@ import PhosphorSupport
 import SwiftUI
 
 /// The body when the runtime is live. Owns playback-clock and mouse-input
-/// state, drives the render surface, and layers the diagnostics + uniforms
-/// panels on top of it.
+/// state and drives the render surface. The diagnostics + uniforms panels
+/// are overlaid one level up, in ``ShaderEditorLayoutView``.
 struct PhosphorRunningView: View {
     let runtime: PhosphorRuntime
     let configuration: PhosphorConfiguration
-    let frontMatterDiagnostics: [PhosphorDiagnostic]
     let isPausedExternally: Binding<Bool>?
     let resetSignal: Int
     let displayedResource: ResourceID?
-    @Binding var uniformValues: [String: UniformValue]
-    let showUniformsPanel: Bool
+    let uniformValues: [String: UniformValue]
 
     /// Reference wall-clock time used as t=0 (subtracted from the
     /// renderer's time to get the kernel's time). Updated on reset.
@@ -43,12 +41,7 @@ struct PhosphorRunningView: View {
         // non-degenerate size. During the window-sizing race at document load
         // the view briefly reports zero width/height; instantiating a Metal
         // drawable at that size crashes (nextDrawable returns nil).
-        //
-        // The panels are stacked ABOVE the render surface so they receive
-        // clicks/drags first — the surface uses a greedy
-        // DragGesture(minimumDistance: 0) for mouse tracking that would
-        // otherwise swallow control interactions.
-        ZStack(alignment: .bottom) {
+        Group {
             if viewSize.width > 0, viewSize.height > 0 {
                 PhosphorRenderSurfaceView(
                     runtime: runtime,
@@ -68,16 +61,9 @@ struct PhosphorRunningView: View {
                     rebaseRequested: $rebaseRequested
                 )
             }
-
-            DiagnosticsView(diagnostics: frontMatterDiagnostics + runtime.diagnostics)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .allowsHitTesting(false)
-
-            UniformsPanelView(
-                uniforms: configuration.uniforms,
-                showPanel: showUniformsPanel,
-                uniformValues: $uniformValues
-            )
+            else {
+                Color.black
+            }
         }
         .onGeometryChange(for: CGSize.self, of: \.size) { newSize in
             viewSize = newSize

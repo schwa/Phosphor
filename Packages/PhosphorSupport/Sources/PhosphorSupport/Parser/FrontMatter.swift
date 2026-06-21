@@ -12,9 +12,11 @@ public struct ParsedPhosphorSource: Hashable, Sendable {
     /// The source with the front-matter block stripped, suitable for passing
     /// to the compiler / assembler.
     public var body: String
-    /// The decoded configuration, or `nil` if the source has no front-matter
-    /// or the TOML failed to parse.
-    public var configuration: PhosphorConfiguration?
+    /// The decoded configuration. Always present: when the source has no
+    /// front-matter or the TOML fails to parse, this is a minimal default
+    /// (`output = "image"`) and ``diagnostics`` / ``hasFrontMatter`` explain
+    /// the situation.
+    public var configuration: PhosphorConfiguration
     /// Front-matter parse and validation diagnostics. Empty when the source
     /// has no front-matter at all.
     public var diagnostics: [PhosphorDiagnostic]
@@ -22,13 +24,15 @@ public struct ParsedPhosphorSource: Hashable, Sendable {
     public init(
         originalSource: String,
         body: String,
-        configuration: PhosphorConfiguration?,
-        diagnostics: [PhosphorDiagnostic]
+        configuration: PhosphorConfiguration,
+        diagnostics: [PhosphorDiagnostic],
+        hasFrontMatter: Bool
     ) {
         self.originalSource = originalSource
         self.body = body
         self.configuration = configuration
         self.diagnostics = diagnostics
+        self.hasFrontMatter = hasFrontMatter
     }
 
     /// Convenience: parse a source string in one step.
@@ -36,13 +40,8 @@ public struct ParsedPhosphorSource: Hashable, Sendable {
         self = PhosphorFrontMatter.parse(source)
     }
 
-    /// `true` if the source had no front-matter block at all.
-    public var hasFrontMatter: Bool {
-        configuration != nil || diagnostics.contains { diagnostic in
-            if case .frontMatterParse = diagnostic { return true }
-            return false
-        }
-    }
+    /// `true` if the source has a front-matter block (parsed or not).
+    public var hasFrontMatter: Bool
 }
 
 /// Extracts and parses the `/* phosphor:environment ... */` TOML front-matter
@@ -54,8 +53,9 @@ public struct ParsedPhosphorSource: Hashable, Sendable {
 public enum PhosphorFrontMatter {
     /// Parses a source string into a ``ParsedPhosphorSource``.
     public static func parse(_ source: String) -> ParsedPhosphorSource {
+        let fallback = PhosphorConfiguration(output: "image")
         guard let (block, body) = extractBlock(source) else {
-            return ParsedPhosphorSource(originalSource: source, body: source, configuration: nil, diagnostics: [])
+            return ParsedPhosphorSource(originalSource: source, body: source, configuration: fallback, diagnostics: [], hasFrontMatter: false)
         }
 
         let toml: TOMLTable
@@ -65,8 +65,9 @@ public enum PhosphorFrontMatter {
             return ParsedPhosphorSource(
                 originalSource: source,
                 body: body,
-                configuration: nil,
-                diagnostics: [.frontMatterParse(extractTOMLErrorMessage(error), line: extractTOMLErrorLine(error))]
+                configuration: fallback,
+                diagnostics: [.frontMatterParse(extractTOMLErrorMessage(error), line: extractTOMLErrorLine(error))],
+                hasFrontMatter: true
             )
         }
 
@@ -78,8 +79,9 @@ public enum PhosphorFrontMatter {
             return ParsedPhosphorSource(
                 originalSource: source,
                 body: body,
-                configuration: nil,
-                diagnostics: [.frontMatterParse("decode failed: \(error)", line: nil)]
+                configuration: fallback,
+                diagnostics: [.frontMatterParse("decode failed: \(error)", line: nil)],
+                hasFrontMatter: true
             )
         }
 
@@ -88,7 +90,8 @@ public enum PhosphorFrontMatter {
             originalSource: source,
             body: body,
             configuration: configuration,
-            diagnostics: validationDiagnostics
+            diagnostics: validationDiagnostics,
+            hasFrontMatter: true
         )
     }
 

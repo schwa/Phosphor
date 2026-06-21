@@ -8,7 +8,7 @@ struct FrontMatterTests {
     func noFrontMatter() {
         let source = "kernel void image(...) {}"
         let result = PhosphorFrontMatter.parse(source)
-        #expect(result.configuration == nil)
+        #expect(!result.hasFrontMatter)
         #expect(result.body == source)
         #expect(result.diagnostics.isEmpty)
     }
@@ -120,7 +120,7 @@ struct FrontMatterTests {
         */
         """
         let result = PhosphorFrontMatter.parse(source)
-        #expect(result.configuration == nil)
+        #expect(result.hasFrontMatter)
         #expect(result.diagnostics.contains { diagnostic in
             if case .frontMatterParse = diagnostic { return true }
             return false
@@ -143,7 +143,7 @@ struct FrontMatterTests {
         */
         """
         let result = PhosphorFrontMatter.parse(source)
-        #expect(result.configuration != nil)
+        #expect(result.hasFrontMatter)
         #expect(result.diagnostics.contains(.missingOutput("missing")))
     }
 
@@ -157,7 +157,7 @@ struct FrontMatterTests {
         }
         """
         let result = PhosphorFrontMatter.parse(source)
-        #expect(result.configuration == nil)
+        #expect(!result.hasFrontMatter)
         #expect(result.body == source)
     }
 
@@ -182,7 +182,7 @@ struct FrontMatterTests {
         """
         let result = PhosphorFrontMatter.parse(source)
         #expect(result.diagnostics.isEmpty)
-        #expect(result.configuration != nil)
+        #expect(result.hasFrontMatter)
         #expect(result.body.contains("kernel void image"))
     }
 }

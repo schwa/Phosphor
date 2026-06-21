@@ -24,50 +24,69 @@ struct ShaderEditorLayoutView: View {
     @Binding var isPaused: Bool
     let resetSignal: Int
     let displayedResource: ResourceID?
+    @Binding var uniformValues: [String: UniformValue]
+    let showUniformsPanel: Bool
+    let frontMatterDiagnostics: [PhosphorDiagnostic]
+
+    @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
 
     var body: some View {
-        Group {
-            switch layoutMode {
-            case .sideBySide:
-                HSplitView {
-                    CodePaneView(text: $text, onTextChange: onTextChange)
-                    PreviewPaneView(
-                        parsed: parsed,
-                        assets: assets,
-                        isPaused: $isPaused,
-                        resetSignal: resetSignal,
-                        displayedResource: displayedResource
-                    )
+        switch layoutMode {
+        case .sideBySide:
+            HSplitView {
+                CodePaneView(text: $text, onTextChange: onTextChange)
+                    .frame(minWidth: 300)
+                    .border(Color.blue)
+                PreviewPaneView(
+                    parsed: parsed,
+                    assets: assets,
+                    isPaused: $isPaused,
+                    resetSignal: resetSignal,
+                    displayedResource: displayedResource,
+                    uniformValues: $uniformValues
+                )
+                .frame(minWidth: 300)
+                .border(Color.green)
+                .overlay(alignment: .topLeading) {
+                    DiagnosticsView(diagnostics: frontMatterDiagnostics + runtime.diagnostics)
+                        .allowsHitTesting(false)
                 }
-            case .overlay:
-                ZStack {
-                    PreviewPaneView(
-                        parsed: parsed,
-                        assets: assets,
-                        isPaused: $isPaused,
-                        resetSignal: resetSignal,
-                        displayedResource: displayedResource
+                .overlay(alignment: .bottom) {
+                    UniformsPanelView(
+                        uniforms: parsed.configuration.uniforms,
+                        showPanel: showUniformsPanel,
+                        uniformValues: $uniformValues
                     )
-                    .ignoresSafeArea()
-
-                    CodePaneView(text: $text, onTextChange: onTextChange, opaque: false, palette: .darkWithBackdrop)
-                        .padding(16)
                 }
             }
+            .border(Color.red)
+        case .overlay:
+            ZStack {
+                PreviewPaneView(
+                    parsed: parsed,
+                    assets: assets,
+                    isPaused: $isPaused,
+                    resetSignal: resetSignal,
+                    displayedResource: displayedResource,
+                    uniformValues: $uniformValues
+                )
+                .ignoresSafeArea()
+
+                CodePaneView(text: $text, onTextChange: onTextChange, opaque: false, palette: .darkWithBackdrop)
+                    .padding(16)
+            }
+            .overlay(alignment: .topLeading) {
+                DiagnosticsView(diagnostics: frontMatterDiagnostics + runtime.diagnostics)
+                    .allowsHitTesting(false)
+            }
+            .overlay(alignment: .bottom) {
+                UniformsPanelView(
+                    uniforms: parsed.configuration.uniforms,
+                    showPanel: showUniformsPanel,
+                    uniformValues: $uniformValues
+                )
+            }
         }
-//        .overlay {
-//            DiagnosticsView(diagnostics: frontMatterDiagnostics + runtime.diagnostics)
-//                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-//                .allowsHitTesting(false)
-//
-//        }
-//        .overlay {
-//            UniformsPanelView(
-//                uniforms: configuration.uniforms,
-//                showPanel: showUniformsPanel,
-//                uniformValues: $uniformValues
-//            )
-//        }
     }
 }
 

@@ -23,8 +23,8 @@ public enum FrontMatterFormatter {
     /// front-matter.
     public static func reformat(_ source: String) -> String {
         let parsed = ParsedPhosphorSource(source: source)
-        guard let configuration = parsed.configuration else { return source }
-        guard let toml = try? encodeBody(configuration) else { return source }
+        guard parsed.hasFrontMatter else { return source }
+        guard let toml = try? encodeBody(parsed.configuration) else { return source }
 
         // Find the original block and replace it. Mirror PhosphorFrontMatter's
         // tolerance of leading whitespace and unrelated `// ...` / `/* ... */`

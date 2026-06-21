@@ -9,18 +9,22 @@ struct PreviewPaneView: View {
     @Binding var isPaused: Bool
     let resetSignal: Int
     let displayedResource: ResourceID?
+    @Binding var uniformValues: [String: UniformValue]
 
     var body: some View {
-        if let view = PhosphorView(
-            parsed: parsed,
-            assets: assets,
-            isPaused: $isPaused,
-            resetSignal: resetSignal,
-            displayedResource: displayedResource
-        ) {
-            view
+        if parsed.hasFrontMatter {
+            PhosphorView(
+                parsed: parsed,
+                assets: assets,
+                isPaused: $isPaused,
+                resetSignal: resetSignal,
+                displayedResource: displayedResource,
+                uniformValues: $uniformValues
+            )
+            .border(Color.pink)
         } else {
             NoFrontMatterView(diagnostics: parsed.diagnostics)
+                .border(Color.purple)
         }
     }
 }
@@ -31,7 +35,8 @@ struct PreviewPaneView: View {
         assets: [:],
         isPaused: .constant(false),
         resetSignal: 0,
-        displayedResource: nil
+        displayedResource: nil,
+        uniformValues: .constant([:])
     )
     .frame(width: 400, height: 300)
 }

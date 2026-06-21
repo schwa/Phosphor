@@ -224,7 +224,8 @@ public struct ShaderGenerator {
     /// can drive a compile from).
     private static func tryCompile(source: String, device: MTLDevice) -> String? {
         let parsed = ParsedPhosphorSource(source: source)
-        guard let config = parsed.configuration else { return nil }
+        guard parsed.hasFrontMatter else { return nil }
+        let config = parsed.configuration
         let compiler = PhosphorCompiler(device: device)
         do {
             let library = try compiler.compileLibrary(configuration: config, userSource: parsed.body)

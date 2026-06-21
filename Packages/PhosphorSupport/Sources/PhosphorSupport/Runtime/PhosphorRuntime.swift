@@ -158,7 +158,7 @@ public final class PhosphorRuntime {
     /// thrown); any real failure traps.
     public func reload(parsed: ParsedPhosphorSource, assets: [String: PhosphorAsset], audioCapture: AudioCaptureEngine?) {
         self.audioCapture = audioCapture
-        update(configuration: parsed.configuration ?? PhosphorConfiguration(output: "image"), source: parsed.body, assets: assets)
+        update(configuration: parsed.configuration, source: parsed.body, assets: assets)
     }
 
     public func update(

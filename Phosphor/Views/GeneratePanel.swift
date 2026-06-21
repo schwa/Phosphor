@@ -21,7 +21,7 @@ struct GeneratePanel: View {
     }
 
     private var isModifying: Bool {
-        parsed.configuration != nil && !isUntouchedTemplate
+        parsed.hasFrontMatter && !isUntouchedTemplate
     }
 
     var body: some View {

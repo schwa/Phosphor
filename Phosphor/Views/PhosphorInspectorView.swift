@@ -44,8 +44,8 @@ private struct OutputTab: View {
     }
 
     private var formatText: String {
-        guard let configuration = parsed.configuration,
-              let outputTexture = configuration.textures.first(where: { $0.id == configuration.output }) else {
+        let configuration = parsed.configuration
+        guard let outputTexture = configuration.textures.first(where: { $0.id == configuration.output }) else {
             return "—"
         }
         return outputTexture.format.rawValue
