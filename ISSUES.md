@@ -182,12 +182,13 @@ Affects:
 ## 7: Stretch: in-app editor UI for environment metadata
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: effort:xl
 created: 2026-06-18T20:03:03Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-21T05:55:04Z
+closed: 2026-06-21T05:55:04Z
 +++
 
 Stretch goal from §7 of Phosphor2.md. Not required for 1.0.
@@ -2492,15 +2493,16 @@ PhosphorPixelFormat currently only exposes rgba8Unorm, bgra8Unorm, rgba16Float, 
 
 ---
 
-## 69: Rename assets/shaders directories
+## 69: Rename files in the UI
 
 +++
 status: new
 priority: low
 kind: none
 created: 2026-06-21T05:12:29Z
+updated: 2026-06-21T05:54:41Z
 +++
 
-Rename the assets/ and shaders/ directories (e.g. under Examples/Examples.phosphord/) to clearer/consistent names.
+Add the ability to rename files (not directories) from the UI.
 
 ---
