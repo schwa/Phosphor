@@ -10,37 +10,40 @@ import SwiftUI
 /// ``PhosphorRunningView``) so its greedy `DragGesture(minimumDistance: 0)`
 /// is scoped to the surface and does not cover the panels layered above it.
 struct PhosphorRenderSurfaceView: View {
-    let runtime: PhosphorRuntime
     let configuration: PhosphorConfiguration
-    let uniformValues: [String: UniformValue]
-    let displayedResource: ResourceID?
-    let isPaused: Bool
-    let resetSignal: Int
     let viewSize: CGSize
 
-    @Binding var mousePosition: SIMD2<Float>
-    @Binding var mouseButtons: UInt32
-    @Binding var mouseClickOrigin: SIMD2<Float>
-    @Binding var timeBase: Float
-    @Binding var frameBase: UInt32
-    @Binding var pausedSnapshot: (time: Float, frame: Float)?
-    @Binding var capturePauseSnapshot: Bool
-    @Binding var rebaseRequested: Bool
+    @Environment(EditorModel.self) private var model
+    @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
+
+    // Mouse state, in pixel coordinates (matching uniforms.resolution).
+    @State private var mousePosition: SIMD2<Float> = .zero
+    @State private var mouseButtons: UInt32 = 0
+    @State private var mouseClickOrigin: SIMD2<Float> = .zero
+
+    // Playback clock bookkeeping. `timeBase`/`frameBase` are subtracted from
+    // the renderer's values to get the kernel's time/frame; the snapshot/flags
+    // implement pause and reset.
+    @State private var timeBase: Float = 0
+    @State private var frameBase: UInt32 = 0
+    @State private var pausedSnapshot: (time: Float, frame: Float)?
+    @State private var capturePauseSnapshot: Bool = false
+    @State private var rebaseRequested: Bool = false
 
     var body: some View {
         RenderView { context, drawableSize in
             PhosphorPipeline(
                 runtime: runtime,
                 uniforms: buildUniforms(context: context, drawableSize: drawableSize),
-                userUniformValues: uniformValues,
+                userUniformValues: model.uniformValues,
                 drawableSize: drawableSize,
-                displayedResource: displayedResource
+                displayedResource: model.displayedResource
             )
             .onWorkloadEnter { _ in
                 applyPlaybackSideEffects(context: context)
             }
         }
-        .onChange(of: isPaused) { _, newValue in
+        .onChange(of: model.isPaused) { _, newValue in
             if newValue {
                 capturePauseSnapshot = true
             } else {
@@ -48,7 +51,7 @@ struct PhosphorRenderSurfaceView: View {
                 rebaseRequested = true
             }
         }
-        .onChange(of: resetSignal) { _, _ in
+        .onChange(of: model.resetSignal) { _, _ in
             rebaseRequested = true
             pausedSnapshot = nil
             capturePauseSnapshot = false

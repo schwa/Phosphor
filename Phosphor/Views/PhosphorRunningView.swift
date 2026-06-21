@@ -1,35 +1,12 @@
-import Foundation
-import MetalSprockets
-import MetalSprocketsUI
 import PhosphorSupport
 import SwiftUI
 
-/// The body when the runtime is live. Owns playback-clock and mouse-input
-/// state and drives the render surface. The diagnostics + uniforms panels
-/// are overlaid one level up, in ``ShaderEditorLayoutView``.
+/// Gates the render surface on a non-degenerate view size and tracks that
+/// size for point-to-pixel mouse conversion. The diagnostics + uniforms
+/// panels are overlaid one level up, in ``ShaderEditorLayoutView``.
 struct PhosphorRunningView: View {
     let configuration: PhosphorConfiguration
 
-    @Environment(EditorModel.self) private var model
-    @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
-
-    /// Reference wall-clock time used as t=0 (subtracted from the
-    /// renderer's time to get the kernel's time). Updated on reset.
-    @State private var timeBase: Float = 0
-    /// Reference frame index.
-    @State private var frameBase: UInt32 = 0
-    /// Snapshot of (time, frame) emitted while paused. Captured from the
-    /// renderer the moment the user pauses.
-    @State private var pausedSnapshot: (time: Float, frame: Float)?
-    /// On the next frame, pull a fresh snapshot from the live values.
-    @State private var capturePauseSnapshot: Bool = false
-    /// On the next frame, set timeBase/frameBase = live values.
-    @State private var rebaseRequested: Bool = false
-
-    // Mouse state, in pixel coordinates (matching uniforms.resolution).
-    @State private var mousePosition: SIMD2<Float> = .zero
-    @State private var mouseButtons: UInt32 = 0
-    @State private var mouseClickOrigin: SIMD2<Float> = .zero
     /// Logical view size (in points). Combined with the drawable size to
     /// convert mouse coordinates from points to pixels.
     @State private var viewSize: CGSize = .zero
@@ -41,23 +18,7 @@ struct PhosphorRunningView: View {
         // drawable at that size crashes (nextDrawable returns nil).
         Group {
             if viewSize.width > 0, viewSize.height > 0 {
-                PhosphorRenderSurfaceView(
-                    runtime: runtime,
-                    configuration: configuration,
-                    uniformValues: model.uniformValues,
-                    displayedResource: model.displayedResource,
-                    isPaused: model.isPaused,
-                    resetSignal: model.resetSignal,
-                    viewSize: viewSize,
-                    mousePosition: $mousePosition,
-                    mouseButtons: $mouseButtons,
-                    mouseClickOrigin: $mouseClickOrigin,
-                    timeBase: $timeBase,
-                    frameBase: $frameBase,
-                    pausedSnapshot: $pausedSnapshot,
-                    capturePauseSnapshot: $capturePauseSnapshot,
-                    rebaseRequested: $rebaseRequested
-                )
+                PhosphorRenderSurfaceView(configuration: configuration, viewSize: viewSize)
             }
             else {
                 Color.black
