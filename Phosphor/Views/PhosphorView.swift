@@ -35,7 +35,7 @@ struct PhosphorView: View {
     /// intermediate ping-pong / scratch buffer for debugging.
     let displayedResource: ResourceID?
 
-    @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime?
+    @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
     @State private var uniformValues: [String: UniformValue] = [:]
     @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
 
@@ -90,27 +90,21 @@ struct PhosphorView: View {
     }
 
     var body: some View {
-        if let runtime {
-            PhosphorRunningView(
-                runtime: runtime,
-                configuration: configuration,
-                frontMatterDiagnostics: frontMatterDiagnostics,
-                isPausedExternally: isPausedExternally,
-                resetSignal: resetSignal,
-                displayedResource: displayedResource,
-                uniformValues: $uniformValues,
-                showUniformsPanel: showUniformsPanel
-            )
-            .onChange(of: configuration) { _, newConfiguration in
-                uniformValues = UserUniformsLayout.defaultsDictionary(newConfiguration.uniforms)
-            }
-            .task {
-                uniformValues = UserUniformsLayout.defaultsDictionary(configuration.uniforms)
-            }
-        } else {
-            // Runtime not ready yet (no parsed config, or first frame hasn't
-            // fired). Plain black blends with the rest of the chrome.
-            Color.black
+        PhosphorRunningView(
+            runtime: runtime,
+            configuration: configuration,
+            frontMatterDiagnostics: frontMatterDiagnostics,
+            isPausedExternally: isPausedExternally,
+            resetSignal: resetSignal,
+            displayedResource: displayedResource,
+            uniformValues: $uniformValues,
+            showUniformsPanel: showUniformsPanel
+        )
+        .onChange(of: configuration) { _, newConfiguration in
+            uniformValues = UserUniformsLayout.defaultsDictionary(newConfiguration.uniforms)
+        }
+        .task {
+            uniformValues = UserUniformsLayout.defaultsDictionary(configuration.uniforms)
         }
     }
 }

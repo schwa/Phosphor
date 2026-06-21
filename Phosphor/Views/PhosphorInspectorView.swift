@@ -5,7 +5,7 @@ import SwiftUI
 /// one tab ("Output") showing drawable size + pixel format.
 struct PhosphorInspectorView: View {
     let parsed: ParsedPhosphorSource
-    let runtime: PhosphorRuntime?
+    let runtime: PhosphorRuntime
     @Binding var text: String
 
     var body: some View {
@@ -24,7 +24,7 @@ struct PhosphorInspectorView: View {
 /// texture.
 private struct OutputTab: View {
     let parsed: ParsedPhosphorSource
-    let runtime: PhosphorRuntime?
+    let runtime: PhosphorRuntime
 
     var body: some View {
         Form {
@@ -36,17 +36,11 @@ private struct OutputTab: View {
     }
 
     private var widthText: String {
-        if let runtime, runtime.currentDrawableSize.width > 0 {
-            return "\(Int(runtime.currentDrawableSize.width)) px"
-        }
-        return "—"
+        runtime.currentDrawableSize.width > 0 ? "\(Int(runtime.currentDrawableSize.width)) px" : "—"
     }
 
     private var heightText: String {
-        if let runtime, runtime.currentDrawableSize.height > 0 {
-            return "\(Int(runtime.currentDrawableSize.height)) px"
-        }
-        return "—"
+        runtime.currentDrawableSize.height > 0 ? "\(Int(runtime.currentDrawableSize.height)) px" : "—"
     }
 
     private var formatText: String {

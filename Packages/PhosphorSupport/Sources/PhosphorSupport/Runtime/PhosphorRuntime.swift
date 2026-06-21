@@ -104,93 +104,89 @@ public final class PhosphorRuntime {
     @ObservationIgnored
     private let textureLoader: MTKTextureLoader
 
-    public init(
-        device: MTLDevice,
-        configuration: PhosphorConfiguration,
-        source: String,
-        assets: [String: PhosphorAsset] = [:]
-    ) throws {
-        self.device = device
-        self.configuration = configuration
-        self.source = source
-        self.assets = assets
-        self.textureLoader = MTKTextureLoader(device: device)
+    /// Builds a runtime from a configuration. GPU resource creation is
+    /// assumed not to fail in practice (tiny buffers, a 1×1 texture, the
+    /// system default device); any failure is unrecoverable and traps.
+    public init(configuration: PhosphorConfiguration = PhosphorConfiguration(output: "image"), source: String = "", assets: [String: PhosphorAsset] = [:]) {
+        do {
+            guard let device = MTLCreateSystemDefaultDevice() else {
+                throw PhosphorRuntimeError.allocationFailed("Metal device")
+            }
+            self.device = device
+            self.configuration = configuration
+            self.source = source
+            self.assets = assets
+            self.textureLoader = MTKTextureLoader(device: device)
 
-        let userUniformsLayout = UserUniformsLayout.compute(for: configuration.uniforms)
-        let userUniformsLength = max(userUniformsLayout.totalSize, 16)
-        guard let userUniformsBuffer = device.makeBuffer(length: userUniformsLength, options: .storageModeShared) else {
-            throw PhosphorRuntimeError.allocationFailed("user uniforms buffer")
+            let userUniformsLayout = UserUniformsLayout.compute(for: configuration.uniforms)
+            let userUniformsLength = max(userUniformsLayout.totalSize, 16)
+            guard let userUniformsBuffer = device.makeBuffer(length: userUniformsLength, options: .storageModeShared) else {
+                throw PhosphorRuntimeError.allocationFailed("user uniforms buffer")
+            }
+            userUniformsBuffer.label = "Phosphor.UserUniforms"
+            self.userUniformsBuffer = userUniformsBuffer
+            self.userUniformsLayout = userUniformsLayout
+
+            self.fallbackTexture = try Self.makeFallbackTexture(device: device)
+
+            let waveformLength = Self.waveformSampleCount * MemoryLayout<Float>.stride
+            guard let waveformBuffer = device.makeBuffer(length: waveformLength, options: .storageModeShared) else {
+                throw PhosphorRuntimeError.allocationFailed("waveform buffer")
+            }
+            waveformBuffer.label = "Phosphor.AudioWaveform"
+            memset(waveformBuffer.contents(), 0, waveformLength)
+            self.waveformBuffer = waveformBuffer
+
+            let spectrumLength = Self.spectrumBinCount * MemoryLayout<Float>.stride
+            guard let spectrumBuffer = device.makeBuffer(length: spectrumLength, options: .storageModeShared) else {
+                throw PhosphorRuntimeError.allocationFailed("spectrum buffer")
+            }
+            spectrumBuffer.label = "Phosphor.AudioSpectrum"
+            memset(spectrumBuffer.contents(), 0, spectrumLength)
+            self.spectrumBuffer = spectrumBuffer
+
+            try recompile()
+        } catch {
+            // TODO: surface this instead of trapping once we have a UI path.
+            fatalError("PhosphorRuntime initialization failed: \(error)")
         }
-        userUniformsBuffer.label = "Phosphor.UserUniforms"
-        self.userUniformsBuffer = userUniformsBuffer
-        self.userUniformsLayout = userUniformsLayout
-
-        self.fallbackTexture = try Self.makeFallbackTexture(device: device)
-
-        let waveformLength = Self.waveformSampleCount * MemoryLayout<Float>.stride
-        guard let waveformBuffer = device.makeBuffer(length: waveformLength, options: .storageModeShared) else {
-            throw PhosphorRuntimeError.allocationFailed("waveform buffer")
-        }
-        waveformBuffer.label = "Phosphor.AudioWaveform"
-        memset(waveformBuffer.contents(), 0, waveformLength)
-        self.waveformBuffer = waveformBuffer
-
-        let spectrumLength = Self.spectrumBinCount * MemoryLayout<Float>.stride
-        guard let spectrumBuffer = device.makeBuffer(length: spectrumLength, options: .storageModeShared) else {
-            throw PhosphorRuntimeError.allocationFailed("spectrum buffer")
-        }
-        spectrumBuffer.label = "Phosphor.AudioSpectrum"
-        memset(spectrumBuffer.contents(), 0, spectrumLength)
-        self.spectrumBuffer = spectrumBuffer
-
-        try recompile()
     }
 
-    /// Reloads `existing` in place, or builds a fresh runtime, from a parsed
-    /// source. Returns the runtime (nil if the source has no front-matter),
-    /// or throws on a build/compile failure. Folds in the lifecycle role the
-    /// old `PhosphorRuntimeStore` used to play.
-    public static func reloaded(
-        _ existing: PhosphorRuntime?,
-        parsed: ParsedPhosphorSource,
-        assets: [String: PhosphorAsset],
-        audioCapture: AudioCaptureEngine?
-    ) throws -> PhosphorRuntime? {
-        guard let configuration = parsed.configuration else { return nil }
-        if let existing {
-            try existing.update(configuration: configuration, source: parsed.body, assets: assets)
-            existing.audioCapture = audioCapture
-            return existing
-        }
-        guard let device = MTLCreateSystemDefaultDevice() else {
-            throw PhosphorRuntimeError.allocationFailed("Metal device")
-        }
-        let runtime = try PhosphorRuntime(device: device, configuration: configuration, source: parsed.body, assets: assets)
-        runtime.audioCapture = audioCapture
-        return runtime
+    /// Reloads in place from a freshly parsed source. A source with no
+    /// front-matter resets to an empty configuration. GPU/compile failures
+    /// are assumed not to occur (compile errors land in `diagnostics`, not
+    /// thrown); any real failure traps.
+    public func reload(parsed: ParsedPhosphorSource, assets: [String: PhosphorAsset], audioCapture: AudioCaptureEngine?) {
+        self.audioCapture = audioCapture
+        update(configuration: parsed.configuration ?? PhosphorConfiguration(output: "image"), source: parsed.body, assets: assets)
     }
 
     public func update(
         configuration: PhosphorConfiguration,
         source: String,
         assets: [String: PhosphorAsset] = [:]
-    ) throws {
-        self.configuration = configuration
-        self.source = source
-        self.assets = assets
+    ) {
+        do {
+            self.configuration = configuration
+            self.source = source
+            self.assets = assets
 
-        let newLayout = UserUniformsLayout.compute(for: configuration.uniforms)
-        let newLength = max(newLayout.totalSize, 16)
-        if newLength != userUniformsBuffer.length {
-            guard let newBuffer = device.makeBuffer(length: newLength, options: .storageModeShared) else {
-                throw PhosphorRuntimeError.allocationFailed("user uniforms buffer")
+            let newLayout = UserUniformsLayout.compute(for: configuration.uniforms)
+            let newLength = max(newLayout.totalSize, 16)
+            if newLength != userUniformsBuffer.length {
+                guard let newBuffer = device.makeBuffer(length: newLength, options: .storageModeShared) else {
+                    throw PhosphorRuntimeError.allocationFailed("user uniforms buffer")
+                }
+                newBuffer.label = "Phosphor.UserUniforms"
+                self.userUniformsBuffer = newBuffer
             }
-            newBuffer.label = "Phosphor.UserUniforms"
-            self.userUniformsBuffer = newBuffer
-        }
-        self.userUniformsLayout = newLayout
+            self.userUniformsLayout = newLayout
 
-        try recompile()
+            try recompile()
+        } catch {
+            // TODO: surface this instead of trapping once we have a UI path.
+            fatalError("PhosphorRuntime update failed: \(error)")
+        }
     }
 
     private func recompile() throws {
