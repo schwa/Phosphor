@@ -1,4 +1,5 @@
 /* phosphor:environment
+flipY = true
 output = "image"
 uniforms = []
 
