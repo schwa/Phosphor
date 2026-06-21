@@ -146,6 +146,30 @@ public final class PhosphorRuntime {
         try recompile()
     }
 
+    /// Reloads `existing` in place, or builds a fresh runtime, from a parsed
+    /// source. Returns the runtime (nil if the source has no front-matter),
+    /// or throws on a build/compile failure. Folds in the lifecycle role the
+    /// old `PhosphorRuntimeStore` used to play.
+    public static func reloaded(
+        _ existing: PhosphorRuntime?,
+        parsed: ParsedPhosphorSource,
+        assets: [String: PhosphorAsset],
+        audioCapture: AudioCaptureEngine?
+    ) throws -> PhosphorRuntime? {
+        guard let configuration = parsed.configuration else { return nil }
+        if let existing {
+            try existing.update(configuration: configuration, source: parsed.body, assets: assets)
+            existing.audioCapture = audioCapture
+            return existing
+        }
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw PhosphorRuntimeError.allocationFailed("Metal device")
+        }
+        let runtime = try PhosphorRuntime(device: device, configuration: configuration, source: parsed.body, assets: assets)
+        runtime.audioCapture = audioCapture
+        return runtime
+    }
+
     public func update(
         configuration: PhosphorConfiguration,
         source: String,

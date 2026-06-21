@@ -6,7 +6,7 @@ import SwiftUI
 /// same UI.
 struct PhosphorDocumentView: View {
     @Bindable var document: PhosphorMetalDocument
-    @State private var store = PhosphorRuntimeStore()
+    @State private var runtime: PhosphorRuntime?
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
     @SceneStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
 
@@ -18,12 +18,12 @@ struct PhosphorDocumentView: View {
             onTextChange: { document.refreshParsed() },
             isUntouchedTemplate: document.isUntouchedTemplate
         )
-        .environment(store.runtime)
+        .environment(runtime)
         .task(id: document.parsed) {
-            store.reload(parsed: document.parsed, assets: [:], audioCapture: audioCapture)
+            runtime = try? PhosphorRuntime.reloaded(runtime, parsed: document.parsed, assets: [:], audioCapture: audioCapture)
         }
         .inspector(isPresented: $showInspector) {
-            PhosphorInspectorView(parsed: document.parsed, runtime: store.runtime, text: $document.text)
+            PhosphorInspectorView(parsed: document.parsed, runtime: runtime, text: $document.text)
         }
     }
 }

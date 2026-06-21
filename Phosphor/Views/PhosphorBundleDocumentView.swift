@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 /// bundled shaders and assets; detail pane is the editor + preview.
 struct PhosphorBundleDocumentView: View {
     @Bindable var document: PhosphorBundleDocument
-    @State private var store = PhosphorRuntimeStore()
+    @State private var runtime: PhosphorRuntime?
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
     @AppStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
 
@@ -54,16 +54,17 @@ struct PhosphorBundleDocumentView: View {
                 isUntouchedTemplate: document.isUntouchedTemplate
             )
         }
-        .environment(store.runtime)
+        .environment(runtime)
         .task(id: ReloadKey(parsed: document.parsed, assetNames: assetNames)) {
-            store.reload(
+            runtime = try? PhosphorRuntime.reloaded(
+                runtime,
                 parsed: document.parsed,
                 assets: document.assets,
                 audioCapture: audioCapture
             )
         }
         .inspector(isPresented: $showInspector) {
-            PhosphorInspectorView(parsed: document.parsed, runtime: store.runtime, text: inspectorText)
+            PhosphorInspectorView(parsed: document.parsed, runtime: runtime, text: inspectorText)
         }
     }
 
