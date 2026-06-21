@@ -2,7 +2,7 @@ import PhosphorSupport
 import SwiftUI
 
 /// Translucent panel listing every declared user-uniform with live controls.
-/// Hides itself when the environment declares no uniforms or the panel is
+/// Hides itself when the configuration declares no uniforms or the panel is
 /// toggled off.
 struct UniformsPanelView: View {
     let uniforms: [UniformDecl]

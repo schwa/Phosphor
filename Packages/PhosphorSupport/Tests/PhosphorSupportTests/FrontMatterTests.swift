@@ -4,16 +4,16 @@ import Testing
 
 @Suite("FrontMatter")
 struct FrontMatterTests {
-    @Test("No front-matter yields nil environment, original body, no diagnostics")
+    @Test("No front-matter yields nil configuration, original body, no diagnostics")
     func noFrontMatter() {
         let source = "kernel void image(...) {}"
         let result = PhosphorFrontMatter.parse(source)
-        #expect(result.environment == nil)
+        #expect(result.configuration == nil)
         #expect(result.body == source)
         #expect(result.diagnostics.isEmpty)
     }
 
-    @Test("Single-pass front-matter parses to expected environment")
+    @Test("Single-pass front-matter parses to expected configuration")
     func singlePass() throws {
         let source = """
         /* phosphor:environment
@@ -38,20 +38,20 @@ struct FrontMatterTests {
         """
         let result = PhosphorFrontMatter.parse(source)
         #expect(result.diagnostics.isEmpty)
-        let env = try #require(result.environment)
-        #expect(env.output == "image")
-        #expect(env.textures.count == 1)
+        let config = try #require(result.configuration)
+        #expect(config.output == "image")
+        #expect(config.textures.count == 1)
 
-        let texture = env.textures[0]
+        let texture = config.textures[0]
         #expect(texture.id == "image")
         #expect(texture.size == .drawable)
         #expect(texture.format == .rgba32Float)
         #expect(texture.swap == .endOfFrame)
         #expect(texture.initialContents == .zero)
 
-        #expect(env.passes.count == 1)
-        #expect(env.passes[0].id == "image")
-        #expect(env.passes[0].textures == [
+        #expect(config.passes.count == 1)
+        #expect(config.passes[0].id == "image")
+        #expect(config.passes[0].textures == [
             Pass.TextureBinding(id: "image", access: .write),
             Pass.TextureBinding(id: "image", access: .read, name: "feedback")
         ])
@@ -76,8 +76,8 @@ struct FrontMatterTests {
         """
         let result = PhosphorFrontMatter.parse(source)
         #expect(result.diagnostics.isEmpty)
-        let env = try #require(result.environment)
-        let texture = env.textures[0]
+        let config = try #require(result.configuration)
+        let texture = config.textures[0]
         #expect(texture.size == .drawable)
         #expect(texture.format == .rgba32Float)
         #expect(texture.swap == .none)
@@ -107,8 +107,8 @@ struct FrontMatterTests {
         """
         let result = PhosphorFrontMatter.parse(source)
         #expect(result.diagnostics.isEmpty)
-        let env = try #require(result.environment)
-        let photo = env.textures.first { $0.id == "photo" }!
+        let config = try #require(result.configuration)
+        let photo = config.textures.first { $0.id == "photo" }!
         #expect(photo.initialContents == .image(file: "screenshot.png"))
     }
 
@@ -120,7 +120,7 @@ struct FrontMatterTests {
         */
         """
         let result = PhosphorFrontMatter.parse(source)
-        #expect(result.environment == nil)
+        #expect(result.configuration == nil)
         #expect(result.diagnostics.contains { diagnostic in
             if case .frontMatterParse = diagnostic { return true }
             return false
@@ -143,7 +143,7 @@ struct FrontMatterTests {
         */
         """
         let result = PhosphorFrontMatter.parse(source)
-        #expect(result.environment != nil)
+        #expect(result.configuration != nil)
         #expect(result.diagnostics.contains(.missingOutput("missing")))
     }
 
@@ -157,7 +157,7 @@ struct FrontMatterTests {
         }
         """
         let result = PhosphorFrontMatter.parse(source)
-        #expect(result.environment == nil)
+        #expect(result.configuration == nil)
         #expect(result.body == source)
     }
 
@@ -182,7 +182,7 @@ struct FrontMatterTests {
         """
         let result = PhosphorFrontMatter.parse(source)
         #expect(result.diagnostics.isEmpty)
-        #expect(result.environment != nil)
+        #expect(result.configuration != nil)
         #expect(result.body.contains("kernel void image"))
     }
 }

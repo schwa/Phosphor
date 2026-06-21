@@ -13,14 +13,14 @@ struct PhosphorInspectorView: View {
             Tab("Output", systemImage: "rectangle.dashed") {
                 OutputTab(parsed: parsed, runtime: runtime)
             }
-            Tab("Environment", systemImage: "slider.horizontal.below.rectangle") {
-                EnvironmentTab(parsed: parsed, text: $text)
+            Tab("Configuration", systemImage: "slider.horizontal.below.rectangle") {
+                PhosphorConfigurationEditorView(parsed: parsed, text: $text)
             }
         }
     }
 }
 
-/// Output tab: live drawable size + pixel format of the env's output
+/// Output tab: live drawable size + pixel format of the config's output
 /// texture.
 private struct OutputTab: View {
     let parsed: ParsedPhosphorSource
@@ -50,8 +50,8 @@ private struct OutputTab: View {
     }
 
     private var formatText: String {
-        guard let environment = parsed.environment,
-              let outputTexture = environment.textures.first(where: { $0.id == environment.output }) else {
+        guard let configuration = parsed.configuration,
+              let outputTexture = configuration.textures.first(where: { $0.id == configuration.output }) else {
             return "—"
         }
         return outputTexture.format.rawValue

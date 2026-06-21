@@ -63,7 +63,7 @@ struct ShaderEditorLayoutView: View {
 //        }
 //        .overlay {
 //            UniformsPanelView(
-//                uniforms: environment.uniforms,
+//                uniforms: configuration.uniforms,
 //                showPanel: showUniformsPanel,
 //                uniformValues: $uniformValues
 //            )

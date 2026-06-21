@@ -19,7 +19,7 @@ struct ShaderEditorView: View {
     @State private var isPaused: Bool = false
     @State private var resetSignal: Int = 0
     /// Which resource the preview blits to the drawable. `nil` falls back
-    /// to the environment's declared output (the normal case).
+    /// to the configuration's declared output (the normal case).
     @State private var displayedResource: ResourceID?
     @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
@@ -29,7 +29,7 @@ struct ShaderEditorView: View {
 
     /// True if the current document has at least one declared uniform.
     private var hasUniforms: Bool {
-        !(parsed.environment?.uniforms.isEmpty ?? true)
+        !(parsed.configuration?.uniforms.isEmpty ?? true)
     }
 
     /// Two-way binding for the mic toggle: writes the AppStorage flag AND
@@ -70,7 +70,7 @@ struct ShaderEditorView: View {
             }
             ToolbarItem(placement: .principal) {
                 ResourcePickerView(
-                    environment: parsed.environment,
+                    configuration: parsed.configuration,
                     displayedResource: $displayedResource
                 )
             }
@@ -82,7 +82,7 @@ struct ShaderEditorView: View {
                 }
                 .popover(isPresented: $showHeader, arrowEdge: .top) {
                     ScrollView([.horizontal, .vertical]) {
-                        MetalSourceView(text: PhosphorHeader.source(for: parsed.environment ?? PhosphorEnvironment(output: "image")))
+                        MetalSourceView(text: PhosphorHeader.source(for: parsed.configuration ?? PhosphorConfiguration(output: "image")))
                             .padding(12)
                     }
                 }

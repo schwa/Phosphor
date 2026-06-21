@@ -4,7 +4,7 @@ import MetalKit
 import Observation
 import os
 
-/// Holds the GPU-side state derived from a ``PhosphorEnvironment`` plus a
+/// Holds the GPU-side state derived from a ``PhosphorConfiguration`` plus a
 /// user-supplied source string.
 ///
 /// The runtime is `@Observable` so SwiftUI views can react to recompiles
@@ -13,7 +13,7 @@ import os
 @Observable
 public final class PhosphorRuntime {
     public let device: MTLDevice
-    public private(set) var environment: PhosphorEnvironment
+    public private(set) var configuration: PhosphorConfiguration
     public private(set) var source: String
     public private(set) var diagnostics: [PhosphorDiagnostic] = []
 
@@ -83,7 +83,7 @@ public final class PhosphorRuntime {
     }
 
     /// User uniforms buffer. Sized to ``UserUniformsLayout/totalSize`` for
-    /// the current environment.
+    /// the current configuration.
     public private(set) var userUniformsBuffer: MTLBuffer
 
     public private(set) var userUniformsLayout: UserUniformsLayout.Layout
@@ -106,17 +106,17 @@ public final class PhosphorRuntime {
 
     public init(
         device: MTLDevice,
-        environment: PhosphorEnvironment,
+        configuration: PhosphorConfiguration,
         source: String,
         assets: [String: PhosphorAsset] = [:]
     ) throws {
         self.device = device
-        self.environment = environment
+        self.configuration = configuration
         self.source = source
         self.assets = assets
         self.textureLoader = MTKTextureLoader(device: device)
 
-        let userUniformsLayout = UserUniformsLayout.compute(for: environment.uniforms)
+        let userUniformsLayout = UserUniformsLayout.compute(for: configuration.uniforms)
         let userUniformsLength = max(userUniformsLayout.totalSize, 16)
         guard let userUniformsBuffer = device.makeBuffer(length: userUniformsLength, options: .storageModeShared) else {
             throw PhosphorRuntimeError.allocationFailed("user uniforms buffer")
@@ -147,15 +147,15 @@ public final class PhosphorRuntime {
     }
 
     public func update(
-        environment: PhosphorEnvironment,
+        configuration: PhosphorConfiguration,
         source: String,
         assets: [String: PhosphorAsset] = [:]
     ) throws {
-        self.environment = environment
+        self.configuration = configuration
         self.source = source
         self.assets = assets
 
-        let newLayout = UserUniformsLayout.compute(for: environment.uniforms)
+        let newLayout = UserUniformsLayout.compute(for: configuration.uniforms)
         let newLength = max(newLayout.totalSize, 16)
         if newLength != userUniformsBuffer.length {
             guard let newBuffer = device.makeBuffer(length: newLength, options: .storageModeShared) else {
@@ -170,7 +170,7 @@ public final class PhosphorRuntime {
     }
 
     private func recompile() throws {
-        var diagnostics = validate(environment)
+        var diagnostics = validate(configuration)
         let fatal = diagnostics.contains(where: \.isFatal)
         if fatal {
             self.diagnostics = diagnostics
@@ -181,10 +181,10 @@ public final class PhosphorRuntime {
 
         let compiler = PhosphorCompiler(device: device)
         do {
-            let library = try compiler.compileLibrary(environment: environment, userSource: source)
+            let library = try compiler.compileLibrary(configuration: configuration, userSource: source)
             self.library = library
             var functions: [ResourceID: MTLFunction] = [:]
-            for pass in environment.passes where pass.enabled {
+            for pass in configuration.passes where pass.enabled {
                 do {
                     functions[pass.id] = try compiler.makeFunction(library: library, for: pass.id)
                 } catch {
@@ -193,7 +193,7 @@ public final class PhosphorRuntime {
             }
             self.passFunctions = functions
         } catch {
-            let attributedTo = environment.passes.first(where: \.enabled)?.id ?? "library"
+            let attributedTo = configuration.passes.first(where: \.enabled)?.id ?? "library"
             diagnostics.append(.compile(.init(passID: attributedTo, rawError: "\(error)")))
             self.library = nil
             self.passFunctions = [:]
@@ -226,7 +226,7 @@ public final class PhosphorRuntime {
         currentDrawableSize = drawableSize
 
         var liveIDs: Set<ResourceID> = []
-        for texture in environment.textures {
+        for texture in configuration.textures {
             liveIDs.insert(texture.id)
             let existing = textures[texture.id]
             let (width, height) = pixelDimensions(for: texture.size, drawableSize: drawableSize)
@@ -294,7 +294,7 @@ public final class PhosphorRuntime {
         // downstream pass reading the same id sees just-written data.
         var alreadyWritten: Set<ResourceID> = []
 
-        for pass in environment.passes where pass.enabled {
+        for pass in configuration.passes where pass.enabled {
             // Buffer layout: [BuiltinUniforms prefix][N × MTLResourceID]
             let handleCount = pass.textures.count
             let length = builtinStride + handleCount * handleStride
@@ -348,7 +348,7 @@ public final class PhosphorRuntime {
         let length = max(userUniformsLayout.totalSize, 16)
         guard let buffer = device.makeBuffer(length: length, options: .storageModeShared) else { return }
         buffer.label = "Phosphor.UserUniforms"
-        let defaults = UserUniformsLayout.defaultsDictionary(environment.uniforms)
+        let defaults = UserUniformsLayout.defaultsDictionary(configuration.uniforms)
         UserUniformsLayout.pack(
             values: values,
             defaults: defaults,

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Assembles a full Metal compile unit for an environment by:
+/// Assembles a full Metal compile unit for an configuration by:
 ///
 /// 1. Building the synthetic `Phosphor.h` content (see ``PhosphorHeader``).
 /// 2. Stripping any literal `#include "Phosphor.h"` lines from the user's source.
@@ -11,10 +11,10 @@ import Foundation
 ///    canonical names in their kernel body.
 /// 5. Concatenating header + (transformed) user source.
 public enum SourceAssembler {
-    public static func assemble(environment: PhosphorEnvironment, userSource: String) -> String {
+    public static func assemble(configuration: PhosphorConfiguration, userSource: String) -> String {
         let cleaned = stripFrontMatter(stripPhosphorHeaderInclude(userSource))
-        let injected = injectPassDefines(into: cleaned, env: environment)
-        let prelude = PhosphorHeader.source(for: environment)
+        let injected = injectPassDefines(into: cleaned, config: configuration)
+        let prelude = PhosphorHeader.source(for: configuration)
         return prelude + "\n" + injected
     }
 
@@ -46,11 +46,11 @@ public enum SourceAssembler {
     /// `#define Textures Pass_<id>_Textures`. Between two consecutive
     /// kernels the previous pass's defines are undef'd first, so the
     /// definitions don't leak across kernels.
-    static func injectPassDefines(into source: String, env: PhosphorEnvironment) -> String {
-        guard !env.passes.isEmpty else { return source }
+    static func injectPassDefines(into source: String, config: PhosphorConfiguration) -> String {
+        guard !config.passes.isEmpty else { return source }
 
         // Build a list of (range, passID) for each `kernel void <id>` match.
-        let passIDs = env.passes.map(\.id.raw)
+        let passIDs = config.passes.map(\.id.raw)
         var hits: [(range: NSRange, passID: String)] = []
         for passID in passIDs {
             let pattern = "\\bkernel\\s+void\\s+\(NSRegularExpression.escapedPattern(for: passID))\\s*\\("

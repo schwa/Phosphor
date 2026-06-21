@@ -2,15 +2,15 @@ import PhosphorSupport
 import SwiftUI
 
 /// Dropdown that lets the user pick which resource the preview should
-/// blit to the drawable. "Output" (nil) follows the environment's declared
+/// blit to the drawable. "Output" (nil) follows the configuration's declared
 /// output; other choices are individual texture resources. Disabled when
-/// the environment has only one resource (or none).
+/// the configuration has only one resource (or none).
 struct ResourcePickerView: View {
-    let environment: PhosphorEnvironment?
+    let configuration: PhosphorConfiguration?
     @Binding var displayedResource: ResourceID?
 
     private var resourceIDs: [ResourceID] {
-        environment?.textures.map(\.id) ?? []
+        configuration?.textures.map(\.id) ?? []
     }
 
     private var isDisabled: Bool {
@@ -19,7 +19,7 @@ struct ResourcePickerView: View {
 
     var body: some View {
         Picker("Preview", selection: $displayedResource) {
-            Text("Output (\(environment?.output.raw ?? "—"))").tag(ResourceID?.none)
+            Text("Output (\(configuration?.output.raw ?? "—"))").tag(ResourceID?.none)
             Divider()
             ForEach(resourceIDs, id: \.self) { id in
                 Text(id.raw).tag(Optional(id))
@@ -37,7 +37,7 @@ struct ResourcePickerView: View {
 
 #Preview("Resource picker") {
     ResourcePickerView(
-        environment: PhosphorEnvironment(output: "image"),
+        configuration: PhosphorConfiguration(output: "image"),
         displayedResource: .constant(nil)
     )
     .padding()

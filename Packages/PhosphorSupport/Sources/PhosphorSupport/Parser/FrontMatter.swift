@@ -1,7 +1,7 @@
 import Foundation
 import TOMLKit
 
-/// A source string plus its parsed front-matter environment and any
+/// A source string plus its parsed front-matter configuration and any
 /// diagnostics emitted during parsing or validation.
 ///
 /// Construct with ``ParsedPhosphorSource/init(source:)`` (delegates to
@@ -12,9 +12,9 @@ public struct ParsedPhosphorSource: Hashable, Sendable {
     /// The source with the front-matter block stripped, suitable for passing
     /// to the compiler / assembler.
     public var body: String
-    /// The decoded environment, or `nil` if the source has no front-matter
+    /// The decoded configuration, or `nil` if the source has no front-matter
     /// or the TOML failed to parse.
-    public var environment: PhosphorEnvironment?
+    public var configuration: PhosphorConfiguration?
     /// Front-matter parse and validation diagnostics. Empty when the source
     /// has no front-matter at all.
     public var diagnostics: [PhosphorDiagnostic]
@@ -22,12 +22,12 @@ public struct ParsedPhosphorSource: Hashable, Sendable {
     public init(
         originalSource: String,
         body: String,
-        environment: PhosphorEnvironment?,
+        configuration: PhosphorConfiguration?,
         diagnostics: [PhosphorDiagnostic]
     ) {
         self.originalSource = originalSource
         self.body = body
-        self.environment = environment
+        self.configuration = configuration
         self.diagnostics = diagnostics
     }
 
@@ -38,7 +38,7 @@ public struct ParsedPhosphorSource: Hashable, Sendable {
 
     /// `true` if the source had no front-matter block at all.
     public var hasFrontMatter: Bool {
-        environment != nil || diagnostics.contains { diagnostic in
+        configuration != nil || diagnostics.contains { diagnostic in
             if case .frontMatterParse = diagnostic { return true }
             return false
         }
@@ -49,13 +49,13 @@ public struct ParsedPhosphorSource: Hashable, Sendable {
 /// block from a Phosphor source string.
 ///
 /// The split is deliberate: callers may want to feed the cleaned source to
-/// ``SourceAssembler/assemble(environment:userSource:)`` separately, so we
+/// ``SourceAssembler/assemble(configuration:userSource:)`` separately, so we
 /// don't bake the assembly step in here.
 public enum PhosphorFrontMatter {
     /// Parses a source string into a ``ParsedPhosphorSource``.
     public static func parse(_ source: String) -> ParsedPhosphorSource {
         guard let (block, body) = extractBlock(source) else {
-            return ParsedPhosphorSource(originalSource: source, body: source, environment: nil, diagnostics: [])
+            return ParsedPhosphorSource(originalSource: source, body: source, configuration: nil, diagnostics: [])
         }
 
         let toml: TOMLTable
@@ -65,29 +65,29 @@ public enum PhosphorFrontMatter {
             return ParsedPhosphorSource(
                 originalSource: source,
                 body: body,
-                environment: nil,
+                configuration: nil,
                 diagnostics: [.frontMatterParse(extractTOMLErrorMessage(error), line: extractTOMLErrorLine(error))]
             )
         }
 
-        let environment: PhosphorEnvironment
+        let configuration: PhosphorConfiguration
         do {
             let decoder = TOMLDecoder()
-            environment = try decoder.decode(PhosphorEnvironment.self, from: toml)
+            configuration = try decoder.decode(PhosphorConfiguration.self, from: toml)
         } catch {
             return ParsedPhosphorSource(
                 originalSource: source,
                 body: body,
-                environment: nil,
+                configuration: nil,
                 diagnostics: [.frontMatterParse("decode failed: \(error)", line: nil)]
             )
         }
 
-        let validationDiagnostics = validate(environment)
+        let validationDiagnostics = validate(configuration)
         return ParsedPhosphorSource(
             originalSource: source,
             body: body,
-            environment: environment,
+            configuration: configuration,
             diagnostics: validationDiagnostics
         )
     }
@@ -98,7 +98,7 @@ public enum PhosphorFrontMatter {
     /// with the block removed, or `nil` if no block is found.
     ///
     /// "Near the top" means: whitespace, line comments (`// ...`), and other
-    /// C-style block comments (`/* ... */` that are NOT the environment
+    /// C-style block comments (`/* ... */` that are NOT the configuration
     /// marker) may appear before the front-matter block. This lets generated
     /// shaders prepend a `/* prompt: ... */` comment without breaking parsing.
     static func extractBlock(_ source: String) -> (block: String, body: String)? {

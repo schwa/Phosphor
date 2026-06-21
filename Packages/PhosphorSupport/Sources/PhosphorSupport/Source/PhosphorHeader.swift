@@ -14,21 +14,21 @@ import Foundation
 ///   `#define Uniforms Pass_<id>_Uniforms` immediately before each kernel
 ///   so the user can write `Textures` / `Uniforms` and have it resolve to
 ///   their pass's type.
-/// - `UserUniforms` — auto-generated from the environment's user-declared
-///   uniforms. One per env (not per pass).
+/// - `UserUniforms` — auto-generated from the configuration's user-declared
+///   uniforms. One per config (not per pass).
 ///
 /// Plus the `metal_stdlib` import and `using namespace metal`.
 public enum PhosphorHeader {
-    /// Builds the full prelude string for a given environment.
-    public static func source(for env: PhosphorEnvironment) -> String {
+    /// Builds the full prelude string for a given configuration.
+    public static func source(for config: PhosphorConfiguration) -> String {
         var out = ""
         out += "#include <metal_stdlib>\n"
         out += "using namespace metal;\n\n"
         out += helpersDecl()
         out += "\n"
-        out += userUniformsDecl(uniforms: env.uniforms)
+        out += userUniformsDecl(uniforms: config.uniforms)
         out += "\n"
-        for pass in env.passes {
+        for pass in config.passes {
             out += texturesDecl(pass: pass)
             out += "\n"
             out += uniformsDecl(pass: pass)
@@ -269,7 +269,7 @@ public enum PhosphorHeader {
 
     /// Auto-generated `UserUniforms` struct.
     ///
-    /// Empty struct (no fields) when the environment declares no uniforms;
+    /// Empty struct (no fields) when the configuration declares no uniforms;
     /// still emitted so kernel signatures don't have to vary.
     static func userUniformsDecl(uniforms: [UniformDecl]) -> String {
         var out = "struct UserUniforms {\n"

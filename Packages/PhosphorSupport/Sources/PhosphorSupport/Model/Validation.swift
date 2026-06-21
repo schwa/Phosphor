@@ -1,36 +1,36 @@
 import Foundation
 
-/// Validates a ``PhosphorEnvironment`` and returns any structural diagnostics.
+/// Validates a ``PhosphorConfiguration`` and returns any structural diagnostics.
 ///
-/// Returns an empty array if the environment is well-formed. The runtime
-/// refuses to materialize an environment that has any fatal diagnostics
+/// Returns an empty array if the configuration is well-formed. The runtime
+/// refuses to materialize an configuration that has any fatal diagnostics
 /// (which all validation diagnostics are; see ``PhosphorDiagnostic/isFatal``).
-public func validate(_ env: PhosphorEnvironment) -> [PhosphorDiagnostic] {
+public func validate(_ config: PhosphorConfiguration) -> [PhosphorDiagnostic] {
     var diagnostics: [PhosphorDiagnostic] = []
 
     // Duplicate textures.
     var seenTextureIDs: Set<ResourceID> = []
-    for texture in env.textures {
+    for texture in config.textures {
         if !seenTextureIDs.insert(texture.id).inserted {
             diagnostics.append(.duplicateResource(texture.id))
         }
     }
-    let textureIDs = Set(env.textures.map(\.id))
+    let textureIDs = Set(config.textures.map(\.id))
 
     // Duplicate passes.
     var seenPassIDs: Set<ResourceID> = []
-    for pass in env.passes {
+    for pass in config.passes {
         if !seenPassIDs.insert(pass.id).inserted {
             diagnostics.append(.duplicatePass(pass.id))
         }
     }
 
     // Env-level output must reference a declared texture.
-    if !textureIDs.contains(env.output) {
-        diagnostics.append(.missingOutput(env.output))
+    if !textureIDs.contains(config.output) {
+        diagnostics.append(.missingOutput(config.output))
     }
 
-    for pass in env.passes {
+    for pass in config.passes {
         var seenBindingNames: Set<String> = []
         var writeBindings: [Pass.TextureBinding] = []
         var readBindings: [Pass.TextureBinding] = []
@@ -60,7 +60,7 @@ public func validate(_ env: PhosphorEnvironment) -> [PhosphorDiagnostic] {
         // same pass without ping-pong is undefined.
         for write in writeBindings {
             for read in readBindings where read.id == write.id {
-                let texture = env.texture(write.id)
+                let texture = config.texture(write.id)
                 if texture?.swap == SwapTiming.none {
                     diagnostics.append(.readWriteHazard(pass: pass.id, resource: write.id))
                 }

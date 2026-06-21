@@ -224,11 +224,11 @@ public struct ShaderGenerator {
     /// can drive a compile from).
     private static func tryCompile(source: String, device: MTLDevice) -> String? {
         let parsed = ParsedPhosphorSource(source: source)
-        guard let env = parsed.environment else { return nil }
+        guard let config = parsed.configuration else { return nil }
         let compiler = PhosphorCompiler(device: device)
         do {
-            let library = try compiler.compileLibrary(environment: env, userSource: parsed.body)
-            for pass in env.passes where pass.enabled {
+            let library = try compiler.compileLibrary(configuration: config, userSource: parsed.body)
+            for pass in config.passes where pass.enabled {
                 _ = try compiler.makeFunction(library: library, for: pass.id)
             }
             return nil
@@ -272,7 +272,7 @@ public struct ShaderGenerator {
     /// Schema note: the `@Generable` schema (resources / passes / inputs /
     /// outputResourceID) is the *Foundation-Models-visible* contract. The
     /// runtime model is different (textures + per-binding access). The host
-    /// adapter inside `GeneratedShader.toPhosphorEnvironment()` synthesizes
+    /// adapter inside `GeneratedShader.toPhosphorConfiguration()` synthesizes
     /// the binding list automatically: each pass gets a `write` binding for
     /// its declared `output` plus a `read` binding for each declared input.
     /// The model should keep producing the schema fields; the kernel-side

@@ -6,35 +6,35 @@ import Testing
 struct PhosphorHeaderTests {
     @Test("Per-pass Textures struct emits one field per binding")
     func perPassTexturesStruct() {
-        let env = PhosphorEnvironment(
+        let config = PhosphorConfiguration(
             textures: [Texture(id: "image")],
             passes: [
                 Pass(id: "image", textures: [.init(id: "image", access: .write)])
             ],
             output: "image"
         )
-        let header = PhosphorHeader.source(for: env)
+        let header = PhosphorHeader.source(for: config)
         #expect(header.contains("struct Pass_image_Textures {"))
         #expect(header.contains("texture2d<float, access::write> image;"))
     }
 
     @Test("Per-pass Uniforms struct carries scalars + nested Textures")
     func perPassUniformsStruct() {
-        let env = PhosphorEnvironment(
+        let config = PhosphorConfiguration(
             textures: [Texture(id: "image")],
             passes: [
                 Pass(id: "image", textures: [.init(id: "image", access: .write)])
             ],
             output: "image"
         )
-        let header = PhosphorHeader.source(for: env)
+        let header = PhosphorHeader.source(for: config)
         #expect(header.contains("struct Pass_image_Uniforms {"))
         #expect(header.contains("Pass_image_Textures textures;"))
     }
 
     @Test("Different access modes per binding")
     func accessModes() {
-        let env = PhosphorEnvironment(
+        let config = PhosphorConfiguration(
             textures: [Texture(id: "img"), Texture(id: "src")],
             passes: [
                 Pass(id: "p", textures: [
@@ -44,14 +44,14 @@ struct PhosphorHeaderTests {
             ],
             output: "img"
         )
-        let header = PhosphorHeader.source(for: env)
+        let header = PhosphorHeader.source(for: config)
         #expect(header.contains("texture2d<float, access::write> img;"))
         #expect(header.contains("texture2d<float, access::sample> src;"))
     }
 
     @Test("UserUniforms reflects declared uniforms")
     func userUniformsStruct() {
-        let env = PhosphorEnvironment(
+        let config = PhosphorConfiguration(
             textures: [Texture(id: "image")],
             passes: [Pass(id: "image", textures: [.init(id: "image", access: .write)])],
             output: "image",
@@ -61,7 +61,7 @@ struct PhosphorHeaderTests {
                 .init(name: "enabled", kind: .bool, defaultValue: .bool(true))
             ]
         )
-        let header = PhosphorHeader.source(for: env)
+        let header = PhosphorHeader.source(for: config)
         #expect(header.contains("float intensity;"))
         #expect(header.contains("float3 tint;"))
         #expect(header.contains("bool enabled;"))
@@ -69,12 +69,12 @@ struct PhosphorHeaderTests {
 
     @Test("Empty UserUniforms still compiles by including a placeholder field")
     func emptyUserUniforms() {
-        let env = PhosphorEnvironment(
+        let config = PhosphorConfiguration(
             textures: [Texture(id: "image")],
             passes: [Pass(id: "image", textures: [.init(id: "image", access: .write)])],
             output: "image"
         )
-        let header = PhosphorHeader.source(for: env)
+        let header = PhosphorHeader.source(for: config)
         #expect(header.contains("struct UserUniforms {\n    int _unused;\n};"))
     }
 }
@@ -126,7 +126,7 @@ struct SourceAssemblerTests {
 
     @Test("Injects #define Uniforms / Textures before each pass's kernel")
     func injectsPassDefines() {
-        let env = PhosphorEnvironment(
+        let config = PhosphorConfiguration(
             textures: [Texture(id: "image")],
             passes: [
                 Pass(id: "image", textures: [.init(id: "image", access: .write)])
@@ -136,7 +136,7 @@ struct SourceAssemblerTests {
         let body = """
         kernel void image() {}
         """
-        let injected = SourceAssembler.injectPassDefines(into: body, env: env)
+        let injected = SourceAssembler.injectPassDefines(into: body, config: config)
         #expect(injected.contains("#define Uniforms Pass_image_Uniforms"))
         #expect(injected.contains("#define Textures Pass_image_Textures"))
     }

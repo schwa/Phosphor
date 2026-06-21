@@ -1,26 +1,26 @@
 import PhosphorSupport
 import SwiftUI
 
-/// Inspector tab that lets the user edit the parsed environment's textures,
+/// Inspector tab that lets the user edit the parsed configuration's textures,
 /// passes, uniforms, and top-level fields (output, flipY). Mutations go
-/// into a draft `PhosphorEnvironment`; Apply validates and splices the
+/// into a draft `PhosphorConfiguration`; Apply validates and splices the
 /// re-encoded TOML back into the source text.
-struct EnvironmentTab: View {
+struct PhosphorConfigurationEditorView: View {
     let parsed: ParsedPhosphorSource
     @Binding var text: String
 
-    @State private var draft: PhosphorEnvironment?
+    @State private var draft: PhosphorConfiguration?
     @State private var diagnostics: [PhosphorDiagnostic] = []
     @State private var applyError: String?
 
     var body: some View {
         Group {
             if let draft = Binding($draft) {
-                EnvironmentEditor(
+                ConfigurationEditorView(
                     draft: draft,
                     diagnostics: diagnostics,
                     applyError: applyError,
-                    onApply: { apply(env: draft.wrappedValue) },
+                    onApply: { apply(config: draft.wrappedValue) },
                     onRevert: { syncDraftFromParsed() }
                 )
             } else {
@@ -39,19 +39,19 @@ struct EnvironmentTab: View {
         }
     }
 
-    /// Reset the draft to whatever the document's parsed environment is
+    /// Reset the draft to whatever the document's parsed configuration is
     /// currently showing. Called on appear and when the parsed source
     /// changes externally (e.g. user edits the TOML directly).
     private func syncDraftFromParsed() {
-        draft = parsed.environment
+        draft = parsed.configuration
         diagnostics = parsed.diagnostics
         applyError = nil
     }
 
     /// Validate the draft, then splice its re-encoded TOML back into the
     /// source. Refuses to apply if validation produces fatal diagnostics.
-    private func apply(env: PhosphorEnvironment) {
-        let validation = validate(env)
+    private func apply(config: PhosphorConfiguration) {
+        let validation = validate(config)
         let fatal = validation.filter(\.isFatal)
         if !fatal.isEmpty {
             diagnostics = validation
@@ -59,7 +59,7 @@ struct EnvironmentTab: View {
             return
         }
         do {
-            let body = try FrontMatterFormatter.encodeBody(env)
+            let body = try FrontMatterFormatter.encodeBody(config)
             let wrapped = FrontMatterFormatter.wrapFrontMatter(body: body)
 
             // Splice: replace the existing /* phosphor:environment ... */
@@ -82,8 +82,8 @@ struct EnvironmentTab: View {
 
 /// The actual editor surface, parametrized over a non-nil draft binding so
 /// child rows can bind to specific fields without optional unwrapping.
-private struct EnvironmentEditor: View {
-    @Binding var draft: PhosphorEnvironment
+private struct ConfigurationEditorView: View {
+    @Binding var draft: PhosphorConfiguration
     let diagnostics: [PhosphorDiagnostic]
     let applyError: String?
     let onApply: () -> Void

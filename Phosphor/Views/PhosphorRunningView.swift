@@ -9,7 +9,7 @@ import SwiftUI
 /// panels on top of it.
 struct PhosphorRunningView: View {
     let runtime: PhosphorRuntime
-    let environment: PhosphorEnvironment
+    let configuration: PhosphorConfiguration
     let frontMatterDiagnostics: [PhosphorDiagnostic]
     let isPausedExternally: Binding<Bool>?
     let resetSignal: Int
@@ -52,7 +52,7 @@ struct PhosphorRunningView: View {
             if viewSize.width > 0, viewSize.height > 0 {
                 PhosphorRenderSurfaceView(
                     runtime: runtime,
-                    environment: environment,
+                    configuration: configuration,
                     uniformValues: uniformValues,
                     displayedResource: displayedResource,
                     isPausedExternally: isPausedExternally,
@@ -74,7 +74,7 @@ struct PhosphorRunningView: View {
                 .allowsHitTesting(false)
 
             UniformsPanelView(
-                uniforms: environment.uniforms,
+                uniforms: configuration.uniforms,
                 showPanel: showUniformsPanel,
                 uniformValues: $uniformValues
             )

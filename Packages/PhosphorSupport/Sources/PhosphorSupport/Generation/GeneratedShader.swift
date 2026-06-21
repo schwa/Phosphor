@@ -3,7 +3,7 @@ import FoundationModels
 
 /// Schema the Foundation Model produces when the user asks for a generated
 /// shader. Flattened (no enums-with-payload) so `@Generable` can describe it
-/// cleanly. ``toPhosphorEnvironment()`` converts to the runtime model.
+/// cleanly. ``toPhosphorConfiguration()`` converts to the runtime model.
 ///
 /// The generation result has:
 /// - One or more ``GeneratedPass``es (each one corresponds to a `kernel void`).
@@ -104,10 +104,10 @@ public enum GeneratedUniformKind: String {
 // MARK: - Conversion to runtime model
 
 public extension GeneratedShader {
-    /// Converts the schema to a runtime ``PhosphorEnvironment``. Imperfect or
+    /// Converts the schema to a runtime ``PhosphorConfiguration``. Imperfect or
     /// invalid fields turn into `PhosphorDiagnostic`s; the caller decides
     /// whether to surface them.
-    func toPhosphorEnvironment() -> (environment: PhosphorEnvironment, diagnostics: [PhosphorDiagnostic]) {
+    func toPhosphorConfiguration() -> (configuration: PhosphorConfiguration, diagnostics: [PhosphorDiagnostic]) {
         // Map the generator's resources -> textures with sensible defaults.
         // The generator schema still uses the old shape (single output
         // resource id per pass, separate channel inputs); we synthesize
@@ -138,15 +138,15 @@ public extension GeneratedShader {
             )
         }
 
-        let env = PhosphorEnvironment(
+        let config = PhosphorConfiguration(
             textures: textures,
             passes: passes,
             output: ResourceID(outputResourceID),
             uniforms: uniforms,
             flipY: flipY
         )
-        let diagnostics = validate(env)
-        return (env, diagnostics)
+        let diagnostics = validate(config)
+        return (config, diagnostics)
     }
 
     /// Renders a full `.metal` source string (prompt comments + front-matter +
@@ -156,8 +156,8 @@ public extension GeneratedShader {
     /// oldest first. Each is recorded as a separate `/* prompt: ... */` block
     /// at the top so the user can see how the shader evolved.
     func toMetalSource(prompts: [String] = []) throws -> String {
-        let (env, _) = toPhosphorEnvironment()
-        let toml = try FrontMatterFormatter.encodeBody(env)
+        let (config, _) = toPhosphorConfiguration()
+        let toml = try FrontMatterFormatter.encodeBody(config)
         var output = ""
         for prompt in prompts where !prompt.isEmpty {
             output += "/* prompt: \(prompt) */\n"

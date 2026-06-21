@@ -11,7 +11,7 @@ import SwiftUI
 /// is scoped to the surface and does not cover the panels layered above it.
 struct PhosphorRenderSurfaceView: View {
     let runtime: PhosphorRuntime
-    let environment: PhosphorEnvironment
+    let configuration: PhosphorConfiguration
     let uniformValues: [String: UniformValue]
     let displayedResource: ResourceID?
     let isPausedExternally: Binding<Bool>?

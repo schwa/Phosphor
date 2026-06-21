@@ -4,7 +4,7 @@ import Foundation
 ///
 /// A dumb value type. Construction is unchecked; call ``validate(_:)`` to
 /// surface structural errors at runtime.
-public struct PhosphorEnvironment: Hashable, Sendable, Codable {
+public struct PhosphorConfiguration: Hashable, Sendable, Codable {
     public var textures: [Texture]
     public var passes: [Pass]
     /// Id of the texture that gets blitted to the drawable for preview.
@@ -60,7 +60,7 @@ public struct PhosphorEnvironment: Hashable, Sendable, Codable {
     }
 }
 
-extension PhosphorEnvironment {
+extension PhosphorConfiguration {
     /// Looks up a texture by id. Returns nil if not present.
     public func texture(_ id: ResourceID) -> Texture? {
         textures.first { $0.id == id }

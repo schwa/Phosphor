@@ -5,8 +5,8 @@ import MetalSprocketsAddOns
 import MetalSprocketsSupport
 import MetalSprocketsUI
 
-/// Per-frame element that runs every compute pass in the environment, then
-/// blits the env's `output` texture to the drawable via
+/// Per-frame element that runs every compute pass in the configuration, then
+/// blits the config's `output` texture to the drawable via
 /// `TextureBillboardPipeline`.
 ///
 /// Ping-pong parity is derived directly from the frame counter — no state.
@@ -21,7 +21,7 @@ public struct PhosphorPipeline: Element {
     let userUniformValues: [String: UniformValue]
     let drawableSize: CGSize
     /// Resource id whose latest write target gets blitted to the drawable.
-    /// Defaults to `environment.output`; the host can override this to
+    /// Defaults to `configuration.output`; the host can override this to
     /// preview an intermediate ping-pong / scratch resource.
     let displayedResource: ResourceID?
 
@@ -50,7 +50,7 @@ public struct PhosphorPipeline: Element {
             // downstream lookups don't have to special-case them.
             let isEvenFrame = (UInt64(uniforms.frame) % 2) == 0
             var parityByResource: [ResourceID: Bool] = [:]
-            for texture in runtime.environment.textures {
+            for texture in runtime.configuration.textures {
                 parityByResource[texture.id] = (texture.swap != .none) ? isEvenFrame : true
             }
             let useLists = runtime.writePassUniforms(builtin: uniforms, parity: parityByResource)
@@ -62,11 +62,11 @@ public struct PhosphorPipeline: Element {
                    runtime.textures[chosen] != nil {
                     return chosen
                 }
-                return runtime.environment.output
+                return runtime.configuration.output
             }()
             let outputTexture = runtime.textures[outputResourceID]?.writeTexture(currentIsA: parityByResource[outputResourceID] ?? true)
 
-            let enabledPasses = runtime.environment.passes.filter(\.enabled)
+            let enabledPasses = runtime.configuration.passes.filter(\.enabled)
 
             return try Group {
                 ForEach(Array(enabledPasses.enumerated()), id: \.offset) { _, pass in
@@ -78,7 +78,7 @@ public struct PhosphorPipeline: Element {
                 }
 
                 if let outputTexture {
-                    let textureCoordinates: Quad = runtime.environment.flipY
+                    let textureCoordinates: Quad = runtime.configuration.flipY
                         ? Quad(min: [0, 1], max: [1, 0])
                         : .unit
                     try RenderPass {
@@ -121,8 +121,8 @@ public struct PhosphorPipeline: Element {
                     )
                     .parameter("uniforms", buffer: passBuffer, offset: 0)
                     .parameter("userUniforms", buffer: runtime.userUniformsBuffer, offset: 0)
-                    .onWorkloadEnter { [runtime] env in
-                        guard let encoder = env.computeCommandEncoder else { return }
+                    .onWorkloadEnter { [runtime] config in
+                        guard let encoder = config.computeCommandEncoder else { return }
                         for tex in useResources {
                             encoder.useResource(tex, usage: [.read, .write])
                         }

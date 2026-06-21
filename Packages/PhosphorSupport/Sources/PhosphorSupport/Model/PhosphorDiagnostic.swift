@@ -1,17 +1,17 @@
 import Foundation
 
 /// Structured diagnostic produced by parsing, validating, or compiling a
-/// ``PhosphorEnvironment``.
+/// ``PhosphorConfiguration``.
 ///
-/// Some diagnostics are fatal-for-the-environment (parse + validation) — the
+/// Some diagnostics are fatal-for-the-configuration (parse + validation) — the
 /// host shouldn't try to render anything. Others (per-pass compile errors)
 /// are non-fatal — the affected pass is skipped and the rest of the
-/// environment keeps rendering.
+/// configuration keeps rendering.
 public enum PhosphorDiagnostic: Hashable, Sendable {
     /// Front-matter TOML failed to parse.
     case frontMatterParse(String, line: Int?)
     /// A `Pass.TextureBinding` references a texture id that isn't declared
-    /// in ``PhosphorEnvironment/textures``.
+    /// in ``PhosphorConfiguration/textures``.
     case unknownResource(ResourceID, in: String)
     /// Two textures share the same id.
     case duplicateResource(ResourceID)
@@ -26,7 +26,7 @@ public enum PhosphorDiagnostic: Hashable, Sendable {
     /// A pass declared no write-capable binding. It has nowhere to put
     /// its output.
     case passHasNoOutput(pass: ResourceID)
-    /// The environment's `output` doesn't refer to any declared texture.
+    /// The configuration's `output` doesn't refer to any declared texture.
     case missingOutput(ResourceID)
     /// A pass kernel failed to compile.
     case compile(PhosphorCompileError)
@@ -48,7 +48,7 @@ public struct PhosphorCompileError: Hashable, Sendable {
 }
 
 extension PhosphorDiagnostic {
-    /// Whether a diagnostic prevents rendering the environment as a whole.
+    /// Whether a diagnostic prevents rendering the configuration as a whole.
     public var isFatal: Bool {
         switch self {
         case .frontMatterParse,

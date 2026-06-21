@@ -7,16 +7,16 @@ import SwiftUI
 
 /// SwiftUI surface for a Phosphor 2 effect.
 ///
-/// Owns a ``PhosphorRuntime``, recompiling it whenever `environment` or
+/// Owns a ``PhosphorRuntime``, recompiling it whenever `configuration` or
 /// `source` change. Drives the render surface with per-frame
 /// ``BuiltinUniforms``.
 ///
-/// Renders host controls for each ``UniformDecl`` declared by the environment
+/// Renders host controls for each ``UniformDecl`` declared by the configuration
 /// (`PhosphorView` keeps a `[String: UniformValue]` of live values, seeded
 /// from the declared defaults; each frame the runtime packs them into the
 /// user-uniforms buffer).
 struct PhosphorView: View {
-    let environment: PhosphorEnvironment
+    let configuration: PhosphorConfiguration
     let source: String
     let frontMatterDiagnostics: [PhosphorDiagnostic]
     /// Host-supplied binary assets keyed by name. Texture resources whose
@@ -31,7 +31,7 @@ struct PhosphorView: View {
     /// External reset signal. Each new value triggers a one-shot reset.
     let resetSignal: Int
     /// Resource id to blit to the drawable. `nil` means use the
-    /// environment's declared output. Lets the host preview an
+    /// configuration's declared output. Lets the host preview an
     /// intermediate ping-pong / scratch buffer for debugging.
     let displayedResource: ResourceID?
 
@@ -40,14 +40,14 @@ struct PhosphorView: View {
     @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
 
     init(
-        environment: PhosphorEnvironment,
+        configuration: PhosphorConfiguration,
         source: String,
         assets: [String: PhosphorAsset] = [:],
         isPaused: Binding<Bool>? = nil,
         resetSignal: Int = 0,
         displayedResource: ResourceID? = nil
     ) {
-        self.environment = environment
+        self.configuration = configuration
         self.source = source
         self.frontMatterDiagnostics = []
         self.assets = assets
@@ -79,8 +79,8 @@ struct PhosphorView: View {
         resetSignal: Int = 0,
         displayedResource: ResourceID? = nil
     ) {
-        guard let environment = parsed.environment else { return nil }
-        self.environment = environment
+        guard let configuration = parsed.configuration else { return nil }
+        self.configuration = configuration
         self.source = parsed.body
         self.frontMatterDiagnostics = parsed.diagnostics
         self.assets = assets
@@ -93,7 +93,7 @@ struct PhosphorView: View {
         if let runtime {
             PhosphorRunningView(
                 runtime: runtime,
-                environment: environment,
+                configuration: configuration,
                 frontMatterDiagnostics: frontMatterDiagnostics,
                 isPausedExternally: isPausedExternally,
                 resetSignal: resetSignal,
@@ -101,14 +101,14 @@ struct PhosphorView: View {
                 uniformValues: $uniformValues,
                 showUniformsPanel: showUniformsPanel
             )
-            .onChange(of: environment) { _, newEnvironment in
-                uniformValues = UserUniformsLayout.defaultsDictionary(newEnvironment.uniforms)
+            .onChange(of: configuration) { _, newConfiguration in
+                uniformValues = UserUniformsLayout.defaultsDictionary(newConfiguration.uniforms)
             }
             .task {
-                uniformValues = UserUniformsLayout.defaultsDictionary(environment.uniforms)
+                uniformValues = UserUniformsLayout.defaultsDictionary(configuration.uniforms)
             }
         } else {
-            // Runtime not ready yet (no parsed env, or first frame hasn't
+            // Runtime not ready yet (no parsed config, or first frame hasn't
             // fired). Plain black blends with the rest of the chrome.
             Color.black
         }

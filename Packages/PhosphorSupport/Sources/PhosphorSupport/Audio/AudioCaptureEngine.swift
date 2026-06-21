@@ -8,7 +8,7 @@ import os
 /// demand so the runtime can copy them into the GPU waveform buffer each
 /// frame.
 ///
-/// One instance per app — provided via the SwiftUI environment so the
+/// One instance per app — provided via the SwiftUI configuration so the
 /// document UI can drive the toggle from a toolbar item.
 @preconcurrency
 @MainActor

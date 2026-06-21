@@ -12,7 +12,7 @@ struct CompileTests {
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw TestSkip.noDevice
         }
-        let env = PhosphorEnvironment(
+        let config = PhosphorConfiguration(
             textures: [Texture(id: "image")],
             passes: [
                 Pass(id: "image", textures: [.init(id: "image", access: .write)])
@@ -33,7 +33,7 @@ struct CompileTests {
         }
         """
         let compiler = PhosphorCompiler(device: device)
-        let library = try compiler.compileLibrary(environment: env, userSource: source)
+        let library = try compiler.compileLibrary(configuration: config, userSource: source)
         let function = try compiler.makeFunction(library: library, for: "image")
         #expect(function.name == "image")
     }
@@ -43,7 +43,7 @@ struct CompileTests {
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw TestSkip.noDevice
         }
-        let env = PhosphorEnvironment(
+        let config = PhosphorConfiguration(
             textures: [
                 Texture(id: "bufA", swap: .endOfFrame),
                 Texture(id: "image")
@@ -84,7 +84,7 @@ struct CompileTests {
         }
         """
         let compiler = PhosphorCompiler(device: device)
-        let library = try compiler.compileLibrary(environment: env, userSource: source)
+        let library = try compiler.compileLibrary(configuration: config, userSource: source)
         _ = try compiler.makeFunction(library: library, for: "bufA")
         _ = try compiler.makeFunction(library: library, for: "image")
     }

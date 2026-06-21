@@ -21,7 +21,7 @@ final class PhosphorMetalDocument: ReadableDocument, WritableDocument {
 
     /// Cached parse of `text`. Rebuilt by ``refreshParsed()`` whenever `text`
     /// changes. Stored, not computed, so the parse cost is amortized across
-    /// many view reads of `parsed.environment` per frame.
+    /// many view reads of `parsed.configuration` per frame.
     @ObservationIgnored
     private(set) var parsed: ParsedPhosphorSource
 

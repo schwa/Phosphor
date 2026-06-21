@@ -10,13 +10,13 @@ public struct PhosphorCompiler {
         self.device = device
     }
 
-    /// Assembles + compiles a `MTLLibrary` for the environment.
+    /// Assembles + compiles a `MTLLibrary` for the configuration.
     ///
     /// `userSource` is the full user-supplied Metal text (front-matter and
     /// `#include "Phosphor.h"` lines are tolerated and stripped). The
     /// returned library contains every kernel declared in the user source.
-    public func compileLibrary(environment: PhosphorEnvironment, userSource: String) throws -> MTLLibrary {
-        let assembled = SourceAssembler.assemble(environment: environment, userSource: userSource)
+    public func compileLibrary(configuration: PhosphorConfiguration, userSource: String) throws -> MTLLibrary {
+        let assembled = SourceAssembler.assemble(configuration: configuration, userSource: userSource)
         let options = MTLCompileOptions()
         // Allow runtime-compiled kernels to use `os_log_default` for debugging.
         // Pairs with `MS_METAL_LOGGING=1` at app launch.

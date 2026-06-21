@@ -1,30 +1,30 @@
 import Foundation
 import TOMLKit
 
-/// Serializes a ``PhosphorEnvironment`` to the TOML body text that lives
+/// Serializes a ``PhosphorConfiguration`` to the TOML body text that lives
 /// inside the `/* phosphor:environment ... */` block. The output matches
 /// the hand-written `Examples/` style (sectional top-level array-of-tables
 /// like `[[resources]]`, inline leaf records like `spec = { ... }`).
 public enum FrontMatterFormatter {
-    /// Encodes the environment and returns just the TOML body (no outer
+    /// Encodes the configuration and returns just the TOML body (no outer
     /// `/* phosphor:environment ... */` wrapper).
-    public static func encodeBody(_ environment: PhosphorEnvironment) throws -> String {
+    public static func encodeBody(_ configuration: PhosphorConfiguration) throws -> String {
         var encoder = TOMLEncoder()
         encoder.options = [.allowMultilineStrings, .relaxedFloatPrecision, .indentations]
-        let rootTable: TOMLTable = try encoder.encode(environment)
+        let rootTable: TOMLTable = try encoder.encode(configuration)
         inlineNestedTables(rootTable, depth: 0)
         return rootTable.convert(to: .toml, options: encoder.options)
     }
 
     /// Reformats `source` in place: parses its front-matter, re-encodes the
-    /// environment, splices the new front-matter block back in. The kernel
+    /// configuration, splices the new front-matter block back in. The kernel
     /// body and any prompt-history comments above the block are preserved
     /// verbatim. Returns the unmodified source if there's no parseable
     /// front-matter.
     public static func reformat(_ source: String) -> String {
         let parsed = ParsedPhosphorSource(source: source)
-        guard let environment = parsed.environment else { return source }
-        guard let toml = try? encodeBody(environment) else { return source }
+        guard let configuration = parsed.configuration else { return source }
+        guard let toml = try? encodeBody(configuration) else { return source }
 
         // Find the original block and replace it. Mirror PhosphorFrontMatter's
         // tolerance of leading whitespace and unrelated `// ...` / `/* ... */`

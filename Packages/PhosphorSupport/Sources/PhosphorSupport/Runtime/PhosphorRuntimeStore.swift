@@ -7,7 +7,7 @@ import os
 ///
 /// Both document types instantiate one of these as `@State`, call
 /// ``reload(parsed:assets:audioCapture:)`` whenever the parsed source or
-/// asset set changes, and inject `store.runtime` into the environment for
+/// asset set changes, and inject `store.runtime` into the configuration for
 /// the rest of the view tree.
 @Observable
 @MainActor
@@ -26,20 +26,20 @@ public final class PhosphorRuntimeStore {
 
     /// Reload the runtime in place. On the first call, builds a fresh
     /// runtime. On subsequent calls, mutates the existing one if possible.
-    /// If `parsed.environment` is nil, drops the runtime.
+    /// If `parsed.configuration` is nil, drops the runtime.
     public func reload(
         parsed: ParsedPhosphorSource,
         assets: [String: PhosphorAsset],
         audioCapture: AudioCaptureEngine?
     ) {
-        guard let environment = parsed.environment else {
+        guard let configuration = parsed.configuration else {
             runtime = nil
             return
         }
         do {
             if let runtime {
                 try runtime.update(
-                    environment: environment,
+                    configuration: configuration,
                     source: parsed.body,
                     assets: assets
                 )
@@ -50,7 +50,7 @@ public final class PhosphorRuntimeStore {
                 }
                 let newRuntime = try PhosphorRuntime(
                     device: device,
-                    environment: environment,
+                    configuration: configuration,
                     source: parsed.body,
                     assets: assets
                 )

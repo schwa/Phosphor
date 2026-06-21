@@ -4,7 +4,7 @@ import simd
 /// A user-declared uniform exposed to the host UI as a control.
 ///
 /// The runtime auto-generates a `struct UserUniforms { ... };` typedef from
-/// the environment's uniforms and prepends it to each pass's source before
+/// the configuration's uniforms and prepends it to each pass's source before
 /// compilation. The host UI renders a control per ``UniformUIHint``.
 public struct UniformDecl: Hashable, Sendable {
     public var name: String

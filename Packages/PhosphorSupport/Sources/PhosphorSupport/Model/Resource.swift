@@ -1,7 +1,7 @@
 import Foundation
 import simd
 
-/// A named texture resource declared by a ``PhosphorEnvironment``.
+/// A named texture resource declared by a ``PhosphorConfiguration``.
 ///
 /// Phosphor's runtime only deals in 2D textures, so there's no enum to
 /// distinguish kinds. Properties cover sizing, format, swap (ping-pong)

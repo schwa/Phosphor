@@ -1,6 +1,6 @@
 import Foundation
 
-/// Identifies a resource (texture, pass, etc.) inside a ``PhosphorEnvironment``.
+/// Identifies a resource (texture, pass, etc.) inside a ``PhosphorConfiguration``.
 ///
 /// Just a string under the hood. Conforms to `ExpressibleByStringLiteral` so
 /// builder code can write `"bufA"` and have it become a `ResourceID`.
