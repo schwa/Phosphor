@@ -104,10 +104,11 @@ public enum GeneratedUniformKind: String {
 // MARK: - Conversion to runtime model
 
 public extension GeneratedShader {
-    /// Converts the schema to a runtime ``PhosphorConfiguration``. Imperfect or
-    /// invalid fields turn into `PhosphorDiagnostic`s; the caller decides
-    /// whether to surface them.
-    func toPhosphorConfiguration() -> (configuration: PhosphorConfiguration, diagnostics: [PhosphorDiagnostic]) {
+    /// Converts the schema to a runtime ``PhosphorConfiguration``.
+    ///
+    /// Validation is deliberately *not* run here: the generated source is
+    /// validated once downstream, when it is parsed and compiled (issue #42).
+    func toPhosphorConfiguration() -> PhosphorConfiguration {
         // Map the generator's resources -> textures with sensible defaults.
         // The generator schema still uses the old shape (single output
         // resource id per pass, separate channel inputs); we synthesize
@@ -138,15 +139,13 @@ public extension GeneratedShader {
             )
         }
 
-        let config = PhosphorConfiguration(
+        return PhosphorConfiguration(
             textures: textures,
             passes: passes,
             output: ResourceID(outputResourceID),
             uniforms: uniforms,
             flipY: flipY
         )
-        let diagnostics = validate(config)
-        return (config, diagnostics)
     }
 
     /// Renders a full `.metal` source string (prompt comments + front-matter +
@@ -156,7 +155,7 @@ public extension GeneratedShader {
     /// oldest first. Each is recorded as a separate `/* prompt: ... */` block
     /// at the top so the user can see how the shader evolved.
     func toMetalSource(prompts: [String] = []) throws -> String {
-        let (config, _) = toPhosphorConfiguration()
+        let config = toPhosphorConfiguration()
         let toml = try FrontMatterFormatter.encodeBody(config)
         var output = ""
         for prompt in prompts where !prompt.isEmpty {

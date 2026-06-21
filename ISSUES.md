@@ -1436,11 +1436,13 @@ In-process. Pure transformation + `MTLDevice`.
 ## 42: Architecture: collapse document parse + validate to single path
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 labels: architecture
 created: 2026-06-19T02:16:14Z
+updated: 2026-06-21T06:08:42Z
+closed: 2026-06-21T06:08:42Z
 +++
 
 ## Problem

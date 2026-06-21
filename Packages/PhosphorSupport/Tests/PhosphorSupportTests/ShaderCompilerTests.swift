@@ -89,18 +89,32 @@ struct ShaderCompilerTests {
         #expect(result.diagnostics.contains(.missingOutput("image")))
     }
 
-    @Test("Existing diagnostics are carried through")
-    func existingDiagnosticsPreserved() throws {
+    @Test("Parsed path carries front-matter diagnostics through without re-validating")
+    func parsedDiagnosticsPreserved() throws {
         let device = try device()
-        let front: [PhosphorDiagnostic] = [.missingAsset(name: "tex.png", in: "image")]
-        let result = ShaderCompiler.compile(
-            configuration: singlePassConfig(),
-            userSource: cleanSource,
-            device: device,
-            existingDiagnostics: front
-        )
-        // Non-fatal asset diagnostic preserved; library still compiles.
-        #expect(result.library != nil)
-        #expect(result.diagnostics.contains(.missingAsset(name: "tex.png", in: "image")))
+        // A bad front-matter block produces a parse diagnostic; the body still
+        // compiles. The parse diagnostic must survive into the result.
+        let source = """
+        /* phosphor:environment
+        this is not valid toml = = =
+        */
+        #include "Phosphor.h"
+
+        uint2 gid [[thread_position_in_grid]];
+
+        kernel void image(
+            device const Uniforms&     uniforms     [[buffer(0)]],
+            device const UserUniforms& userUniforms [[buffer(1)]])
+        {
+            uniforms.textures.image.write(float4(1), gid);
+        }
+        """
+        let parsed = ParsedPhosphorSource(source: source)
+        #expect(!parsed.diagnostics.isEmpty)
+        let result = ShaderCompiler.compile(parsed: parsed, device: device)
+        // Every parse diagnostic is carried through verbatim.
+        for diagnostic in parsed.diagnostics {
+            #expect(result.diagnostics.contains(diagnostic))
+        }
     }
 }

@@ -146,7 +146,11 @@ public final class PhosphorRuntime {
             memset(spectrumBuffer.contents(), 0, spectrumLength)
             self.spectrumBuffer = spectrumBuffer
 
-            recompile()
+            let compiled = ShaderCompiler.compile(configuration: configuration, userSource: source, device: device)
+            self.library = compiled.library
+            self.passFunctions = compiled.passFunctions
+            self.diagnostics = compiled.diagnostics
+            logDiagnostics(compiled.diagnostics)
         } catch {
             // TODO: surface this instead of trapping once we have a UI path.
             fatalError("PhosphorRuntime initialization failed: \(error)")
@@ -159,13 +163,22 @@ public final class PhosphorRuntime {
     /// thrown); any real failure traps.
     public func reload(parsed: ParsedPhosphorSource, assets: [String: PhosphorAsset], audioCapture: AudioCaptureEngine?) {
         self.audioCapture = audioCapture
-        update(configuration: parsed.configuration, source: parsed.body, assets: assets)
+        update(parsed: parsed, assets: assets)
     }
 
-    public func update(
-        configuration: PhosphorConfiguration,
+    /// Updates the runtime from an already-parsed source. Validation is not
+    /// re-run: the parse step's diagnostics are authoritative (issue #42).
+    public func update(parsed: ParsedPhosphorSource, assets: [String: PhosphorAsset] = [:]) {
+        applyConfiguration(parsed.configuration, source: parsed.body, assets: assets) {
+            ShaderCompiler.compile(parsed: parsed, device: device)
+        }
+    }
+
+    private func applyConfiguration(
+        _ configuration: PhosphorConfiguration,
         source: String,
-        assets: [String: PhosphorAsset] = [:]
+        assets: [String: PhosphorAsset],
+        compile: () -> CompiledShader
     ) {
         do {
             self.configuration = configuration
@@ -183,19 +196,15 @@ public final class PhosphorRuntime {
             }
             self.userUniformsLayout = newLayout
 
-            recompile()
+            let compiled = compile()
+            self.library = compiled.library
+            self.passFunctions = compiled.passFunctions
+            self.diagnostics = compiled.diagnostics
+            logDiagnostics(compiled.diagnostics)
         } catch {
             // TODO: surface this instead of trapping once we have a UI path.
             fatalError("PhosphorRuntime update failed: \(error)")
         }
-    }
-
-    private func recompile() {
-        let compiled = ShaderCompiler.compile(configuration: configuration, userSource: source, device: device)
-        self.library = compiled.library
-        self.passFunctions = compiled.passFunctions
-        self.diagnostics = compiled.diagnostics
-        logDiagnostics(compiled.diagnostics)
     }
 
     private func logDiagnostics(_ diagnostics: [PhosphorDiagnostic]) {

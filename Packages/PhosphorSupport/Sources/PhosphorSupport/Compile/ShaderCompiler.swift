@@ -51,28 +51,47 @@ public struct CompiledShader: Sendable {
 /// `makeFunction`. Replaces the hand-stitched compile dance that
 /// ``PhosphorRuntime`` and the shader generator each used to repeat.
 public enum ShaderCompiler {
-    /// Compiles a parsed source. Front-matter diagnostics from the parse step
-    /// are carried through.
+    /// Compiles an already-parsed source.
+    ///
+    /// The parse step already validated the configuration, so validation is
+    /// *not* re-run here: ``ParsedPhosphorSource/diagnostics`` (front-matter
+    /// parse + validation) is authoritative and carried straight through. This
+    /// is the single parse → validate → compile path; prefer it over
+    /// ``compile(configuration:userSource:device:)``.
     public static func compile(parsed: ParsedPhosphorSource, device: MTLDevice) -> CompiledShader {
         compile(
             configuration: parsed.configuration,
             userSource: parsed.body,
             device: device,
-            existingDiagnostics: parsed.diagnostics
+            preValidatedDiagnostics: parsed.diagnostics
         )
     }
 
-    /// Compiles a configuration plus its user Metal source.
+    /// Compiles a configuration plus its user Metal source, validating the
+    /// configuration itself.
     ///
-    /// - Parameter existingDiagnostics: diagnostics already gathered upstream
-    ///   (e.g. from front-matter parsing) to prepend to the result.
+    /// Callers that already hold a ``ParsedPhosphorSource`` should use
+    /// ``compile(parsed:device:)`` instead, which avoids re-validating.
     public static func compile(
         configuration: PhosphorConfiguration,
         userSource: String,
-        device: MTLDevice,
-        existingDiagnostics: [PhosphorDiagnostic] = []
+        device: MTLDevice
     ) -> CompiledShader {
-        var diagnostics = existingDiagnostics + validate(configuration)
+        compile(
+            configuration: configuration,
+            userSource: userSource,
+            device: device,
+            preValidatedDiagnostics: validate(configuration)
+        )
+    }
+
+    private static func compile(
+        configuration: PhosphorConfiguration,
+        userSource: String,
+        device: MTLDevice,
+        preValidatedDiagnostics: [PhosphorDiagnostic]
+    ) -> CompiledShader {
+        var diagnostics = preValidatedDiagnostics
 
         if diagnostics.contains(where: \.isFatal) {
             return CompiledShader(
