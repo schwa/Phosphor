@@ -57,6 +57,9 @@ struct DiagnosticsView: View {
 
         case .missingAsset(let name, let resource):
             return "asset '\(name)' missing (referenced by resource '\(resource)') — texture zero-filled"
+
+        case .imageTextureCannotPingPong(let id):
+            return "image texture '\(id)' cannot be ping-pong (swap must be \"none\")"
         }
     }
 }

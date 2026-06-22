@@ -8,11 +8,8 @@ id = "image"
 textures = [ { access = "write", id = "image" }, { access = "read", id = "mandrill" } ]
 
 [[textures]]
-format = "auto"
 id = "mandrill"
-init = { kind = "image", file = "mandrill" }
-size = "native"
-swap = "none"
+init = { file = "mandrill", kind = "image" }
 
 [[textures]]
 format = "rgba8Unorm"

@@ -34,6 +34,9 @@ public enum PhosphorDiagnostic: Hashable, Sendable {
     /// asset that wasn't supplied by the host. The texture is zero-filled
     /// as a fallback so the shader can still render.
     case missingAsset(name: String, in: ResourceID)
+    /// An image-init texture is also declared ping-pong. A feedback buffer is
+    /// overwritten every frame, so seeding it from an image is meaningless.
+    case imageTextureCannotPingPong(ResourceID)
 }
 
 /// Compile error for one pass's kernel.
@@ -58,7 +61,8 @@ extension PhosphorDiagnostic {
              .duplicateBinding,
              .readWriteHazard,
              .passHasNoOutput,
-             .missingOutput:
+             .missingOutput,
+             .imageTextureCannotPingPong:
             return true
 
         case .compile, .missingAsset:

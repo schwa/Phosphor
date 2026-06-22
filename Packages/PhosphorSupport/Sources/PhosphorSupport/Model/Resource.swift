@@ -34,25 +34,20 @@ public struct Texture: Hashable, Sendable {
 /// - `.drawable`: matches the host's drawable size; reallocated on resize.
 /// - `.fixed`: fixed pixel dimensions; survives drawable resize.
 /// - `.scaledDrawable(s)`: drawable size times `s`, rounded to nearest pixel.
-/// - `.native`: matches the decoded dimensions of the texture's
-///   `init = { kind = "image", ... }` asset. Survives drawable resize. Falls
-///   back to drawable size if the texture has no image init or the asset is
-///   missing/undecodable.
+///
+/// Image-init textures ignore this field entirely: they are always sized to
+/// the decoded image's native dimensions.
 public enum TextureSize: Hashable, Sendable {
     case drawable
     case fixed(width: Int, height: Int)
     case scaledDrawable(Float)
-    case native
 }
 
 /// Pixel format options. Maps to `MTLPixelFormat` at runtime.
 ///
-/// `.auto` is a sentinel: the runtime infers a concrete format from the
-/// texture's `init = { kind = "image", ... }` asset, falling back to
-/// `.rgba32Float` when there is no image init or the asset is
-/// missing/undecodable.
+/// Image-init textures ignore this field entirely: they use whatever format
+/// the image decodes to.
 public enum PhosphorPixelFormat: String, Hashable, Codable, Sendable, CaseIterable {
-    case auto
     case rgba8Unorm
     case bgra8Unorm
     case rgba16Float

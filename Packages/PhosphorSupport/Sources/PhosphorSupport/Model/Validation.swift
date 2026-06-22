@@ -8,11 +8,14 @@ import Foundation
 public func validate(_ config: PhosphorConfiguration) -> [PhosphorDiagnostic] {
     var diagnostics: [PhosphorDiagnostic] = []
 
-    // Duplicate textures.
+    // Duplicate textures + image/ping-pong conflict.
     var seenTextureIDs: Set<ResourceID> = []
     for texture in config.textures {
         if !seenTextureIDs.insert(texture.id).inserted {
             diagnostics.append(.duplicateResource(texture.id))
+        }
+        if case .image = texture.initialContents, texture.swap != .none {
+            diagnostics.append(.imageTextureCannotPingPong(texture.id))
         }
     }
     let textureIDs = Set(config.textures.map(\.id))

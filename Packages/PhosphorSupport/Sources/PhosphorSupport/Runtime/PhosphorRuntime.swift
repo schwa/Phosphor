@@ -239,7 +239,7 @@ public final class PhosphorRuntime {
             let dimensionsChanged = (existing != nil) && (existing!.a.width != width || existing!.a.height != height)
             let pingPong = texture.swap != .none
             let pingPongChanged = (existing != nil) && (existing!.pingPong != pingPong)
-            let resizeRequired = (drawableChanged && dimensionDependsOnDrawable(texture.size))
+            let resizeRequired = (drawableChanged && dimensionDependsOnDrawable(texture))
                 || existing == nil
                 || dimensionsChanged
                 || pingPongChanged
@@ -368,8 +368,20 @@ public final class PhosphorRuntime {
     // MARK: - Allocation
 
     private func allocate(texture: Texture, width: Int, height: Int) throws -> PingPongTexture {
+        // Image-init textures are decoded directly to their native format and
+        // size; they are never ping-pong (validation enforces this), so a == b.
+        if case .image(let file) = texture.initialContents {
+            if let decoded = decodeImageTexture(file: file) {
+                decoded.label = "Phosphor.\(texture.id.raw)"
+                return PingPongTexture(pingPong: false, a: decoded, b: decoded)
+            }
+            // Asset missing/undecodable: fall through to a zero-filled texture
+            // and surface a diagnostic so the shader can still render.
+            appendDiagnostic(.missingAsset(name: file, in: texture.id))
+        }
+
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: mtlPixelFormat(resolvedFormat(for: texture)),
+            pixelFormat: mtlPixelFormat(texture.format),
             width: max(1, width),
             height: max(1, height),
             mipmapped: false
@@ -393,68 +405,24 @@ public final class PhosphorRuntime {
             b = a
         }
 
-        // Honor init action.
-        switch texture.initialContents {
-        case .zero:
-            break  // Storage mode .private + first compute write zero-fills implicitly.
-
-        case .fill:
-            // TODO(#52): implement fill via a small init compute or blit-with-color.
-            break
-
-        case .image(let file):
-            do {
-                try seedTextureFromAsset(file: file, into: a, alsoInto: pingPong ? b : nil)
-            } catch {
-                appendDiagnostic(.missingAsset(name: file, in: texture.id))
-            }
-
-        case .noise:
-            // TODO(#52): implement noise init.
-            break
-        }
-
         return PingPongTexture(pingPong: pingPong, a: a, b: b)
     }
 
-    private func seedTextureFromAsset(
-        file: String,
-        into primary: MTLTexture,
-        alsoInto secondary: MTLTexture?
-    ) throws {
-        guard let asset = assetData(named: file) else {
-            throw PhosphorRuntimeError.assetMissing(name: file)
-        }
-
+    /// Decodes an image asset into a shader-usable texture at its native format
+    /// and size. Returns `nil` if the asset is missing or undecodable.
+    private func decodeImageTexture(file: String) -> MTLTexture? {
+        guard let asset = assetData(named: file) else { return nil }
         let options: [MTKTextureLoader.Option: Any] = [
-            .textureStorageMode: NSNumber(value: MTLStorageMode.shared.rawValue),
+            .textureStorageMode: NSNumber(value: MTLStorageMode.private.rawValue),
+            .textureUsage: NSNumber(value: MTLTextureUsage([.shaderRead, .shaderWrite]).rawValue),
             .SRGB: NSNumber(value: false)
         ]
-        let decoded: MTLTexture
         do {
-            decoded = try textureLoader.newTexture(data: asset, options: options)
+            return try textureLoader.newTexture(data: asset, options: options)
         } catch {
             Self.logger.error("asset '\(file, privacy: .public)' failed to decode: \(error, privacy: .public)")
-            throw PhosphorRuntimeError.assetMissing(name: file)
+            return nil
         }
-
-        guard let queue = device.makeCommandQueue(),
-              let commandBuffer = queue.makeCommandBuffer(),
-              let encoder = commandBuffer.makeBlitCommandEncoder() else {
-            throw PhosphorRuntimeError.assetMissing(name: file)
-        }
-        let copyWidth = min(decoded.width, primary.width)
-        let copyHeight = min(decoded.height, primary.height)
-        let sourceSize = MTLSize(width: copyWidth, height: copyHeight, depth: 1)
-        let origin = MTLOrigin(x: 0, y: 0, z: 0)
-        encoder.copy(from: decoded, sourceSlice: 0, sourceLevel: 0, sourceOrigin: origin, sourceSize: sourceSize,
-                     to: primary, destinationSlice: 0, destinationLevel: 0, destinationOrigin: origin)
-        if let secondary {
-            encoder.copy(from: decoded, sourceSlice: 0, sourceLevel: 0, sourceOrigin: origin, sourceSize: sourceSize,
-                         to: secondary, destinationSlice: 0, destinationLevel: 0, destinationOrigin: origin)
-        }
-        encoder.endEncoding()
-        commandBuffer.commit()
     }
 
     /// Looks up asset data via ``resolveAsset(named:)``.
@@ -477,6 +445,11 @@ public final class PhosphorRuntime {
     }
 
     private func pixelDimensions(for texture: Texture, drawableSize: CGSize) -> (Int, Int) {
+        // Image-init textures are always sized to the decoded image, ignoring
+        // the declared `size`.
+        if let size = imageAsset(for: texture)?.pixelSize() {
+            return (max(1, size.width), max(1, size.height))
+        }
         switch texture.size {
         case .drawable:
             return (max(1, Int(drawableSize.width.rounded())), max(1, Int(drawableSize.height.rounded())))
@@ -489,39 +462,6 @@ public final class PhosphorRuntime {
                 max(1, Int((Float(drawableSize.width) * scale).rounded())),
                 max(1, Int((Float(drawableSize.height) * scale).rounded()))
             )
-
-        case .native:
-            if let size = nativeAssetSize(for: texture) {
-                return (max(1, size.width), max(1, size.height))
-            }
-            // No image init or asset unavailable: fall back to drawable size.
-            return (max(1, Int(drawableSize.width.rounded())), max(1, Int(drawableSize.height.rounded())))
-        }
-    }
-
-    /// Native pixel dimensions of a texture's image-init asset, or `nil` if it
-    /// has no image init or the asset is missing/undecodable.
-    private func nativeAssetSize(for texture: Texture) -> (width: Int, height: Int)? {
-        imageAsset(for: texture)?.pixelSize()
-    }
-
-    /// Resolves a texture's declared format to a concrete one. `.auto` is
-    /// inferred from the image-init asset; everything else passes through.
-    /// Falls back to `.rgba32Float` when inference isn't possible.
-    private func resolvedFormat(for texture: Texture) -> PhosphorPixelFormat {
-        guard texture.format == .auto else { return texture.format }
-        guard let descriptor = imageAsset(for: texture)?.imageDescriptor() else {
-            return .rgba32Float
-        }
-        return Self.inferredFormat(from: descriptor)
-    }
-
-    /// Maps an image's header description to the closest `PhosphorPixelFormat`.
-    static func inferredFormat(from descriptor: PhosphorAsset.ImageDescriptor) -> PhosphorPixelFormat {
-        switch descriptor.bitsPerComponent {
-        case ...8: return .rgba8Unorm
-        case 9...16: return .rgba16Float
-        default: return .rgba32Float
         }
     }
 
@@ -532,21 +472,21 @@ public final class PhosphorRuntime {
         return resolveAsset(named: file)
     }
 
-    private func dimensionDependsOnDrawable(_ size: TextureSize) -> Bool {
-        switch size {
+    private func dimensionDependsOnDrawable(_ texture: Texture) -> Bool {
+        // Image-init textures are sized to the decoded image, not the drawable.
+        if imageAsset(for: texture) != nil { return false }
+        switch texture.size {
         case .drawable, .scaledDrawable: return true
-        case .fixed, .native: return false
+        case .fixed: return false
         }
     }
 
     private func mtlPixelFormat(_ format: PhosphorPixelFormat) -> MTLPixelFormat {
         switch format {
-        // `.auto` should be resolved by ``resolvedFormat(for:)`` before
-        // reaching here; treat it as the default fallback defensively.
-        case .auto, .rgba32Float: return .rgba32Float
         case .rgba8Unorm: return .rgba8Unorm
         case .bgra8Unorm: return .bgra8Unorm
         case .rgba16Float: return .rgba16Float
+        case .rgba32Float: return .rgba32Float
         }
     }
 

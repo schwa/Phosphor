@@ -11,6 +11,43 @@ struct ValidationTests {
         #expect(diagnostics.contains(.missingOutput("image")))
     }
 
+    @Test("An image-init texture marked ping-pong is rejected")
+    func imageTexturePingPong() {
+        let config = PhosphorConfiguration(
+            textures: [
+                Texture(id: "photo", swap: .endOfFrame, initialContents: .image(file: "x.png")),
+                Texture(id: "image")
+            ],
+            passes: [
+                Pass(id: "image", textures: [
+                    .init(id: "image", access: .write),
+                    .init(id: "photo", access: .read)
+                ])
+            ],
+            output: "image"
+        )
+        let diagnostics = validate(config)
+        #expect(diagnostics.contains(.imageTextureCannotPingPong("photo")))
+    }
+
+    @Test("An image-init texture without ping-pong validates cleanly")
+    func imageTextureNoPingPong() {
+        let config = PhosphorConfiguration(
+            textures: [
+                Texture(id: "photo", initialContents: .image(file: "x.png")),
+                Texture(id: "image")
+            ],
+            passes: [
+                Pass(id: "image", textures: [
+                    .init(id: "image", access: .write),
+                    .init(id: "photo", access: .read)
+                ])
+            ],
+            output: "image"
+        )
+        #expect(!validate(config).contains(.imageTextureCannotPingPong("photo")))
+    }
+
     @Test("Single-pass canonical configuration validates cleanly")
     func singlePassClean() {
         let config = PhosphorConfiguration(
