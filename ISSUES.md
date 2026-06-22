@@ -1065,9 +1065,10 @@ PhosphorView gained isPaused: Binding<Bool>? and resetSignal: Int parameters (bo
 +++
 status: new
 priority: low
-kind: none
+kind: feature
+labels: effort:l, needs-info
 created: 2026-06-18T23:20:38Z
-updated: 2026-06-18T23:22:39Z
+updated: 2026-06-22T15:40:24Z
 +++
 
 Add a File-menu command (and matching toolbar button?) that imports a Shadertoy shader into Phosphor, translating the GLSL to MSL on the way.
@@ -1093,6 +1094,8 @@ Either way, things to figure out:
 - iChannelN bindings. Shadertoy channels can be buffers, textures, cubemaps, video, audio, keyboard, microphone. For v1 only handle Buffer A-D and the 'no input' case; everything else turns into a TODO comment.
 
 Related: #27 (Shadertoy compat layer), #26 (Shadertoy audit).
+
+- `2026-06-22T15:40:24Z`: Related to #74 (AI prompt routing): both involve Shadertoy GLSL->MSL translation. #32 is URL/paste import; #74 is prompt classification/routing. Distinct features, shared translation dependency (#27).
 
 ---
 
@@ -1238,10 +1241,12 @@ Audio buffers verified end to end: mic toggle enables capture; AudioProbe shows 
 ## 37: System audio input via ScreenCaptureKit
 
 +++
-status: new
+status: open
 priority: low
-kind: none
+kind: feature
+labels: effort:m
 created: 2026-06-19T00:59:05Z
+updated: 2026-06-22T15:40:16Z
 +++
 
 Today, audio input is mic only via AVAudioEngine (#17). Add system audio (what's playing through the speakers) as a second source so users can drive shaders from their music.
@@ -1328,11 +1333,12 @@ Add support for using a webcam as a live video input source.
 ## 40: Architecture: deepen render orchestrator (Runtime + Pipeline)
 
 +++
-status: new
+status: open
 priority: medium
 kind: enhancement
-labels: architecture
+labels: architecture, effort:l
 created: 2026-06-19T02:15:39Z
+updated: 2026-06-22T15:40:24Z
 +++
 
 ## Problem
@@ -1364,10 +1370,11 @@ In-process. `MTLDevice` and the user's `AudioCaptureEngine` are the only externa
 
 ## Files Involved
 
-- `Packages/PhosphorSupport/Sources/PhosphorSupport/Runtime/PhosphorRuntime.swift`
-- `Packages/PhosphorSupport/Sources/PhosphorSupport/Runtime/PhosphorPipeline.swift`
-- `Packages/PhosphorSupport/Sources/PhosphorSupport/Runtime/PingPongTexture.swift`
-- Parts of `Packages/PhosphorSupport/Sources/PhosphorSupport/UI/PhosphorView.swift` (playback wiring)
+- `2026-06-19T02:15:39Z`: `Packages/PhosphorSupport/Sources/PhosphorSupport/Runtime/PhosphorRuntime.swift`
+- `2026-06-19T02:15:39Z`: `Packages/PhosphorSupport/Sources/PhosphorSupport/Runtime/PhosphorPipeline.swift`
+- `2026-06-19T02:15:39Z`: `Packages/PhosphorSupport/Sources/PhosphorSupport/Runtime/PingPongTexture.swift`
+- `2026-06-19T02:15:39Z`: Parts of `Packages/PhosphorSupport/Sources/PhosphorSupport/UI/PhosphorView.swift` (playback wiring)
+- `2026-06-22T15:40:24Z`: Related to #54 (inter-pass parity flips): #54 builds on this runtime; deepening Runtime+Pipeline here should keep #54's same-frame swap use case in mind.
 
 ---
 
@@ -1744,11 +1751,12 @@ Add an adjustable gain control to the microphone input so users can boost or att
 ## 48: Generator: send a rendered-frame screenshot back into the generator for visual feedback
 
 +++
-status: new
+status: open
 priority: medium
 kind: feature
-labels: generation
+labels: generation, effort:l
 created: 2026-06-19T03:25:39Z
+updated: 2026-06-22T15:40:16Z
 +++
 
 ## Problem
@@ -2021,10 +2029,12 @@ Follow-ups already filed: #51 (sensible front-matter defaults), #54 (inter-pass 
 ## 51: Sensible front-matter defaults: empty block should just work
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
+labels: effort:s
 created: 2026-06-19T16:44:13Z
+updated: 2026-06-22T15:40:16Z
 +++
 
 ## Problem
@@ -2220,11 +2230,12 @@ After fixing a syntax error and the shader compiles fine, hitting space causes t
 ## 54: Inter-pass texture swaps: allow ping-pong parity flips between passes within a single frame
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
-labels: speculative, architecture
+labels: speculative, architecture, effort:l
 created: 2026-06-19T17:30:17Z
+updated: 2026-06-22T15:40:24Z
 +++
 
 Speculative. Today the runtime's 'parity per resource' is set once per frame; ping-pong textures effectively swap only at end-of-frame. The same-frame-multi-pass case is partially handled (a later pass that samples a texture an earlier pass wrote sees the freshly written half), but there's no way to do a real *swap* between passes \u2014 i.e. pass B writes the next parity, pass C reads B's just-written half as if it were 'last frame's' contents.
@@ -2238,6 +2249,8 @@ Use cases:
 Out of scope for the #50 redesign, but the new per-binding access shape makes this much easier to add: the runtime can derive 'this pass writes the new parity, that pass reads the previous parity' directly from the binding declarations, rather than from a global pingPong + flipTiming flag.
 
 Likely shape: `SwapTiming.immediate` (already modeled, today's #4) means 'flip parity right after this pass'. RFC-001 keeps that case in the enum but ships only `endOfFrame`.
+
+- `2026-06-22T15:40:24Z`: Related to #40 (deepen Runtime+Pipeline): this feature depends on the runtime's parity model; coordinate with that refactor.
 
 ---
 
@@ -2407,10 +2420,12 @@ closed: 2026-06-21T04:48:16Z
 ## 62: Bundle UI: add filter/search to list
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
+labels: effort:s
 created: 2026-06-21T00:03:03Z
+updated: 2026-06-22T15:40:16Z
 +++
 
 ---
@@ -2435,10 +2450,12 @@ Intermittently the Anthropic API key fails to load and comes back blank. Likely 
 ## 64: Highlight sidebar on drag & drop of files
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
+labels: effort:xs
 created: 2026-06-21T05:00:15Z
+updated: 2026-06-22T15:40:16Z
 +++
 
 When dragging files over the bundle sidebar drop target, give visual feedback (highlight the drop area) so the user knows it will accept the drop. Currently dropDestination accepts files but provides no hover highlight.
@@ -2448,10 +2465,12 @@ When dragging files over the bundle sidebar drop target, give visual feedback (h
 ## 65: Handle selection of image assets
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
+labels: effort:m
 created: 2026-06-21T05:00:30Z
+updated: 2026-06-22T15:40:16Z
 +++
 
 In the bundle sidebar, asset rows aren't selectable/previewable. Selecting an image asset should do something useful — e.g. show a preview/thumbnail and metadata (dimensions, format) in the detail or inspector area.
@@ -2493,10 +2512,12 @@ When a texture is init = { kind = "image", file = ... }, allow omitting size so 
 ## 68: Support more/all pixel formats
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
+labels: effort:m
 created: 2026-06-21T05:09:15Z
+updated: 2026-06-22T15:40:16Z
 +++
 
 PhosphorPixelFormat currently only exposes rgba8Unorm, bgra8Unorm, rgba16Float, rgba32Float. Expand to cover the rest of the useful MTLPixelFormat set (e.g. r8/rg8/r16f/rg16f/r32f/rg32f, rgba8Unorm_srgb/bgra8Unorm_srgb, rgb10a2, rg11b10f, etc.). Touch points: PhosphorPixelFormat enum (Resource.swift) + mtlPixelFormat() and bytesPerPixel switch in PhosphorRuntime.swift. Consider deriving bytesPerPixel from the format rather than a hand-maintained switch.
@@ -2506,11 +2527,12 @@ PhosphorPixelFormat currently only exposes rgba8Unorm, bgra8Unorm, rgba16Float, 
 ## 69: Rename files in the UI
 
 +++
-status: new
+status: open
 priority: low
-kind: none
+kind: feature
+labels: effort:m
 created: 2026-06-21T05:12:29Z
-updated: 2026-06-21T05:54:41Z
+updated: 2026-06-22T15:40:16Z
 +++
 
 Add the ability to rename files (not directories) from the UI.
@@ -2520,10 +2542,12 @@ Add the ability to rename files (not directories) from the UI.
 ## 70: Export as Xcode project
 
 +++
-status: new
+status: open
 priority: medium
 kind: feature
+labels: effort:xl
 created: 2026-06-21T06:07:58Z
+updated: 2026-06-22T15:40:16Z
 +++
 
 Export a shader as a fully baked Xcode project.
@@ -2533,10 +2557,12 @@ Export a shader as a fully baked Xcode project.
 ## 71: ⌘⇧N (New Phosphor Bundle) not working
 
 +++
-status: new
+status: closed
 priority: medium
 kind: bug
 created: 2026-06-21T06:14:42Z
+updated: 2026-06-22T15:37:27Z
+closed: 2026-06-22T15:37:27Z
 +++
 
 The `⌘⇧N` keyboard shortcut for 'New Phosphor Bundle' doesn't trigger.
@@ -2577,5 +2603,118 @@ Scope:
 - Update TextureDemo.metal to drop the hardcoded format once supported.
 
 Note: PhosphorPixelFormat is a closed set; inference is best-effort to the nearest match, not exact format passthrough.
+
+---
+
+## 73: Toolbar is a mess
+
++++
+status: open
+priority: medium
+kind: enhancement
+labels: effort:m
+created: 2026-06-22T15:38:09Z
+updated: 2026-06-22T15:40:16Z
++++
+
+The shader editor toolbar (ShaderEditorView.swift) crams ~10 controls into .principal placement with no grouping or overflow handling:
+
+- Layout mode toggle
+- Resource/preview picker
+- Phosphor.h popover
+- Uniforms panel toggle
+- Frame-timing overlay toggle
+- Microphone toggle
+- Pause/Play
+- Reset
+- Generate
+- Inspector toggle (.primaryAction)
+
+Problems:
+- Everything is .principal, so there is no logical grouping (playback vs. view options vs. actions).
+- No overflow/ToolbarItemGroup handling; on narrow windows items get cut off or crowd the title.
+- Mixed concerns sit side by side (a destructive-ish Reset next to a Generate sparkle next to view toggles).
+
+Wants: group related controls, separate playback transport from view-options from actions, and handle narrow-window overflow gracefully. Consider ToolbarItemGroup, placement variety, and/or an overflow menu.
+
+---
+
+## 74: AI pre-processor step that classifies the prompt and routes to specialized sub-processors
+
++++
+status: open
+priority: low
+kind: feature
+labels: effort:xl
+created: 2026-06-22T15:39:19Z
+updated: 2026-06-22T15:40:24Z
++++
+
+Add a routing/classification stage in front of shader generation. Today ShaderGenerator runs a single generic flow (buildPrompt -> model -> compile/retry) regardless of what the user asked for. Instead, a pre-processor should first try to understand the *kind* of shader being requested, then dispatch to one of N specialized sub-processors, each with tailored instructions, front-matter scaffolding, and examples.
+
+Motivating examples:
+- A 'game of life' / cellular-automaton style request implies ping-ponged feedback textures (swap=ping-pong, a read+write pass). Route to a feedback/simulation sub-processor that pre-builds the multi-pass + ping-pong front-matter so the model only writes the kernel logic.
+- A request that looks like Shadertoy code (mainImage(out vec4 fragColor, in vec2 fragCoord), iTime/iResolution) routes to a Shadertoy-translation sub-processor that maps GLSL->MSL and the Shadertoy uniform set to Phosphor builtins.
+- Plain single-pass image shaders route to the existing generic path.
+
+Design sketch:
+- Classification: a cheap first model turn (or heuristic + model) that returns a category enum + confidence. Categories are open-ended; start with { feedbackSimulation, shadertoyPort, singlePassImage, unknown }.
+- Routing: each category maps to a sub-processor that supplies its own system/instruction prompt, optional front-matter template, and few-shot examples.
+- Fits the existing ports/adapters shape: sub-processors are strategies behind a common protocol; ShaderGenerator orchestrates classify -> route -> generate -> compile/retry. Keep the compile-and-retry loop shared.
+
+Open questions:
+- Classify with a separate model call vs. fold into a single structured-output generation? (Extra latency/cost vs. simpler flow.)
+- How to handle low-confidence/unknown -> fall back to the generic path.
+- Where examples live (per sub-processor) and how to keep them in sync with the Phosphor front-matter format.
+- Should classification be user-overridable (a manual 'treat this as Shadertoy' toggle in the Generate panel)?
+
+Touchpoints: PhosphorSupport/Generation (ShaderGenerator, LanguageModelPort, GeneratorInstructions, GeneratedShader), GeneratePanel UI for surfacing the chosen route / override.
+
+- `2026-06-22T15:40:24Z`: Related to #32 (Shadertoy import): a 'shadertoyPort' sub-processor here overlaps with #32's GLSL->MSL translation path. Keep translation logic shareable.
+
+---
+
+## 75: Compatibility layers (Shadertoy et al.) toggled via a front-matter flag
+
++++
+status: open
+priority: low
+kind: feature
+labels: effort:l
+created: 2026-06-22T15:42:17Z
+updated: 2026-06-22T15:43:17Z
++++
+
+Add opt-in compatibility layers that let a shader use the conventions of an external project (Shadertoy first, then potentially others like GLSL Sandbox, Bonzomatic, VESA/ISF) without hand-porting. The user turns a layer on with a front-matter flag, e.g.:
+
+/* phosphor:environment
+compatibility = "shadertoy"
+output = "image"
+*/
+
+When a compatibility layer is active, Phosphor injects the right preamble/shims so the user's source 'just works' under that layer's conventions:
+
+- Shadertoy layer: provide iTime, iResolution, iMouse, iFrame, iChannel0..3, iTimeDelta, iDate, etc. mapped to Phosphor builtins; wrap a mainImage(out float4 fragColor, in float2 fragCoord) entry point into a Phosphor kernel; handle the y-flip convention (ties into existing flipY). GLSL->MSL translation is still required for true GLSL source (#27); this flag is about the *uniform/entry-point/coordinate conventions* once you are in MSL.
+- Future layers: each is a named compatibility profile that supplies its own header shims + entry-point adapter + default front-matter.
+
+Design notes:
+- Model: add a  field (enum/string) to PhosphorConfiguration; default none. Validate against known layer names.
+- Source assembly: SourceAssembler / PhosphorHeader gains per-layer preamble injection. Keep the generated Phosphor.h preview accurate so users see what the layer provides.
+- Interplay with flipY and builtin uniforms (BuiltinUniforms / PhosphorHeader).
+- Should be discoverable in the UI (a picker that sets the front-matter flag), and the AI router (#74) could auto-select a layer.
+
+Distinct from but related to:
+- #27 (GLSL->MSL translation) — translation vs. convention-emulation; a Shadertoy import would likely use both.
+- #32 (Shadertoy URL/paste import) — the importer could set compatibility = shadertoy on the result.
+- #74 (AI prompt routing) — a shadertoyPort route could emit a shader that relies on this layer.
+
+Touch points: PhosphorConfiguration (Model), SourceAssembler + PhosphorHeader (Source), BuiltinUniforms, front-matter parser/validator, configuration editor UI.
+
+- `2026-06-22T15:42:30Z`: Correction to the front-matter example in the description (asterisks were stripped on entry). It should read:
+
+/* phosphor:environment
+compatibility = "shadertoy"
+output = "image"
+*/
 
 ---
