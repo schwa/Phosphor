@@ -3010,3 +3010,192 @@ created: 2026-06-22T17:04:47Z
 +++
 
 ---
+
+## 87: Tell the generator about the Phosphor.h helpers
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: effort:s
+created: 2026-06-22T17:17:46Z
++++
+
+The shader-generation instructions (GeneratorInstructions) describe the Uniforms/UserUniforms/textures contract but never tell the model which helper functions and constants the synthetic Phosphor.h header already provides. As a result the model re-implements (or worse, calls non-existent) helpers.
+
+Phosphor.h (PhosphorHeader.helpersDecl) currently provides:
+- Constants: PI, PI2
+- GLSL aliases: vec2/vec3/vec4
+- rotate2D(angle), rotate3D(angle, axis)
+- fsnoise(float2), fsnoiseDigits(float2)
+- hsv(h,s,v)
+- snoise2D / snoise3D / snoise4D
+- F4 macro
+
+Plan:
+- Surface the available helpers to the model in GeneratorInstructions (list signatures + one-line descriptions; do NOT paste full bodies — keep token cost low, especially for the on-device compact variant).
+- Tell the model these are already in scope (no need to define them) and not to redefine them.
+- Keep it in sync with PhosphorHeader so the list doesn't drift; consider generating the signature list from a shared source of truth rather than hand-maintaining two copies.
+
+Touch points: GeneratorInstructions (full + onDevice), PhosphorHeader.
+
+---
+
+## 88: Store the static part of Phosphor.h on disk as a real header
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: effort:m
+created: 2026-06-22T17:18:05Z
++++
+
+Today the entire Phosphor.h prelude is synthesized in code (PhosphorHeader.helpersDecl) and there is no on-disk header — the user writes #include "Phosphor.h" purely as a hint and the runtime strips it before compiling.
+
+Move the STATIC portion of the header (constants PI/PI2, GLSL aliases vec2/3/4, rotate2D/rotate3D, fsnoise/fsnoiseDigits, hsv, snoise2D/3D/4D, F4) out of helpersDecl() into a real .metal/.h resource file shipped in the app bundle (and copied into .phosphord packages where relevant). Keep the DYNAMIC, config-derived parts (per-pass Textures/Uniforms structs, UserUniforms) generated in code.
+
+Benefits:
+- Single source of truth for the helpers; easier to read/edit/syntax-highlight than a Swift triple-quoted string.
+- Real file can be referenced for tooling, docs, and the in-app 'Phosphor.h' viewer.
+- Sets up using it as actual context for generation (#87) by reading the file rather than duplicating signatures.
+
+Open questions:
+- Bundle as a SwiftPM resource (Bundle.module) in PhosphorSupport vs. app bundle vs. copied into each .phosphord package — pick based on who needs it at runtime vs. author time.
+- For .phosphord: do we copy a physical Phosphor.h into the package so the include is real on disk, or keep stripping the include and only assemble in memory? Decide and document.
+- Keep the SourceAssembler include-stripping behavior consistent with whatever we choose.
+
+Touch points: PhosphorHeader (helpersDecl -> load from resource), SourceAssembler, PhosphorBundleDocument (if copying into packages), build/resource config. Relates to #87.
+
+---
+
+## 89: Bake built-in textures into the app for shaders to use
+
++++
+status: new
+priority: medium
+kind: feature
+labels: effort:m
+created: 2026-06-22T17:21:41Z
++++
+
+Ship a set of built-in textures with the app so shaders can reference them without the user importing anything. Resolve them the same way as bundled assets (TextureInit.image(file:) / texture inputs), but from an app-provided registry that's always available.
+
+Initial set to bake in:
+- Mandrill (the classic 'mandril'/baboon test image).
+- A test card / color-bars calibration image.
+- A variety of noise textures: white noise, value noise, Perlin/simplex, blue noise (good for dithering), and possibly a normal/curl-noise map. Provide a few resolutions or a single 512/1024 tile.
+
+Scope / open questions:
+- Where they live: SwiftPM resource in PhosphorSupport (Bundle.module) vs. the app bundle. Lean toward PhosphorSupport so the runtime that materializes textures owns them.
+- Naming / namespace: reserve a prefix (e.g. 'builtin:mandrill', 'builtin:noise.blue') or a separate TextureInit case (.builtin(name:)) so they can't collide with user-imported assets. Decide and document.
+- Asset lookup order: built-in registry vs. document/bundle assets (document assets should win on name collision, or be disallowed via the reserved prefix).
+- Could the noise textures be generated procedurally at first use and cached instead of shipping bytes? Evaluate file-size vs. determinism (seeded).
+- Surface them in the UI (texture-init picker / resource picker) so users can discover them.
+- Generated shaders (#87) should know these exist.
+
+Touch points: PhosphorAsset / asset registry, TextureInit + resolution path in PhosphorRuntime/ShaderCompiler, PhosphorConfiguration editor (TextureInitField image picker), resource bundling.
+
+---
+
+## 90: Extract source code editor into a generic SourceEditor target in PhosphorSupport
+
++++
+status: new
+priority: medium
+kind: enhancement
+created: 2026-06-22T17:25:10Z
++++
+
+Move the source-code-editor-related code out of the Phosphor app target and into a new, dedicated target in the PhosphorSupport package. Make it generic — a general-purpose syntax-highlighted source code editor, not tied to shaders/Metal.
+
+## Code to extract (currently in app target)
+- `Phosphor/Views/MetalSourceView.swift` — tree-sitter-highlighted text view (read-only + editable via Binding<String>). Generalize: rename away from 'Metal', make grammar/language selectable rather than hard-coded to C++/TOML.
+- `Phosphor/Views/SyntaxPalette.swift` — color palette for highlighting (`.default`, `.dark`).
+- `Phosphor/Views/CodePaneView.swift` — thin editable wrapper (currently Metal-flavored; generalize or drop the Metal-specific bits).
+
+## Dependencies to move into the new target
+- swift-tree-sitter (SwiftTreeSitter, SwiftTreeSitterLayer)
+- tree-sitter-cpp (TreeSitterCPP)
+- tree-sitter-toml (TreeSitterTOML)
+These are already deps of PhosphorSupport; the new target should own the tree-sitter ones. Consider making language grammars pluggable so the editor target itself stays language-agnostic and callers register grammars.
+
+## Design goals
+- New target should be reusable as a standalone general-purpose source editor (no shader/Phosphor-specific knowledge).
+- Public API: read-only display + editable binding, configurable language/grammar, configurable color palette.
+- Shader-specific pieces (e.g. ShaderEditorView, PhosphorHeader display) stay in the app and consume the new target.
+- Build and run tests after the move.
+
+---
+
+## 91: Built-in MetalFX spatial AI upscaling support
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-06-22T17:26:14Z
++++
+
+Add built-in support for MetalFX spatial scaling (MTLFXSpatialScaler) so shaders can render at a lower internal resolution and be AI-upscaled to the display resolution.
+
+## Goals
+- Render the shader pipeline at a reduced internal resolution, then upscale to output size via MetalFX spatial scaler.
+- Expose an enable toggle + scale factor (e.g. 50% / 67% / 75%, or arbitrary) in the editor/inspector UI.
+- Persist the setting per-document or as a UI preference.
+
+## Notes
+- Use `MTLFXSpatialScaler` (spatial, not temporal — no motion vectors needed for fragment-style shader output).
+- Pick appropriate color processing mode (perceptual vs linear) based on the pipeline's output color space.
+- Handle resize: recreate the scaler when input/output dimensions change.
+- Gracefully degrade / hide the feature where MetalFX spatial is unsupported.
+
+Out of scope for this issue: MetalFX temporal scaling.
+
+- `2026-06-22T17:27:09Z`: MetalSprockets core already provides a `MetalFXSpatial` element (Sources/MetalSprockets/Metal/MetalFXSpatial.swift):
+
+    public struct MetalFXSpatial: Element, BodylessElement {
+        public init(inputTexture: MTLTexture, outputTexture: MTLTexture)
+        // wraps MTLFXSpatialScalerDescriptor / MTLFXSpatialScaler
+    }
+
+So we don't need to write the scaler from scratch — wire this element into the Phosphor pipeline. (MetalSprockets also has MetalFXTemporal + RFC 0001 for temporal, out of scope here.) MetalSprocketsAddOns has no MetalFX support; the core package is the place to source it from.
+
+---
+
+## 92: Support 3D noise textures (volume textures)
+
++++
+status: new
+priority: low
+kind: feature
+labels: effort:l
+created: 2026-06-22T17:33:22Z
++++
+
+Add 3D (volume) noise textures to the built-in set so shaders can do proper volumetric / domain-warped effects (clouds, smoke, marble, flow fields) by sampling a tileable 3D field instead of stacking 2D lookups.
+
+Why worthwhile:
+- Tileable 3D value/Perlin/worley noise is the natural primitive for raymarched volumes, domain warping, and animated 3D fields (sample at (xy, time)).
+- Avoids the common hacks: 2D-noise-as-3D, or packing slices into a 2D atlas.
+
+Big caveat — this is NOT just adding files. The runtime is currently 2D-only:
+- PhosphorHeader emits  for every binding; sampling is  (2D coords).
+- TextureInit.image(file:) decodes a single 2D CGImage; PhosphorRuntime materializes MTLTexture as 2D.
+- The @Generable schema + GeneratorInstructions assume 2D.
+
+Scope to evaluate:
+- A 3D texture resource kind (texture3d) end to end: model -> config -> MTLTextureType.type3D -> per-pass Textures struct field type -> sampling helper ( / ).
+- How a built-in 3D noise ships: a raw volume blob (e.g. RGBA8/float, WxHxD) + a small loader, since CGImage can't represent a volume. Generate with Python (extend Tools/generate_noise_textures.py) — value/Perlin/worley, tileable, seeded.
+- Sizes: 32^3 or 64^3 is usually plenty; keep file size sane.
+- Built-in names + namespace (e.g. builtin:noise3d-value, builtin:noise3d-perlin, builtin:noise3d-worley).
+- Teach the generator (instructions + schema) about 3D textures and how to sample them.
+- UI: texture-init picker should distinguish 2D vs 3D.
+
+Open questions:
+- Is a shipped volume blob worth the bytes vs. generating procedurally on the GPU at load? A small seeded compute pass could synthesize the volume into a texture3d at materialization — possibly better than shipping data. Evaluate.
+- Do we also want 2D array textures? Probably out of scope.
+
+Relates to #89 (2D built-in textures) and #87 (generation context).
+
+---
