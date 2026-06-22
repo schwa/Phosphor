@@ -122,10 +122,21 @@ public extension GeneratedShader {
         }
 
         let passes: [Pass] = self.passes.map { pass in
+            let outputID = ResourceID(pass.output)
             var bindings: [Pass.TextureBinding] = []
-            bindings.append(.init(id: ResourceID(pass.output), access: .write))
+            bindings.append(.init(id: outputID, access: .write))
             for input in pass.inputs {
-                bindings.append(.init(id: ResourceID(input.resource), access: .read))
+                let inputID = ResourceID(input.resource)
+                // A read binding whose id matches the pass's write target is
+                // self-feedback (ping-pong). The kernel-side `Textures` struct
+                // names each field after its binding, so the read binding needs
+                // a distinct name to avoid colliding with the write binding's
+                // field. Name it `<id>Prev` (the "last" parity texture).
+                if inputID == outputID {
+                    bindings.append(.init(id: inputID, access: .read, name: "\(inputID.raw)Prev"))
+                } else {
+                    bindings.append(.init(id: inputID, access: .read))
+                }
             }
             return Pass(id: ResourceID(pass.id), textures: bindings)
         }

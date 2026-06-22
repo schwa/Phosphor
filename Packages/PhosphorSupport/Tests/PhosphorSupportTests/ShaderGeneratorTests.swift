@@ -128,4 +128,31 @@ struct ShaderGeneratorTests {
         _ = try await generator.generate(prompt: "a plasma effect")
         #expect(fake.prompts[0] == "a plasma effect")
     }
+
+    @Test("Ping-pong self-feedback yields distinct read/write binding names")
+    func pingPongBindingNames() throws {
+        let shader = GeneratedShader(
+            title: "Life",
+            body: validBody,
+            resources: [GeneratedResource(id: "image", format: .rgba32Float, pingPong: true)],
+            passes: [GeneratedPass(id: "image", output: "image",
+                                   inputs: [GeneratedBinding(name: "iChannel0", resource: "image")])],
+            uniforms: [],
+            outputResourceID: "image",
+            flipY: false
+        )
+        let config = shader.toPhosphorConfiguration()
+        let pass = try #require(config.passes.first)
+
+        let write = try #require(pass.textures.first { $0.access == .write })
+        let read = try #require(pass.textures.first { $0.access == .read })
+        #expect(write.id == ResourceID("image"))
+        #expect(read.id == ResourceID("image"))
+        // Distinct field names so the kernel-side Textures struct compiles.
+        #expect(write.effectiveName == "image")
+        #expect(read.effectiveName == "imagePrev")
+
+        // And the configuration is structurally valid (no duplicateBinding).
+        #expect(validate(config).isEmpty)
+    }
 }

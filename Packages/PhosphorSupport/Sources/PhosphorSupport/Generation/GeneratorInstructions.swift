@@ -80,8 +80,17 @@ enum GeneratorInstructions {
         - Read with `uniforms.textures.<input_id>.read(gid)` — returns a `float4`.
           (NOT `channels.iChannel0` — that API is gone.)
         - Procedural patterns (gradient, plasma, noise, fractals) do NOT need inputs.
-        - Feedback effects (Game of Life, trails) DO need an input that points at the
-          same resource as the pass's output, with the resource declared `pingPong = true`.
+
+        FEEDBACK (ping-pong, e.g. Game of Life, trails):
+        - Declare the resource with `pingPong = true`, and add an input on the pass that
+          points at the SAME resource as the pass's output.
+        - Because a pass writes AND reads the same resource, the host gives the read binding
+          a DISTINCT field name: `<output_id>Prev`. So you:
+            * WRITE the next frame with `uniforms.textures.<output_id>.write(color, gid)`
+            * READ the previous frame with `uniforms.textures.<output_id>Prev.read(gid)`
+          For the conventional `image` output that means write `uniforms.textures.image`
+          and read `uniforms.textures.imagePrev`. They are TWO different fields — never read
+          and write the same field name in a feedback pass.
 
         Conventions:
         - Use `image` as the final output resource id.
@@ -136,12 +145,13 @@ enum GeneratorInstructions {
                 device const Uniforms&     uniforms     [[buffer(0)]],
                 device const UserUniforms& userUniforms [[buffer(1)]])
             {
-                float4 prev = uniforms.textures.image.read(gid);
+                float4 prev = uniforms.textures.imagePrev.read(gid);
                 uniforms.textures.image.write(prev * 0.95, gid);
             }
             ```
-          (Note: even though `inputs` carries iChannel0-style names, in the MSL you
-          access by RESOURCE ID through `uniforms.textures.<resource_id>`.)
+          (Note: the read field is `imagePrev` (previous frame) and the write field is
+          `image` (next frame) — they are distinct fields. In the MSL you access by the
+          binding field name, NOT the iChannel0-style input name.)
 
         MSL IS STRICTER THAN GLSL:
         - No implicit vector-dimension conversions. `noise3D(vec.xz)` does NOT work —
@@ -178,6 +188,11 @@ enum GeneratorInstructions {
                 device const UserUniforms& userUniforms [[buffer(1)]]) { ... }
         - Write output with `uniforms.textures.<output_id>.write(float4(r,g,b,a), gid);`
         - Read an input with `uniforms.textures.<input_id>.read(gid)` (returns float4).
+        - FEEDBACK (Game of Life, trails): declare the resource `pingPong = true` and add an
+          input pointing at the same resource as the output. Then READ the previous frame
+          from `uniforms.textures.<output_id>Prev` and WRITE the next to
+          `uniforms.textures.<output_id>` (e.g. read `imagePrev`, write `image`). They are
+          two distinct fields — never read and write the same field in one pass.
         - Only reference resources you declared. If you sample no inputs, `inputs` is empty.
         - Use `image` as the output resource id; for a single effect declare ONE resource
           `image` and ONE pass `image`. `outputResourceID` = "image".
