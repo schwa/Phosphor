@@ -13,8 +13,8 @@ let package = Package(
         .library(name: "PhosphorSupport", targets: ["PhosphorSupport"])
     ],
     dependencies: [
-        .package(url: "https://github.com/schwa/MetalSprockets", branch: "main"),
-        .package(url: "https://github.com/schwa/MetalSprocketsAddOns", branch: "main"),
+        .package(url: "https://github.com/schwa/MetalSprockets", from: "0.1.10"),
+        .package(url: "https://github.com/schwa/MetalSprocketsAddOns", from: "0.1.11"),
         .package(url: "https://github.com/LebJe/TOMLKit", from: "0.6.0"),
         .package(url: "https://github.com/tree-sitter/swift-tree-sitter", from: "0.25.0"),
         .package(url: "https://github.com/tree-sitter/tree-sitter-cpp", branch: "master"),
