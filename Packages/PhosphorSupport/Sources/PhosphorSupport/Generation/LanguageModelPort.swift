@@ -19,4 +19,12 @@ public protocol LanguageModelPort: Sendable {
     /// - Throws: ``ShaderGeneratorError/malformedResponse(model:underlying:)``
     ///   if the reply can't be decoded into the schema.
     func respond(to prompt: String) async throws -> GeneratedShader
+
+    /// Sends `prompt` and decodes a ``PlannedApproach`` from the reply. Used
+    /// for the optional planning turn (#74); shares the same session, so the
+    /// plan stays in conversation history for the codegen turn that follows.
+    ///
+    /// - Throws: ``ShaderGeneratorError/malformedResponse(model:underlying:)``
+    ///   if the reply can't be decoded into the schema.
+    func respondPlan(to prompt: String) async throws -> PlannedApproach
 }

@@ -30,6 +30,9 @@ struct GeneratePanel: View {
     @State private var seededFromSource: String?
     @FocusState private var promptFocused: Bool
     @AppStorage("phosphor.generation.model") private var modelRawValue: String = GenerationModel.onDevice.rawValue
+    /// Planning mode (#74): when on, a plan turn runs before codegen. Off by
+    /// default (it adds a second model turn / latency); persisted.
+    @AppStorage("phosphor.generation.planFirst") private var planFirst: Bool = false
 
     private var selectedModel: GenerationModel {
         GenerationModel(rawValue: modelRawValue) ?? .onDevice
@@ -136,6 +139,11 @@ struct GeneratePanel: View {
                 .labelsHidden()
                 .disabled(isGenerating)
 
+                Toggle("Plan first", isOn: $planFirst)
+                    .toggleStyle(.checkbox)
+                    .disabled(isGenerating)
+                    .help("Run a planning step before generating. More deliberate, but slower (an extra model turn).")
+
                 Spacer()
 
                 Button {
@@ -188,12 +196,13 @@ struct GeneratePanel: View {
             let adapter = try FoundationModelAdapter.make(model: selectedModel)
             let result = try await ShaderGenerator(model: adapter).generate(
                 prompt: submitted,
-                existingSource: sentSource
+                existingSource: sentSource,
+                plan: planFirst
             ) { phase in
                 status = GenerationStatus(phase: phase, isModifying: modifying, sourceByteCount: sentBytes)
-                // A failed attempt becomes its OWN transcript turn (a distinct
-                // message), so the user sees both the failure and the fix as
-                // separate responses rather than one turn that gets replaced.
+                // A failed attempt (and the plan) becomes its OWN transcript
+                // turn, so the user sees each step as a separate message
+                // rather than one turn that gets replaced.
                 switch phase {
                 case .retrying(let compileError):
                     turns.append(.retried(compileError, kind: .compile))
@@ -201,7 +210,10 @@ struct GeneratePanel: View {
                 case .retryingMalformed(let decodeError):
                     turns.append(.retried(decodeError, kind: .malformed))
 
-                case .generating:
+                case .planned(let plan):
+                    turns.append(.plan(intent: plan.intent, shape: plan.shape.displayName, body: plan.plan))
+
+                case .generating, .planning:
                     break
                 }
             }
@@ -268,6 +280,27 @@ private struct TurnRow: View {
                 alignment: .trailing,
                 background: Color.accentColor.opacity(0.18),
                 content: Text(turn.text)
+            )
+
+        case .plan(let intent, let shape):
+            bubble(
+                alignment: .leading,
+                background: Color.blue.opacity(0.10),
+                content: VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Label(intent, systemImage: "list.clipboard")
+                            .font(.callout.weight(.medium))
+                        Text(shape)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(.secondary.opacity(0.15), in: .capsule)
+                    }
+                    Text(turn.text)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             )
 
         case .assistant(let title):

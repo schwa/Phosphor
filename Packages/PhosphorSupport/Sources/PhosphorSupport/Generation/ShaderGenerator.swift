@@ -110,18 +110,35 @@ public struct ShaderGenerator {
     ///
     /// `progress`, if provided, is called on the main actor with phase
     /// updates so the UI can show what the generator is doing.
+    /// When `plan` is true, a planning turn (#74) runs first: the model returns
+    /// a ``PlannedApproach`` (intent + shape + prose), which is reported via
+    /// `progress(.planned:)`, kept on the result, and folded into the codegen
+    /// prompt. The plan and the codegen turn share one session so the model
+    /// remembers what it planned.
     @preconcurrency
     public func generate(
         prompt: String,
         existingSource: String = "",
+        plan: Bool = false,
         progress: (@Sendable @MainActor (GenerationPhase) -> Void)? = nil
     ) async throws -> GenerationResult {
         let priorPrompts = PromptHistory.extract(from: existingSource)
         let allPrompts = priorPrompts + [prompt]
 
+        // Optional planning turn.
+        var generatedPlan: GeneratedPlan?
+        if plan {
+            await progress?(.planning)
+            let approach = try await respondPlan(prompt: prompt, existingSource: existingSource)
+            let built = GeneratedPlan(approach: approach, originalPrompt: prompt, sourceCode: existingSource)
+            generatedPlan = built
+            await progress?(.planned(built))
+        }
+
         // First attempt.
         await progress?(.generating)
-        let initialPrompt = Self.buildPrompt(userPrompt: prompt, existingSource: existingSource)
+        let initialPrompt = generatedPlan.map(Self.buildCodegenPrompt(plan:))
+            ?? Self.buildPrompt(userPrompt: prompt, existingSource: existingSource)
 
         // A single corrective retry is allowed, shared across decode and
         // compile failures (#94): whichever failure happens first on the first
@@ -131,7 +148,7 @@ public struct ShaderGenerator {
         do {
             let generated = try await respond(to: initialPrompt, label: "initial")
             return try await finish(
-                generated: generated, prompts: allPrompts,
+                generated: generated, prompts: allPrompts, plan: generatedPlan,
                 corrections: &corrections, progress: progress
             )
         } catch let error as ShaderGeneratorError {
@@ -149,7 +166,7 @@ public struct ShaderGenerator {
             // The retry already consumed our one retry, so a compile failure
             // here is returned as-is (no second compile retry).
             let source = try generated.toMetalSource(prompts: allPrompts)
-            return GenerationResult(source: source, title: generated.title, corrections: corrections)
+            return GenerationResult(source: source, title: generated.title, corrections: corrections, plan: generatedPlan)
         }
     }
 
@@ -159,6 +176,7 @@ public struct ShaderGenerator {
     private func finish(
         generated firstGenerated: GeneratedShader,
         prompts: [String],
+        plan: GeneratedPlan?,
         corrections: inout [GenerationCorrection],
         progress: (@Sendable @MainActor (GenerationPhase) -> Void)?
     ) async throws -> GenerationResult {
@@ -166,7 +184,7 @@ public struct ShaderGenerator {
         var source = try generated.toMetalSource(prompts: prompts)
 
         // No device / no front-matter to validate -> return as-is.
-        guard let device else { return GenerationResult(source: source, title: generated.title, corrections: corrections) }
+        guard let device else { return GenerationResult(source: source, title: generated.title, corrections: corrections, plan: plan) }
 
         if let compileError = Self.tryCompile(source: source, device: device), corrections.isEmpty {
             // Keep the failure around even though we're about to fix it (#96).
@@ -180,7 +198,13 @@ public struct ShaderGenerator {
             generated = try await respond(to: followUp, label: "retry")
             source = try generated.toMetalSource(prompts: prompts)
         }
-        return GenerationResult(source: source, title: generated.title, corrections: corrections)
+        return GenerationResult(source: source, title: generated.title, corrections: corrections, plan: plan)
+    }
+
+    /// Sends the planning prompt and returns the model's approach.
+    private func respondPlan(prompt: String, existingSource: String) async throws -> PlannedApproach {
+        let planPrompt = Self.buildPlanPrompt(userPrompt: prompt, existingSource: existingSource)
+        return try await model.respondPlan(to: planPrompt)
     }
 
     /// Sends a prompt through the port, logs the result, and rejects an empty
@@ -275,6 +299,55 @@ public struct ShaderGenerator {
             User request: \(userPrompt)
             """
     }
+
+    /// The prompt for the planning turn (#74). Prepends the planning
+    /// instructions, then the user's request and any pasted source verbatim.
+    static func buildPlanPrompt(userPrompt: String, existingSource: String) -> String {
+        let trimmedSource = existingSource.trimmingCharacters(in: .whitespacesAndNewlines)
+        var out = GeneratorInstructions.planning + "\n\n"
+        if trimmedSource.isEmpty {
+            out += "User request: \(userPrompt)"
+        } else {
+            out += """
+                The user has existing shader source (either a Phosphor shader to modify, or pasted
+                code to port). Plan accordingly.
+
+                ===== SOURCE =====
+                \(trimmedSource)
+                ===== END =====
+
+                User request: \(userPrompt)
+                """
+        }
+        return out
+    }
+
+    /// The codegen prompt when a plan exists (#74): hand the model the plan it
+    /// just produced (it's also in session history) plus the verbatim request
+    /// and source, and ask for the shader.
+    static func buildCodegenPrompt(plan: GeneratedPlan) -> String {
+        let trimmedSource = plan.sourceCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        var out = """
+            Now write the shader, following the plan you just made.
+
+            PLAN
+            Intent: \(plan.intent)
+            Shape: \(plan.shape.rawValue)
+            \(plan.plan)
+
+            """
+        if !trimmedSource.isEmpty {
+            out += """
+
+                ===== SOURCE TO PORT =====
+                \(trimmedSource)
+                ===== END =====
+
+                """
+        }
+        out += "\nUser request: \(plan.originalPrompt)"
+        return out
+    }
 }
 
 /// A recoverable failure that occurred during generation and was corrected by
@@ -315,11 +388,15 @@ public struct GenerationResult: Hashable, Sendable {
     /// first-try success. Surfaced in the chat so the user can see what went
     /// wrong and that it was fixed (#96).
     public let corrections: [GenerationCorrection]
+    /// The plan that drove this generation, when planning mode was on (#74).
+    /// `nil` for a direct (unplanned) generation.
+    public let plan: GeneratedPlan?
 
-    public init(source: String, title: String, corrections: [GenerationCorrection] = []) {
+    public init(source: String, title: String, corrections: [GenerationCorrection] = [], plan: GeneratedPlan? = nil) {
         self.source = source
         self.title = title
         self.corrections = corrections
+        self.plan = plan
     }
 }
 
@@ -333,6 +410,11 @@ public enum GenerationPhase: Hashable, Sendable {
     /// The first response didn't match the schema; the model is being asked to
     /// return a complete, well-formed response.
     case retryingMalformed(decodeError: String)
+    /// Planning mode (#74): the model is producing the plan turn.
+    case planning
+    /// Planning mode: the plan is ready (shown in the transcript) and codegen
+    /// is about to begin.
+    case planned(GeneratedPlan)
 }
 
 /// Errors that ``ShaderGenerator`` and its adapters may raise.

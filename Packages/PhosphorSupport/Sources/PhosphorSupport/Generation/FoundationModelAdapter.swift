@@ -39,6 +39,15 @@ public final class FoundationModelAdapter: LanguageModelPort, @unchecked Sendabl
         }
     }
 
+    public func respondPlan(to prompt: String) async throws -> PlannedApproach {
+        do {
+            return try await session.respond(to: prompt, generating: PlannedApproach.self).content
+        } catch {
+            Self.logger.error("[respondPlan] model=\(self.displayName, privacy: .public) decode failed: \(error, privacy: .public)")
+            throw ShaderGeneratorError.malformedResponse(model: displayName, underlying: "\(error)")
+        }
+    }
+
     private static func makeSession(model: GenerationModel) throws -> LanguageModelSession {
         switch model {
         case .onDevice:

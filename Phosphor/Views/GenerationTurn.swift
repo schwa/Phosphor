@@ -17,6 +17,9 @@ struct GenerationTurn: Identifiable, Hashable {
 
     enum Role: Hashable {
         case user
+        /// The planning turn (#74): the model's approach before codegen.
+        /// `intent` and `shape` head the bubble; `text` holds the prose.
+        case plan(intent: String, shape: String)
         /// A successful generation; `title` is the model-provided effect name.
         case assistant(title: String)
         /// A recoverable failure (the first attempt didn't compile, or its
@@ -35,6 +38,10 @@ struct GenerationTurn: Identifiable, Hashable {
 
     static func user(_ prompt: String) -> Self {
         GenerationTurn(role: .user, text: prompt)
+    }
+
+    static func plan(intent: String, shape: String, body: String) -> Self {
+        GenerationTurn(role: .plan(intent: intent, shape: shape), text: body)
     }
 
     static func assistant(title: String, summary: String) -> Self {
@@ -58,6 +65,7 @@ struct GenerationStatus: Hashable {
         case generating
         case retrying
         case retryingMalformed
+        case planning
     }
 
     let stage: Stage
@@ -94,6 +102,13 @@ struct GenerationStatus: Hashable {
 
         case .retryingMalformed(let decodeError):
             self = GenerationStatus(stage: .retryingMalformed, attempt: 2, compileError: decodeError, isModifying: isModifying, sourceByteCount: sourceByteCount)
+
+        case .planning:
+            self = GenerationStatus(stage: .planning, attempt: 1, compileError: nil, isModifying: isModifying, sourceByteCount: sourceByteCount)
+
+        case .planned:
+            // Reported as its own transcript turn; show generating next.
+            self = .generating(attempt: 1, isModifying: isModifying, sourceByteCount: sourceByteCount)
         }
     }
 
@@ -110,6 +125,9 @@ struct GenerationStatus: Hashable {
 
         case .retryingMalformed:
             return "First response was malformed — asking the model to resend a complete one…"
+
+        case .planning:
+            return "Planning the approach…"
         }
     }
 

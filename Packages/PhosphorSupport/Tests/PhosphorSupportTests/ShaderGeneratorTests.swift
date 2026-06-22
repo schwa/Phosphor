@@ -24,6 +24,17 @@ private final class FakeLanguageModel: LanguageModelPort, @unchecked Sendable {
         }
         return replies[index]
     }
+
+    var plannedApproach: PlannedApproach?
+    private(set) var planPrompts: [String] = []
+
+    func respondPlan(to prompt: String) async throws -> PlannedApproach {
+        planPrompts.append(prompt)
+        guard let plannedApproach else {
+            throw ShaderGeneratorError.malformedResponse(model: displayName, underlying: "no scripted plan")
+        }
+        return plannedApproach
+    }
 }
 
 /// Scripted port whose first response throws (simulating a decode failure)
@@ -48,6 +59,10 @@ private final class ThrowFirstLanguageModel: LanguageModelPort, @unchecked Senda
             throw ShaderGeneratorError.malformedResponse(model: displayName, underlying: "no scripted reply")
         }
         return replies[index - 1]
+    }
+
+    func respondPlan(to _: String) async throws -> PlannedApproach {
+        throw ShaderGeneratorError.malformedResponse(model: displayName, underlying: "no scripted plan")
     }
 }
 
@@ -161,6 +176,39 @@ struct ShaderGeneratorTests {
         #expect(fake.prompts.count == 2)
         #expect(result.corrections.count == 1)
         #expect(result.corrections.first?.kind == .decode)
+    }
+
+    @Test("Planning mode runs a plan turn then a codegen turn")
+    func planningRunsTwoTurns() async throws {
+        let fake = FakeLanguageModel(replies: [makeShader(body: validBody)])
+        fake.plannedApproach = PlannedApproach(
+            intent: "a swirling galaxy",
+            shape: .singlePassImage,
+            plan: "Sample uv, build a spiral with time."
+        )
+        let generator = ShaderGenerator(model: fake, device: try device())
+        let result = try await generator.generate(prompt: "a galaxy", plan: true)
+
+        // One plan turn + one codegen turn.
+        #expect(fake.planPrompts.count == 1)
+        #expect(fake.prompts.count == 1)
+        // The codegen prompt carries the plan and the verbatim original prompt.
+        #expect(fake.prompts[0].contains("a swirling galaxy"))
+        #expect(fake.prompts[0].contains("a galaxy"))
+        // The plan is preserved on the result, with the verbatim prompt attached.
+        #expect(result.plan?.intent == "a swirling galaxy")
+        #expect(result.plan?.originalPrompt == "a galaxy")
+        #expect(result.plan?.shape == .singlePassImage)
+        #expect(result.source.contains("kernel void image"))
+    }
+
+    @Test("Without planning, no plan turn runs and result.plan is nil")
+    func noPlanningByDefault() async throws {
+        let fake = FakeLanguageModel(replies: [makeShader(body: validBody)])
+        let generator = ShaderGenerator(model: fake, device: try device())
+        let result = try await generator.generate(prompt: "a galaxy")
+        #expect(fake.planPrompts.isEmpty)
+        #expect(result.plan == nil)
     }
 
     @Test("A persistently malformed model rethrows after the single retry")
