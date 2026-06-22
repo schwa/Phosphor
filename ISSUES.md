@@ -3044,11 +3044,13 @@ Touch points: GeneratorInstructions (full + onDevice), PhosphorHeader.
 ## 88: Store the static part of Phosphor.h on disk as a real header
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 labels: effort:m
 created: 2026-06-22T17:18:05Z
+updated: 2026-06-22T17:44:00Z
+closed: 2026-06-22T17:44:00Z
 +++
 
 Today the entire Phosphor.h prelude is synthesized in code (PhosphorHeader.helpersDecl) and there is no on-disk header — the user writes #include "Phosphor.h" purely as a hint and the runtime strips it before compiling.
@@ -3066,6 +3068,8 @@ Open questions:
 - Keep the SourceAssembler include-stripping behavior consistent with whatever we choose.
 
 Touch points: PhosphorHeader (helpersDecl -> load from resource), SourceAssembler, PhosphorBundleDocument (if copying into packages), build/resource config. Relates to #87.
+
+- `2026-06-22T17:44:00Z`: Extracted the static helper prelude (PI/PI2, vec aliases, F4, rotate2D/3D, fsnoise/fsnoiseDigits, hsv, snoise2D/3D/4D) into Resources/PhosphorHeader.metal as the single source of truth. PhosphorHeader.helpersDecl() now loads it via Bundle.module (process-cached, empty-string fallback). Dynamic config-derived structs stay code-generated. Decisions: bundled as a SwiftPM resource in PhosphorSupport, NOT copied into .phosphord packages — the include is still stripped and the header assembled in memory; SourceAssembler unchanged. Render/compile smoke tests pass.
 
 ---
 

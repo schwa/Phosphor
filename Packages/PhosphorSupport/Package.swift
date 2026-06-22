@@ -37,7 +37,8 @@ let package = Package(
                 .product(name: "FoundationModelBackends", package: "FoundationModelBackends")
             ],
             resources: [
-                .copy("Resources/BuiltinTextures")
+                .copy("Resources/BuiltinTextures"),
+                .copy("Resources/PhosphorHeader.metal")
             ]
         ),
         .testTarget(
