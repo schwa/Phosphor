@@ -3250,11 +3250,13 @@ Touch points: ShaderGenerator, GenerationResult/new GenerationTrace, GenerationT
 ## 94: Retry once on malformed/schema-decode response (feed the error back)
 
 +++
-status: new
+status: closed
 priority: medium
 kind: enhancement
 labels: generation, effort:s
 created: 2026-06-22T19:49:40Z
+updated: 2026-06-22T21:27:39Z
+closed: 2026-06-22T21:27:39Z
 +++
 
 When the model returns a response that fails to DECODE into the GeneratedShader schema, the generator gives up immediately with a malformedResponse error (e.g. observed: {"$PARAMETER_NAME": "undefined"} — no title, garbage content). We already retry once when the produced shader fails to COMPILE (#30), feeding the compiler errors back. Do the same for malformed/schema-decode failures: feed the decode error back and retry.
@@ -3274,6 +3276,7 @@ Surface in the chat: if the single retry also fails, show the malformedResponse 
 Touch points: ShaderGenerator (unified retry policy + budget), LanguageModelPort/FoundationModelAdapter (typed decode error), GenerationPhase (a retrying-on-malformed phase or reuse), tests.
 
 - `2026-06-22T19:51:47Z`: Validated manually: pasting the malformedResponse error back into a follow-up prompt ('i tried this before and got - malformedResponse(...)') produced a successful generation ('Pixelated Tube Fall'). Confirms feeding the decode error back recovers, and that this specific failure was transient/recoverable rather than a hard backend dead-end. Good evidence the automated single-retry is worth building.
+- `2026-06-22T21:27:39Z`: Implemented, mirroring the compile-retry flow. A malformed/schema-decode failure on the first attempt feeds the decode error back (buildMalformedRetryPrompt) and retries once. Single corrective-retry budget shared with the compile retry — never stacked (tested). Adds GenerationCorrection.Kind.decode + GenerationPhase.retryingMalformed; the failure is recorded on GenerationResult.corrections and logged. UI: shows as its own .retried(.malformed) turn matching the compile-retry style. Tests cover decode-retry success, no-stacking, and give-up-after-one.
 
 ---
 

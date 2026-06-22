@@ -117,31 +117,68 @@ public struct ShaderGenerator {
         progress: (@Sendable @MainActor (GenerationPhase) -> Void)? = nil
     ) async throws -> GenerationResult {
         let priorPrompts = PromptHistory.extract(from: existingSource)
+        let allPrompts = priorPrompts + [prompt]
 
         // First attempt.
         await progress?(.generating)
         let initialPrompt = Self.buildPrompt(userPrompt: prompt, existingSource: existingSource)
-        var generated = try await respond(to: initialPrompt, label: "initial")
-        var source = try generated.toMetalSource(prompts: priorPrompts + [prompt])
 
-        // Compile check. If we don't have a device or the source has no
-        // front-matter we can validate, just return as-is.
-        guard let device else { return GenerationResult(source: source, title: generated.title) }
+        // A single corrective retry is allowed, shared across decode and
+        // compile failures (#94): whichever failure happens first on the first
+        // attempt consumes the one retry. We never stack two retries.
         var corrections: [GenerationCorrection] = []
-        if let compileError = Self.tryCompile(source: source, device: device) {
-            // Keep the failure around even though we're about to fix it (#96):
-            // record it on the result and log it so it survives the retry.
+
+        do {
+            let generated = try await respond(to: initialPrompt, label: "initial")
+            return try await finish(
+                generated: generated, prompts: allPrompts,
+                corrections: &corrections, progress: progress
+            )
+        } catch let error as ShaderGeneratorError {
+            // Only schema-decode failures are recoverable here; rethrow the rest
+            // (missing key, empty body, …).
+            guard case .malformedResponse(_, let underlying) = error else { throw error }
+            corrections.append(GenerationCorrection(attempt: 1, kind: .decode, message: underlying))
+            Self.logger.error("""
+                [decode-retry] model=\(model.displayName, privacy: .public) \
+                first attempt didn't match the schema; retrying. error=\"\(underlying, privacy: .public)\"
+                """)
+            await progress?(.retryingMalformed(decodeError: underlying))
+            let followUp = Self.buildMalformedRetryPrompt(decodeError: underlying)
+            let generated = try await respond(to: followUp, label: "decode-retry")
+            // The retry already consumed our one retry, so a compile failure
+            // here is returned as-is (no second compile retry).
+            let source = try generated.toMetalSource(prompts: allPrompts)
+            return GenerationResult(source: source, title: generated.title, corrections: corrections)
+        }
+    }
+
+    /// Renders + compile-checks a decoded response. If it fails to compile and
+    /// we still have our retry budget (`corrections` empty), runs the one
+    /// compile retry. Otherwise returns the result as-is.
+    private func finish(
+        generated firstGenerated: GeneratedShader,
+        prompts: [String],
+        corrections: inout [GenerationCorrection],
+        progress: (@Sendable @MainActor (GenerationPhase) -> Void)?
+    ) async throws -> GenerationResult {
+        var generated = firstGenerated
+        var source = try generated.toMetalSource(prompts: prompts)
+
+        // No device / no front-matter to validate -> return as-is.
+        guard let device else { return GenerationResult(source: source, title: generated.title, corrections: corrections) }
+
+        if let compileError = Self.tryCompile(source: source, device: device), corrections.isEmpty {
+            // Keep the failure around even though we're about to fix it (#96).
             corrections.append(GenerationCorrection(attempt: 1, kind: .compile, message: compileError))
             Self.logger.error("""
                 [compile-retry] model=\(model.displayName, privacy: .public) \
                 first attempt failed to compile; retrying. error=\"\(compileError, privacy: .public)\"
                 """)
             await progress?(.retrying(compileError: compileError))
-            // One retry. The port retains history so the model already knows
-            // what it just produced.
             let followUp = Self.buildRetryPrompt(compileError: compileError)
             generated = try await respond(to: followUp, label: "retry")
-            source = try generated.toMetalSource(prompts: priorPrompts + [prompt])
+            source = try generated.toMetalSource(prompts: prompts)
         }
         return GenerationResult(source: source, title: generated.title, corrections: corrections)
     }
@@ -206,6 +243,22 @@ public struct ShaderGenerator {
             """
     }
 
+    /// Feedback prompt for a schema-decode failure: tell the model its last
+    /// response didn't match the required structure and ask for a complete,
+    /// well-formed one. The session retains history, so it knows what it tried.
+    static func buildMalformedRetryPrompt(decodeError: String) -> String {
+        """
+            Your previous response could not be decoded into the required shader structure:
+
+            \(decodeError)
+
+            Return a COMPLETE, well-formed response with every required field populated:
+            title, body (the full MSL source), resources, passes, uniforms, outputResourceID,
+            and flipY. Do not leave any field undefined or use placeholder values. Keep the same
+            intent as the user's request.
+            """
+    }
+
     /// Combines the user's prompt with the current shader source (if any) into
     /// the message we hand to the model.
     static func buildPrompt(userPrompt: String, existingSource: String) -> String {
@@ -235,6 +288,9 @@ public struct GenerationCorrection: Hashable, Sendable {
         /// The produced shader failed to compile; the Metal compiler errors
         /// were fed back to the model.
         case compile
+        /// The response didn't decode into the schema; the decode error was
+        /// fed back to the model.
+        case decode
     }
 
     /// Which attempt produced this failure (1 = the first attempt).
@@ -274,6 +330,9 @@ public enum GenerationPhase: Hashable, Sendable {
     case generating
     /// The first response failed to compile; the model is being asked to fix it.
     case retrying(compileError: String)
+    /// The first response didn't match the schema; the model is being asked to
+    /// return a complete, well-formed response.
+    case retryingMalformed(decodeError: String)
 }
 
 /// Errors that ``ShaderGenerator`` and its adapters may raise.

@@ -9,15 +9,22 @@ import PhosphorSupport
 /// re-hydrated on appear via `PromptHistory.extract` so some history survives
 /// reopen, even though responses don't.
 struct GenerationTurn: Identifiable, Hashable {
+    /// Why a recoverable retry happened.
+    enum RetryKind: Hashable {
+        case compile
+        case malformed
+    }
+
     enum Role: Hashable {
         case user
         /// A successful generation; `title` is the model-provided effect name.
         case assistant(title: String)
-        /// A recoverable failure (e.g. the first attempt didn't compile) that
-        /// the generator is auto-correcting. Shown as its own turn so the
-        /// failure and the fix are two distinct messages (#96), then followed
-        /// by the successful `assistant` turn. `text` carries the error.
-        case retried
+        /// A recoverable failure (the first attempt didn't compile, or its
+        /// response was malformed) that the generator is auto-correcting.
+        /// Shown as its own turn so the failure and the fix are two distinct
+        /// messages (#94/#96), then followed by the successful `assistant`
+        /// turn. `text` carries the error.
+        case retried(RetryKind)
         /// A terminal failure; `text` carries the error message.
         case error
     }
@@ -34,8 +41,8 @@ struct GenerationTurn: Identifiable, Hashable {
         GenerationTurn(role: .assistant(title: title), text: summary)
     }
 
-    static func retried(_ compileError: String) -> Self {
-        GenerationTurn(role: .retried, text: compileError)
+    static func retried(_ errorText: String, kind: RetryKind) -> Self {
+        GenerationTurn(role: .retried(kind), text: errorText)
     }
 
     static func error(_ message: String) -> Self {
@@ -50,12 +57,13 @@ struct GenerationStatus: Hashable {
     enum Stage: Hashable {
         case generating
         case retrying
+        case retryingMalformed
     }
 
     let stage: Stage
     /// Which attempt this is (1 = first, 2 = the retry).
     let attempt: Int
-    /// Compiler error feedback, present only when retrying.
+    /// Error feedback (compiler or decode), present only when retrying.
     let compileError: String?
     /// True when the request modifies an existing shader (its source is sent
     /// to the model); false for a fresh generation.
@@ -83,6 +91,9 @@ struct GenerationStatus: Hashable {
 
         case .retrying(let compileError):
             self = GenerationStatus(stage: .retrying, attempt: 2, compileError: compileError, isModifying: isModifying, sourceByteCount: sourceByteCount)
+
+        case .retryingMalformed(let decodeError):
+            self = GenerationStatus(stage: .retryingMalformed, attempt: 2, compileError: decodeError, isModifying: isModifying, sourceByteCount: sourceByteCount)
         }
     }
 
@@ -96,6 +107,9 @@ struct GenerationStatus: Hashable {
 
         case .retrying:
             return "First attempt didn’t compile — sending the errors back and retrying…"
+
+        case .retryingMalformed:
+            return "First response was malformed — asking the model to resend a complete one…"
         }
     }
 

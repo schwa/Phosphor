@@ -194,8 +194,15 @@ struct GeneratePanel: View {
                 // A failed attempt becomes its OWN transcript turn (a distinct
                 // message), so the user sees both the failure and the fix as
                 // separate responses rather than one turn that gets replaced.
-                if case .retrying(let compileError) = phase {
-                    turns.append(.retried(compileError))
+                switch phase {
+                case .retrying(let compileError):
+                    turns.append(.retried(compileError, kind: .compile))
+
+                case .retryingMalformed(let decodeError):
+                    turns.append(.retried(decodeError, kind: .malformed))
+
+                case .generating:
+                    break
                 }
             }
             let elapsed = started.duration(to: .now)
@@ -276,12 +283,12 @@ private struct TurnRow: View {
                 }
             )
 
-        case .retried:
+        case .retried(let kind):
             bubble(
                 alignment: .leading,
                 background: Color.orange.opacity(0.14),
                 content: VStack(alignment: .leading, spacing: 4) {
-                    Label("Didn’t compile — retrying with the errors", systemImage: "arrow.clockwise")
+                    Label(retryHeadline(kind), systemImage: "arrow.clockwise")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.orange)
                     Text(turn.text)
@@ -298,6 +305,13 @@ private struct TurnRow: View {
                     .font(.caption)
                     .foregroundStyle(.red)
             )
+        }
+    }
+
+    private func retryHeadline(_ kind: GenerationTurn.RetryKind) -> String {
+        switch kind {
+        case .compile: "Didn’t compile — retrying with the errors"
+        case .malformed: "Malformed response — asking for a complete one"
         }
     }
 

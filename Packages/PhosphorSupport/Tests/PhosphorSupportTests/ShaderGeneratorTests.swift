@@ -26,6 +26,31 @@ private final class FakeLanguageModel: LanguageModelPort, @unchecked Sendable {
     }
 }
 
+/// Scripted port whose first response throws (simulating a decode failure)
+/// and whose subsequent responses come from `replies`.
+private final class ThrowFirstLanguageModel: LanguageModelPort, @unchecked Sendable {
+    let displayName = "Fake"
+    private let firstError: ShaderGeneratorError
+    private let replies: [GeneratedShader]
+    private var index = 0
+    private(set) var prompts: [String] = []
+
+    init(firstError: ShaderGeneratorError, then replies: [GeneratedShader]) {
+        self.firstError = firstError
+        self.replies = replies
+    }
+
+    func respond(to prompt: String) async throws -> GeneratedShader {
+        prompts.append(prompt)
+        defer { index += 1 }
+        if index == 0 { throw firstError }
+        guard index - 1 < replies.count else {
+            throw ShaderGeneratorError.malformedResponse(model: displayName, underlying: "no scripted reply")
+        }
+        return replies[index - 1]
+    }
+}
+
 private func makeShader(body: String, output: String = "image") -> GeneratedShader {
     GeneratedShader(
         title: "Test",
@@ -102,6 +127,54 @@ struct ShaderGeneratorTests {
         let generator = ShaderGenerator(model: fake, device: try device())
         let result = try await generator.generate(prompt: "make a thing")
         #expect(result.corrections.isEmpty)
+    }
+
+    @Test("A malformed first response triggers exactly one decode retry")
+    func retryOnDecodeError() async throws {
+        let fake = ThrowFirstLanguageModel(
+            firstError: .malformedResponse(model: "Fake", underlying: "missing title"),
+            then: [makeShader(body: validBody)]
+        )
+        let generator = ShaderGenerator(model: fake, device: try device())
+        let result = try await generator.generate(prompt: "make a thing")
+        #expect(result.source.contains("kernel void image"))
+        #expect(fake.prompts.count == 2)
+        // The retry prompt asks for a complete, well-formed response.
+        #expect(fake.prompts[1].contains("could not be decoded"))
+        // The decode failure survives on the result.
+        #expect(result.corrections.count == 1)
+        #expect(result.corrections.first?.kind == .decode)
+        #expect(result.corrections.first?.message == "missing title")
+    }
+
+    @Test("Only one corrective retry: a decode retry that won't compile is returned as-is")
+    func decodeRetryDoesNotStackCompileRetry() async throws {
+        // First call throws (decode), retry returns a non-compiling shader.
+        // The single retry is already spent, so we must NOT retry again.
+        let fake = ThrowFirstLanguageModel(
+            firstError: .malformedResponse(model: "Fake", underlying: "bad"),
+            then: [makeShader(body: brokenBody)]
+        )
+        let generator = ShaderGenerator(model: fake, device: try device())
+        let result = try await generator.generate(prompt: "make a thing")
+        // Exactly two model turns: initial (threw) + one retry. No third.
+        #expect(fake.prompts.count == 2)
+        #expect(result.corrections.count == 1)
+        #expect(result.corrections.first?.kind == .decode)
+    }
+
+    @Test("A persistently malformed model rethrows after the single retry")
+    func decodeRetryGivesUp() async throws {
+        // First call throws, retry has no scripted reply -> throws again.
+        let fake = ThrowFirstLanguageModel(
+            firstError: .malformedResponse(model: "Fake", underlying: "bad"),
+            then: []
+        )
+        let generator = ShaderGenerator(model: fake, device: try device())
+        await #expect(throws: ShaderGeneratorError.self) {
+            _ = try await generator.generate(prompt: "make a thing")
+        }
+        #expect(fake.prompts.count == 2)
     }
 
     @Test("Empty body throws emptyBody")
