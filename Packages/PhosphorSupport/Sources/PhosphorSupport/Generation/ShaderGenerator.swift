@@ -127,7 +127,15 @@ public struct ShaderGenerator {
         // Compile check. If we don't have a device or the source has no
         // front-matter we can validate, just return as-is.
         guard let device else { return GenerationResult(source: source, title: generated.title) }
+        var corrections: [GenerationCorrection] = []
         if let compileError = Self.tryCompile(source: source, device: device) {
+            // Keep the failure around even though we're about to fix it (#96):
+            // record it on the result and log it so it survives the retry.
+            corrections.append(GenerationCorrection(attempt: 1, kind: .compile, message: compileError))
+            Self.logger.error("""
+                [compile-retry] model=\(model.displayName, privacy: .public) \
+                first attempt failed to compile; retrying. error=\"\(compileError, privacy: .public)\"
+                """)
             await progress?(.retrying(compileError: compileError))
             // One retry. The port retains history so the model already knows
             // what it just produced.
@@ -135,7 +143,7 @@ public struct ShaderGenerator {
             generated = try await respond(to: followUp, label: "retry")
             source = try generated.toMetalSource(prompts: priorPrompts + [prompt])
         }
-        return GenerationResult(source: source, title: generated.title)
+        return GenerationResult(source: source, title: generated.title, corrections: corrections)
     }
 
     /// Sends a prompt through the port, logs the result, and rejects an empty
@@ -216,15 +224,46 @@ public struct ShaderGenerator {
     }
 }
 
-/// The outcome of a successful generation: the full `.metal` source plus the
-/// model-provided title, surfaced so the chat UI can label each turn.
+/// A recoverable failure that occurred during generation and was corrected by
+/// a follow-up turn. Kept on ``GenerationResult`` so the error survives the
+/// auto-correction instead of being discarded once the retry succeeds (#96).
+///
+/// Modeled generically over an error ``Kind`` so future retry classes (e.g.
+/// malformed/decode failures, #94) reuse the same shape.
+public struct GenerationCorrection: Hashable, Sendable {
+    public enum Kind: String, Hashable, Sendable {
+        /// The produced shader failed to compile; the Metal compiler errors
+        /// were fed back to the model.
+        case compile
+    }
+
+    /// Which attempt produced this failure (1 = the first attempt).
+    public let attempt: Int
+    public let kind: Kind
+    /// The error text that was fed back to the model.
+    public let message: String
+
+    public init(attempt: Int, kind: Kind, message: String) {
+        self.attempt = attempt
+        self.kind = kind
+        self.message = message
+    }
+}
+
+/// The outcome of a successful generation: the full `.metal` source, the
+/// model-provided title, and any errors that were auto-corrected along the way.
 public struct GenerationResult: Hashable, Sendable {
     public let source: String
     public let title: String
+    /// Failures that were corrected by a retry, oldest first. Empty on a
+    /// first-try success. Surfaced in the chat so the user can see what went
+    /// wrong and that it was fixed (#96).
+    public let corrections: [GenerationCorrection]
 
-    public init(source: String, title: String) {
+    public init(source: String, title: String, corrections: [GenerationCorrection] = []) {
         self.source = source
         self.title = title
+        self.corrections = corrections
     }
 }
 

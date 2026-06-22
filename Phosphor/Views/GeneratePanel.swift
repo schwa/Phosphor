@@ -205,7 +205,8 @@ struct GeneratePanel: View {
             let verb = modifying ? "Modified shader" : "Generated shader"
             turns.append(.assistant(
                 title: result.title,
-                summary: "\(verb) in \(Self.formatted(elapsed))"
+                summary: "\(verb) in \(Self.formatted(elapsed))",
+                corrections: result.corrections
             ))
         } catch {
             let elapsed = started.duration(to: .now)
@@ -242,6 +243,13 @@ private struct TurnRow: View {
     let turn: GenerationTurn
 
     var body: some View {
+        // Make all transcript text selectable/copyable (#95). The composer's
+        // interactive controls live elsewhere, so this only affects Text.
+        rowContent.textSelection(.enabled)
+    }
+
+    @ViewBuilder
+    private var rowContent: some View {
         switch turn.role {
         case .user:
             bubble(
@@ -260,6 +268,9 @@ private struct TurnRow: View {
                     Text(turn.text)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if !turn.corrections.isEmpty {
+                        CorrectionsDisclosure(corrections: turn.corrections)
+                    }
                 }
             )
 
@@ -270,7 +281,6 @@ private struct TurnRow: View {
                 content: Label(turn.text, systemImage: "exclamationmark.triangle")
                     .font(.caption)
                     .foregroundStyle(.red)
-                    .textSelection(.enabled)
             )
         }
     }
@@ -283,6 +293,40 @@ private struct TurnRow: View {
                 .background(background, in: .rect(cornerRadius: 10))
                 .frame(maxWidth: .infinity, alignment: alignment == .trailing ? .trailing : .leading)
             if alignment == .leading { Spacer(minLength: 24) }
+        }
+    }
+}
+
+/// Collapsible note on a successful assistant turn listing the errors that
+/// were auto-corrected on the way to it (#96). Collapsed by default so the
+/// happy path stays tidy.
+private struct CorrectionsDisclosure: View {
+    let corrections: [GenerationCorrection]
+    @State private var expanded = false
+
+    private var summary: String {
+        let n = corrections.count
+        let kinds = Set(corrections.map(\.kind))
+        let noun = kinds == [.compile] ? "compile error" : "error"
+        return "Auto-corrected \(n) \(noun)\(n == 1 ? "" : "s")"
+    }
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $expanded) {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(corrections, id: \.self) { correction in
+                    Text(correction.message)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(.top, 4)
+        } label: {
+            Label(summary, systemImage: "wrench.and.screwdriver")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 }

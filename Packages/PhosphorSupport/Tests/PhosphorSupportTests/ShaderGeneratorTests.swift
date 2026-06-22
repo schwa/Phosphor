@@ -89,6 +89,19 @@ struct ShaderGeneratorTests {
         #expect(fake.prompts.count == 2)
         // The retry prompt carries the compiler error feedback.
         #expect(fake.prompts[1].contains("failed to compile"))
+        // The corrected error survives on the result (#96).
+        #expect(result.corrections.count == 1)
+        #expect(result.corrections.first?.kind == .compile)
+        #expect(result.corrections.first?.attempt == 1)
+        #expect(!(result.corrections.first?.message.isEmpty ?? true))
+    }
+
+    @Test("A first-try success records no corrections")
+    func noCorrectionsOnSuccess() async throws {
+        let fake = FakeLanguageModel(replies: [makeShader(body: validBody)])
+        let generator = ShaderGenerator(model: fake, device: try device())
+        let result = try await generator.generate(prompt: "make a thing")
+        #expect(result.corrections.isEmpty)
     }
 
     @Test("Empty body throws emptyBody")

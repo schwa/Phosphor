@@ -20,13 +20,16 @@ struct GenerationTurn: Identifiable, Hashable {
     let id = UUID()
     let role: Role
     let text: String
+    /// Errors that were auto-corrected on the way to this (successful) turn.
+    /// Kept so the failure survives the correction (#96); empty otherwise.
+    var corrections: [GenerationCorrection] = []
 
     static func user(_ prompt: String) -> Self {
         GenerationTurn(role: .user, text: prompt)
     }
 
-    static func assistant(title: String, summary: String) -> Self {
-        GenerationTurn(role: .assistant(title: title), text: summary)
+    static func assistant(title: String, summary: String, corrections: [GenerationCorrection] = []) -> Self {
+        GenerationTurn(role: .assistant(title: title), text: summary, corrections: corrections)
     }
 
     static func error(_ message: String) -> Self {

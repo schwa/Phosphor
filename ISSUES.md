@@ -3280,11 +3280,13 @@ Touch points: ShaderGenerator (unified retry policy + budget), LanguageModelPort
 ## 95: Make the generation transcript text selectable
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 labels: effort:xs
 created: 2026-06-22T19:50:59Z
+updated: 2026-06-22T20:03:48Z
+closed: 2026-06-22T20:03:48Z
 +++
 
 Make the Generate chat transcript text selectable/copyable everywhere it reasonably can be. Today only the in-flight status detail (compiler errors) and the error-turn message have .textSelection(.enabled); user prompt bubbles and assistant turns (title + summary) are not selectable, so you can't copy a prompt back out or copy an error/title.
@@ -3300,6 +3302,8 @@ Notes:
 - Don't enable selection on interactive controls (model picker, buttons).
 
 Touch points: GeneratePanel TurnRow (user/assistant/error branches).
+
+- `2026-06-22T20:03:48Z`: Applied .textSelection(.enabled) at the TurnRow level, so user prompts, assistant titles/summaries, the corrections disclosure, and error text are all selectable/copyable. Composer controls are unaffected (separate view).
 
 ---
 
