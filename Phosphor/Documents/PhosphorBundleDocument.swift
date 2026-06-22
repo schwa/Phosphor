@@ -95,6 +95,37 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
         parsed = ParsedPhosphorSource(source: activeText)
     }
 
+    /// Replace a specific shader's full text as a single undoable step.
+    ///
+    /// Programmatic mutations (Reformat, Generate, Configuration edits) must
+    /// route through here rather than assigning `activeText` directly so
+    /// Cmd-Z restores the prior text and Cmd-Shift-Z re-applies. The undo
+    /// closure captures the target shader name so undo lands on the right
+    /// shader even if the user has since switched; it re-selects that shader
+    /// and re-registers itself for redo. Re-parses after the swap.
+    @MainActor
+    func setText(_ newText: String, for filename: String, actionName: String, undoManager: UndoManager?) {
+        guard let previous = shaders[filename], previous != newText else { return }
+        shaders[filename] = newText
+        if activeShader == filename {
+            refreshParsed()
+        }
+        undoManager?.registerUndo(withTarget: self) { document in
+            if document.activeShader != filename {
+                document.selectShader(filename)
+            }
+            document.setText(previous, for: filename, actionName: actionName, undoManager: undoManager)
+        }
+        undoManager?.setActionName(actionName)
+    }
+
+    /// Convenience: mutate the currently active shader. No-op if none active.
+    @MainActor
+    func setActiveText(_ newText: String, actionName: String, undoManager: UndoManager?) {
+        guard let name = activeShader else { return }
+        setText(newText, for: name, actionName: actionName, undoManager: undoManager)
+    }
+
     /// Switch the editor to a different shader. Re-parses on the way.
     func selectShader(_ filename: String) {
         guard shaders[filename] != nil else { return }

@@ -29,6 +29,9 @@ struct PhosphorApp: App {
             CommandGroup(after: .pasteboard) {
                 ReformatFrontMatterButton()
             }
+            #if DEBUG
+            DebugCommands()
+            #endif
         }
 
         DocumentGroup { document in

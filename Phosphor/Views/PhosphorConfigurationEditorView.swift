@@ -8,6 +8,7 @@ import SwiftUI
 struct PhosphorConfigurationEditorView: View {
     let parsed: ParsedPhosphorSource
     @Binding var text: String
+    @Environment(\.textMutator) private var textMutator
 
     @State private var draft: PhosphorConfiguration?
     @State private var diagnostics: [PhosphorDiagnostic] = []
@@ -71,7 +72,13 @@ struct PhosphorConfigurationEditorView: View {
                 applyError = "Couldn't find front-matter block to replace."
                 return
             }
-            text.replaceSubrange(openRange.lowerBound..<closeRange.upperBound, with: wrapped)
+            var updated = text
+            updated.replaceSubrange(openRange.lowerBound..<closeRange.upperBound, with: wrapped)
+            if let textMutator {
+                textMutator.apply(updated, actionName: "Edit Configuration")
+            } else {
+                text = updated
+            }
             diagnostics = validation
             applyError = nil
         } catch {

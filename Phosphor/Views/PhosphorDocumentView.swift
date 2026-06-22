@@ -8,6 +8,7 @@ struct PhosphorDocumentView: View {
     @Bindable var document: PhosphorMetalDocument
     @State private var runtime = PhosphorRuntime()
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
+    @Environment(\.undoManager) private var undoManager
 
     var body: some View {
         ShaderEditorView(
@@ -16,6 +17,9 @@ struct PhosphorDocumentView: View {
             onTextChange: { document.refreshParsed() },
             isUntouchedTemplate: document.isUntouchedTemplate
         )
+        .environment(\.textMutator, TextMutator { newText, actionName in
+            document.setText(newText, actionName: actionName, undoManager: undoManager)
+        })
         // Debounce recompiles: re-parsing stays instant (cheap, drives editor
         // diagnostics), but the expensive compile waits until typing pauses so
         // mid-edit syntax errors don't flicker back (#53). A new keystroke

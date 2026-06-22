@@ -53,6 +53,25 @@ final class PhosphorMetalDocument: ReadableDocument, WritableDocument {
         parsed = ParsedPhosphorSource(source: text)
     }
 
+    /// Replace the document's full text as a single undoable step.
+    ///
+    /// Programmatic mutations (Reformat, Generate, Configuration edits) must
+    /// route through here rather than assigning `text` directly so Cmd-Z
+    /// restores the prior text and Cmd-Shift-Z re-applies. The undo closure
+    /// re-registers itself with the swapped value, giving redo for free.
+    /// Re-parses after the swap so `parsed` stays consistent.
+    @MainActor
+    func setText(_ newText: String, actionName: String, undoManager: UndoManager?) {
+        guard newText != text else { return }
+        let previous = text
+        text = newText
+        refreshParsed()
+        undoManager?.registerUndo(withTarget: self) { document in
+            document.setText(previous, actionName: actionName, undoManager: undoManager)
+        }
+        undoManager?.setActionName(actionName)
+    }
+
     // MARK: - ReadableDocument
 
     func reader(

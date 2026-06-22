@@ -8,6 +8,7 @@ struct PhosphorBundleDocumentView: View {
     @Bindable var document: PhosphorBundleDocument
     @State private var runtime = PhosphorRuntime()
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
+    @Environment(\.undoManager) private var undoManager
 
     private var sortedShaderNames: [String] {
         document.shaders.keys.sorted()
@@ -51,6 +52,9 @@ struct PhosphorBundleDocumentView: View {
                 onTextChange: { document.refreshParsed() },
                 isUntouchedTemplate: document.isUntouchedTemplate
             )
+            .environment(\.textMutator, TextMutator { newText, actionName in
+                document.setActiveText(newText, actionName: actionName, undoManager: undoManager)
+            })
         }
         // Debounce recompiles so mid-edit syntax errors don't flicker back (#53);
         // see PhosphorDocumentView. Keyed on the active text + asset set so a new

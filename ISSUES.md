@@ -2734,12 +2734,13 @@ output = "image"
 ## 76: All programmatic text mutations must be undoable
 
 +++
-status: open
+status: closed
 priority: high
 kind: bug
 labels: effort:m
 created: 2026-06-22T15:47:11Z
-updated: 2026-06-22T15:49:24Z
+updated: 2026-06-22T16:39:06Z
+closed: 2026-06-22T16:39:06Z
 +++
 
 Several features mutate the document text directly, bypassing the editor's normal undo stack. After any of these runs, Cmd-Z does not restore the previous text (or behaves inconsistently). All text-modifying operations should register a single, coalesced undo step so the user can revert them.
@@ -2763,6 +2764,7 @@ Open question: where undo registration lives. These are SDK 27 ReadableDocument/
 Touch points: ReformatCommand, GeneratePanel, PhosphorConfigurationEditorView, PhosphorMetalDocument/PhosphorBundleDocument, ShaderEditorView.
 
 - `2026-06-22T15:49:24Z`: Related to #77 (chat-like generation + version rollback): rollback and undo must be coherent — decide whether selecting an old version is an undoable text edit or a separate history mechanism.
+- `2026-06-22T16:39:06Z`: Undo registration implemented: programmatic text mutations (Reformat, Generate/Modify, Edit Configuration) now route through PhosphorMetalDocument.setText / PhosphorBundleDocument.setText via the TextMutator helper, registering a single named undo step. Undo restores full prior text and re-parses; works for both document types. Redo does not yet work — split out into #79.
 
 ---
 
@@ -2865,5 +2867,23 @@ Infrastructure in place (from #76):
 - TextMutator bridges the doc-agnostic editor UI to those methods; injected via environment and re-published as a focused-scene value for menu commands.
 
 Not yet root-caused; do not over-theorize here. Reproduce with the debug command, then investigate why the nested registerUndo inside the undo closure does not register as a redo action.
+
+---
+
+## 80: Layout button cycles HSplitView / VSplitView / ZStack
+
++++
+status: closed
+priority: low
+kind: none
+labels: effort:s
+created: 2026-06-22T16:41:43Z
+updated: 2026-06-22T16:41:45Z
+closed: 2026-06-22T16:41:45Z
++++
+
+Replaced the two-state side-by-side/overlay layout toggle with a three-state cycle button: horizontal (HSplitView), vertical (VSplitView), and overlay (ZStack). Icon and help text update per current state. Deduped the diagnostics/frame-timing/uniforms overlays into a shared PreviewOverlays modifier.
+
+- `2026-06-22T16:41:46Z`: Implemented.
 
 ---

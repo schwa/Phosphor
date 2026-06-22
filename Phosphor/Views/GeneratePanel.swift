@@ -10,6 +10,8 @@ struct GeneratePanel: View {
     let isUntouchedTemplate: Bool
     let onTextChange: () -> Void
 
+    @Environment(\.textMutator) private var textMutator
+
     @State private var prompt: String = ""
     @State private var isGenerating: Bool = false
     @State private var statusMessage: String?
@@ -106,8 +108,12 @@ struct GeneratePanel: View {
             ) { phase in
                 statusMessage = phaseMessage(phase)
             }
-            text = source
-            onTextChange()
+            if let textMutator {
+                textMutator.apply(source, actionName: isModifying ? "Modify Shader" : "Generate Shader")
+            } else {
+                text = source
+                onTextChange()
+            }
             isPresented = false
         } catch {
             errorMessage = "\(error)"

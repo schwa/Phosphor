@@ -20,8 +20,9 @@ struct ShaderEditorView: View {
     @SceneStorage("phosphor.ui.showFrameTiming") private var showFrameTiming: Bool = true
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
     @SceneStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
-    @SceneStorage("phosphor.ui.layoutMode") private var layoutMode: LayoutMode = .sideBySide
+    @SceneStorage("phosphor.ui.layoutMode") private var layoutMode: LayoutMode = .horizontal
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
+    @Environment(\.textMutator) private var textMutator
 
     /// True if the current document has at least one declared uniform.
     private var hasUniforms: Bool {
@@ -54,17 +55,15 @@ struct ShaderEditorView: View {
             model.seedUniformDefaults(for: parsed.configuration)
         }
         .focusedSceneValue(\.shaderText, $text)
+        .focusedSceneValue(\.shaderTextMutator, textMutator)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Button {
-                    layoutMode.toggle()
+                    layoutMode.cycle()
                 } label: {
-                    Label(
-                        layoutMode == .sideBySide ? "Overlay Layout" : "Side-by-Side Layout",
-                        systemImage: layoutMode == .sideBySide ? "rectangle.on.rectangle" : "rectangle.split.2x1"
-                    )
+                    Label("Layout", systemImage: layoutMode.systemImage)
                 }
-                .help(layoutMode == .sideBySide ? "Switch to overlay layout" : "Switch to side-by-side layout")
+                .help(layoutMode.nextLayoutHelp)
             }
             ToolbarItem(placement: .principal) {
                 ResourcePickerView(
