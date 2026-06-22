@@ -2771,12 +2771,13 @@ Touch points: ReformatCommand, GeneratePanel, PhosphorConfigurationEditorView, P
 ## 77: Move generation into the inspector as a chat-like panel with version rollback
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: effort:l
 created: 2026-06-22T15:49:19Z
-updated: 2026-06-22T15:49:24Z
+updated: 2026-06-22T16:43:18Z
+closed: 2026-06-22T16:43:18Z
 +++
 
 Rework the AI generation UX from the current modal GeneratePanel sheet into a persistent, chat-like panel hosted in the inspector (PhosphorInspectorView). Goals:
@@ -2805,6 +2806,8 @@ Related:
 - #48 (rendered-frame screenshot feedback) — a chat panel is the natural place to show/attach rendered previews per turn.
 
 Touch points: PhosphorInspectorView, GeneratePanel (becomes inspector content), ShaderEditorView (drop the sheet), ShaderGenerator / PromptHistory (transcript), PhosphorBundleDocument (version storage).
+
+- `2026-06-22T16:43:18Z`: Split into #81 (move generation into the inspector, non-modal — straightforward) and #82 (chat-style UI + version rollback — the big piece). #82 depends on #81.
 
 ---
 
@@ -2885,5 +2888,63 @@ closed: 2026-06-22T16:41:45Z
 Replaced the two-state side-by-side/overlay layout toggle with a three-state cycle button: horizontal (HSplitView), vertical (VSplitView), and overlay (ZStack). Icon and help text update per current state. Deduped the diagnostics/frame-timing/uniforms overlays into a shared PreviewOverlays modifier.
 
 - `2026-06-22T16:41:46Z`: Implemented.
+
+---
+
+## 81: Move generation panel into the inspector (non-modal)
+
++++
+status: new
+priority: medium
+kind: feature
+labels: effort:m
+created: 2026-06-22T16:43:05Z
++++
+
+Move AI generation out of the modal .sheet into the inspector (PhosphorInspectorView) so the user can iterate while watching the live preview. Straightforward relocation; no chat/history work here.
+
+Scope:
+- Add a generation tab/section to PhosphorInspectorView hosting the existing GeneratePanel content.
+- Drop the .sheet (ShaderEditorView -> GeneratePanel) and the showGenerate state; the Generate toolbar button opens/focuses the inspector tab instead.
+- Keep the existing model picker, progress phases (GenerationPhase: generating / retrying), and error surfacing.
+- Keep the current single-prompt generate/modify flow as-is; chat-style turns and rollback are out of scope (see follow-up issue).
+
+Touch points: PhosphorInspectorView, GeneratePanel (becomes inspector content), ShaderEditorView (drop the sheet).
+
+---
+
+## 82: Chat-style generation UI with version rollback
+
++++
+status: new
+priority: medium
+kind: feature
+labels: effort:l
+created: 2026-06-22T16:43:15Z
++++
+
+Turn the inspector-hosted generation panel (see prerequisite issue #81) into a chat-like, iterative experience with a version transcript and rollback. This is the big piece.
+
+1. Chat-like interaction
+   - Show the conversation as a turn list: user prompts and resulting shader versions, in order. Each user turn produced a shader; each assistant turn is 'generated vN' with a title + short summary/diff affordance.
+   - Compose box at the bottom; follow-up prompts modify the current shader (existing 'modify existing source' flow already supports this).
+   - PromptHistory already extracts prior prompts embedded in source (PromptHistory.extract) -> reuse/extend as the backing transcript so history survives reopen.
+
+2. Version rollback
+   - Let the user jump back to any previous generated version and continue from there (branch the conversation).
+   - Bundle documents (.phosphord): we control the on-disk tree, so store version snapshots (e.g. a versions/ or history sidecar) per shader and restore them.
+   - Flat .metal documents: hard — a single text file with no place to stash history. Evaluate: (a) in-memory only for the session, (b) compact history in a front-matter/comment block (bloats the file), (c) app-side sidecar keyed by file identity (fragile across moves/renames). Pick a pragmatic default and document the limitation.
+
+Open questions:
+- Transcript persistence model per document type (in-memory vs. embedded vs. sidecar).
+- How rollback interacts with undo (#76): is selecting an old version an undoable text edit, or a separate history mechanism?
+- Diff/preview between versions.
+
+Related:
+- #81 (prerequisite: non-modal inspector hosting).
+- #76 (undoable text mutations) — generation writes text; rollback and undo should be coherent.
+- #48 (rendered-frame screenshot feedback) — a chat panel is the natural place to show/attach rendered previews per turn.
+
+Touch points: PhosphorInspectorView, GeneratePanel, ShaderGenerator / PromptHistory (transcript), PhosphorBundleDocument (version storage).
 
 ---
