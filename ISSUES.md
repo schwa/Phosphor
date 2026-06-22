@@ -1540,11 +1540,13 @@ In-process. Pure state machine.
 ## 44: Architecture: deepen shader generation pipeline (ports & adapters)
 
 +++
-status: new
+status: closed
 priority: medium
 kind: enhancement
 labels: architecture
 created: 2026-06-19T02:16:51Z
+updated: 2026-06-22T03:48:15Z
+closed: 2026-06-22T03:48:15Z
 +++
 
 ## Problem
@@ -2546,5 +2548,30 @@ Likely cause: there are two DocumentGroup scenes (one per content type). The sec
 Repro: launch app, press ⌘⇧N — nothing happens (or the wrong document type opens).
 
 Not yet root-caused; needs verification.
+
+---
+
+## 72: Infer texture pixel format from image asset
+
++++
+status: new
+priority: low
+kind: feature
+created: 2026-06-22T03:49:21Z
++++
+
+Companion to #67 (infer texture size from image asset).
+
+When a texture is init = { kind = "image", file = ... }, allow omitting `format` so the texture's pixel format is inferred from the decoded asset instead of being hardcoded.
+
+Today the format must be set explicitly (e.g. TextureDemo.metal hardcodes format = "bgra8Unorm" to match mandrill.png). Authors have to know the asset's encoding. PhosphorAsset already reads image metadata via ImageIO (see pixelSize()), so the bit depth / color model could drive a sensible PhosphorPixelFormat default.
+
+Scope:
+- Decide how 'infer' is expressed (e.g. omitting format on an image init, or an explicit sentinel).
+- Map CGImage properties (bit depth, alpha, color space) to the closest PhosphorPixelFormat (rgba8Unorm / bgra8Unorm / rgba16Float / rgba32Float).
+- Fall back to the current default (rgba32Float) when there's no image init or the asset is missing/undecodable.
+- Update TextureDemo.metal to drop the hardcoded format once supported.
+
+Note: PhosphorPixelFormat is a closed set; inference is best-effort to the nearest match, not exact format passthrough.
 
 ---
