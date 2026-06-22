@@ -13,23 +13,29 @@ struct GenerationTurn: Identifiable, Hashable {
         case user
         /// A successful generation; `title` is the model-provided effect name.
         case assistant(title: String)
-        /// A failed generation; `text` carries the error message.
+        /// A recoverable failure (e.g. the first attempt didn't compile) that
+        /// the generator is auto-correcting. Shown as its own turn so the
+        /// failure and the fix are two distinct messages (#96), then followed
+        /// by the successful `assistant` turn. `text` carries the error.
+        case retried
+        /// A terminal failure; `text` carries the error message.
         case error
     }
 
     let id = UUID()
     let role: Role
     let text: String
-    /// Errors that were auto-corrected on the way to this (successful) turn.
-    /// Kept so the failure survives the correction (#96); empty otherwise.
-    var corrections: [GenerationCorrection] = []
 
     static func user(_ prompt: String) -> Self {
         GenerationTurn(role: .user, text: prompt)
     }
 
-    static func assistant(title: String, summary: String, corrections: [GenerationCorrection] = []) -> Self {
-        GenerationTurn(role: .assistant(title: title), text: summary, corrections: corrections)
+    static func assistant(title: String, summary: String) -> Self {
+        GenerationTurn(role: .assistant(title: title), text: summary)
+    }
+
+    static func retried(_ compileError: String) -> Self {
+        GenerationTurn(role: .retried, text: compileError)
     }
 
     static func error(_ message: String) -> Self {

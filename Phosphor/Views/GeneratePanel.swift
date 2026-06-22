@@ -191,6 +191,12 @@ struct GeneratePanel: View {
                 existingSource: sentSource
             ) { phase in
                 status = GenerationStatus(phase: phase, isModifying: modifying, sourceByteCount: sentBytes)
+                // A failed attempt becomes its OWN transcript turn (a distinct
+                // message), so the user sees both the failure and the fix as
+                // separate responses rather than one turn that gets replaced.
+                if case .retrying(let compileError) = phase {
+                    turns.append(.retried(compileError))
+                }
             }
             let elapsed = started.duration(to: .now)
             if let textMutator {
@@ -205,8 +211,7 @@ struct GeneratePanel: View {
             let verb = modifying ? "Modified shader" : "Generated shader"
             turns.append(.assistant(
                 title: result.title,
-                summary: "\(verb) in \(Self.formatted(elapsed))",
-                corrections: result.corrections
+                summary: "\(verb) in \(Self.formatted(elapsed))"
             ))
         } catch {
             let elapsed = started.duration(to: .now)
@@ -268,9 +273,20 @@ private struct TurnRow: View {
                     Text(turn.text)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    if !turn.corrections.isEmpty {
-                        CorrectionsDisclosure(corrections: turn.corrections)
-                    }
+                }
+            )
+
+        case .retried:
+            bubble(
+                alignment: .leading,
+                background: Color.orange.opacity(0.14),
+                content: VStack(alignment: .leading, spacing: 4) {
+                    Label("Didn’t compile — retrying with the errors", systemImage: "arrow.clockwise")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.orange)
+                    Text(turn.text)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.secondary)
                 }
             )
 
@@ -293,40 +309,6 @@ private struct TurnRow: View {
                 .background(background, in: .rect(cornerRadius: 10))
                 .frame(maxWidth: .infinity, alignment: alignment == .trailing ? .trailing : .leading)
             if alignment == .leading { Spacer(minLength: 24) }
-        }
-    }
-}
-
-/// Collapsible note on a successful assistant turn listing the errors that
-/// were auto-corrected on the way to it (#96). Collapsed by default so the
-/// happy path stays tidy.
-private struct CorrectionsDisclosure: View {
-    let corrections: [GenerationCorrection]
-    @State private var expanded = false
-
-    private var summary: String {
-        let n = corrections.count
-        let kinds = Set(corrections.map(\.kind))
-        let noun = kinds == [.compile] ? "compile error" : "error"
-        return "Auto-corrected \(n) \(noun)\(n == 1 ? "" : "s")"
-    }
-
-    var body: some View {
-        DisclosureGroup(isExpanded: $expanded) {
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(corrections, id: \.self) { correction in
-                    Text(correction.message)
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .padding(.top, 4)
-        } label: {
-            Label(summary, systemImage: "wrench.and.screwdriver")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
     }
 }
