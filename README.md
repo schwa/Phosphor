@@ -1,6 +1,6 @@
 # Phosphor
 
-A [Shadertoy](https://www.shadertoy.com)-like playground for Metal compute shaders, using [Apple Intelligence](https://www.apple.com/apple-intelligence/) to generate and modify shaders.
+A [Shadertoy](https://www.shadertoy.com)-like playground for Metal compute shaders, using AI to generate and modify shaders.
 
 Built on [MetalSprockets](https://github.com/schwa/MetalSprockets).
 
@@ -16,11 +16,9 @@ Built on [MetalSprockets](https://github.com/schwa/MetalSprockets).
 
 ## Links
 
-Inspired by [twigl.app](http://twigl.app) and <https://mini.gmshaders.com/p/decoding-phosphor>.
+Inspired by [Shadertoy](https://www.shadertoy.com/), [twigl.app](http://twigl.app) and <https://mini.gmshaders.com/p/decoding-phosphor>, amongst other things.
 
-[Demo Video](https://files.catbox.moe/klno3f.mov)
-
-Sources for some original shaders:
+Sources for some (some of) original shaders:
 
 - <https://shadered.org/view?s=NZzmcyHWfg>
 - <https://fourways.readthedocs.io/en/latest/lesson4/fractals.html>
