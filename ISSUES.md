@@ -2647,45 +2647,55 @@ Wants: group related controls, separate playback transport from view-options fro
 ## 74: Planning mode: turn a vague idea or pasted shader into a concrete generation plan
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: effort:xl
 created: 2026-06-22T15:39:19Z
-updated: 2026-06-22T16:30:34Z
+updated: 2026-06-22T22:34:06Z
+closed: 2026-06-22T22:34:06Z
 +++
 
-Add a planning stage in front of shader generation. Today ShaderGenerator runs a single one-shot flow (buildPrompt -> model -> compile/retry) and the user gets back finished .metal source they can't steer. For vague prompts ("make it feel like rain") or pasted source (Shadertoy GLSL, another shader to port), the model has to guess intent, structure, and front-matter all at once. Planning mode separates "what are we building" from "write the code".
+Add an optional planning stage before shader generation: a first model turn produces a structured-but-mostly-textual plan, shown in the transcript, that then drives the codegen turn. Separates "what are we building / how" from "write the code", improving vague prompts and pasted-source ports.
 
-Goal: take a vague description OR pasted shader code and produce a *plan* — a structured, human-readable description of what the shader will do and how it'll be built — before any code is generated. The user can read, tweak, or accept the plan; accepting it feeds the plan into the existing generate flow as rich, structured input.
+FINALIZED DESIGN (KISS):
 
-What a plan captures:
-- Intent: one-line summary of the effect.
-- Shape: single-pass image, multi-pass, or feedback/simulation (ping-pong). Feedback/sim implies pre-built multi-pass + ping-pong front-matter so the model only writes the kernel logic.
-- Source mapping (when porting): detect Shadertoy code (mainImage(out vec4 fragColor, in vec2 fragCoord), iTime/iResolution) and lay out the GLSL->MSL + Shadertoy-uniform -> Phosphor-builtin mapping as plan steps.
-- Resources/uniforms/passes the front-matter will need.
-- Open decisions surfaced to the user (e.g. "wrap or clamp at edges?").
+Toggle, not always-on:
+- Composer gets a persisted, default-OFF "Plan first" checkbox (@AppStorage). Off = today's single-turn path, untouched. On = plan turn then codegen turn. (Planning adds latency — two ~10-20s turns — so it's opt-in.)
+- Applies to ALL prompts when on (fresh, port, modify).
+- No user review/edit/accept. The plan is shown in the transcript for transparency and flows straight into codegen.
 
-Flow:
-- Plan: a model turn (heuristics can pre-detect Shadertoy/feedback to seed it) that returns a structured plan object, not code.
-- Review: GeneratePanel shows the plan; user can edit fields / free-text notes or just hit Generate.
-- Generate: the accepted plan is serialized into the prompt handed to the existing buildPrompt -> model -> compile/retry loop. The plan replaces today's bare userPrompt as the model's instructions.
-- Skip: trivial prompts or a user toggle ("just generate") bypass planning and go straight to the current path.
+Schema — GeneratedPlan:
+- Model-produced (@Generable): { intent: String (one-line summary), shape: PlanShape, plan: String (freeform prose: approach, build steps, Shadertoy->Phosphor mapping notes, edge-case decisions) }.
+- PlanShape = singlePassImage | multiPass | feedback. The one structured field; high-value scaffolding hint (feedback -> codegen pre-builds ping-pong front-matter).
+- Host-attached AFTER the turn (NOT in the @Generable schema, so the model never has to regurgitate/echo and can't truncate): { originalPrompt: String (verbatim user prompt), sourceCode: String (verbatim pasted GLSL/MSL, empty if none) }. The plan preserves the entire initial request + any pasted source.
 
-Design notes:
-- Fits ports/adapters: a Planner type behind a protocol, parallel to LanguageModelPort. ShaderGenerator orchestrates plan -> review -> generate; the compile/retry loop stays shared and unchanged.
-- Plan is a Codable value type (GeneratedShader-adjacent) so it can be shown, edited, persisted, and round-tripped.
-- Plan-as-input keeps front-matter scaffolding (feedback ping-pong, multi-pass) in the plan, so the codegen turn is narrower and more reliable.
+Flow (ShaderGenerator.generate gains a `plan: Bool`):
+- plan == false: unchanged.
+- plan == true, SAME LanguageModelSession (KISS — no separate Planner port; reuse the session so the plan turn stays in history and codegen "remembers" it):
+  1. Plan turn: plan-instruction prompt -> decode { intent, shape, plan } -> attach { originalPrompt, sourceCode } -> GeneratedPlan.
+  2. Codegen turn: existing buildPrompt + the full plan serialized in (verbatim prompt + source + intent + shape + approach) -> existing compile/retry loop (unchanged).
+- Plan is ADVISORY, not authoritative: codegen still produces the full GeneratedShader and may adapt; shape just nudges scaffolding.
 
-Open questions:
-- Separate plan model call vs. fold plan + code into one structured-output turn (latency/cost vs. steerability — planning mode wants the explicit review step).
-- How editable is the plan? Free-text notes only, or structured fields the UI exposes?
-- Persist plans alongside prompt history / in the shader front-matter?
-- Auto-skip planning for short/simple prompts, or always offer it behind a toggle?
+UI:
+- "Plan first" toggle in the composer (persisted, default off).
+- New .plan transcript turn type: a distinct bubble (e.g. clipboard icon) with `intent` as a header and the prose body (collapsible), shown before the generated-shader turn. Reuse the existing two-turns-not-replaced pattern.
 
-Touchpoints: PhosphorSupport/Generation (ShaderGenerator, LanguageModelPort, GeneratorInstructions, GeneratedShader, PromptHistory), GeneratePanel UI for showing/editing/accepting the plan and the skip toggle.
+Notes:
+- Shadertoy port mapping lives in the plan prose (KISS), shareable with #32.
+- Persist plan in the front-matter/history later if useful; in-memory transcript for now.
+
+Sub-tasks (build + test after each):
+1. GeneratedPlan schema + plan instructions (GeneratorInstructions).
+2. ShaderGenerator plan turn + thread plan into codegen (plan: Bool).
+3. UI: composer toggle + .plan transcript turn.
+4. Tests (fake port returns a scripted plan then a shader; verify two turns, plan attached, codegen prompt carries the plan).
+
+Touchpoints: PhosphorSupport/Generation (ShaderGenerator, GeneratedShader/new GeneratedPlan, GeneratorInstructions, LanguageModelPort), GeneratePanel (toggle + plan turn), GenerationTurn.
 
 - `2026-06-22T15:40:24Z`: Related to #32 (Shadertoy import): a 'shadertoyPort' sub-processor here overlaps with #32's GLSL->MSL translation path. Keep translation logic shareable.
+- `2026-06-22T22:34:06Z`: Planning mode shipped. Optional, default-off 'Plan first' checkbox in the composer (persisted). When on, the same session runs a plan turn first (PlannedApproach {intent, shape, plan}) then the codegen turn built from the plan; verbatim prompt + pasted source attached host-side (GeneratedPlan), never round-tripped through the model. Plan shown as its own .plan transcript turn (no review/accept) and returned on GenerationResult.plan. KISS: reuses the session, no separate Planner port; plan is advisory + one structured  hint. Compile/retry loop unchanged. Tested via fake port (two turns, plan carried into codegen + result; off by default = no plan turn). Confirmed working against a live model.
+- `2026-06-22T22:34:13Z`: Planning mode shipped. Optional, default-off "Plan first" checkbox in the composer (persisted). When on, the same session runs a plan turn first (PlannedApproach: intent + shape + plan prose) then the codegen turn built from the plan; verbatim prompt + pasted source attached host-side (GeneratedPlan), never round-tripped through the model. Plan shown as its own .plan transcript turn (no review/accept) and returned on GenerationResult.plan. KISS: reuses the session, no separate Planner port; plan is advisory plus one structured shape hint. Compile/retry loop unchanged. Tested via fake port (two turns, plan carried into codegen + result; off by default = no plan turn). Confirmed working against a live model.
 
 ---
 
@@ -3373,5 +3383,191 @@ Investigation steps:
 - Decide the fix: suppress diagnostics until the first settled compile, debounce/clear stale diagnostics, or ensure assets are present before the first reload that can emit missingAsset.
 
 Touch points: PhosphorRuntime (diagnostics timing), DiagnosticsView (missingAsset rendering), the editor reload task (PhosphorDocumentView / PhosphorBundleDocumentView 300ms debounce), asset injection.
+
+---
+
+## 98: Store prompts/instructions in resource files, not Swift string literals
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: effort:m
+created: 2026-06-22T22:35:20Z
++++
+
+Move the large prompt/instruction strings out of Swift triple-quoted literals into their own resource files (loaded via Bundle.module, cached), the way Phosphor.h now works (#88). They're long prose, awkward to read/edit/diff inside Swift, and mixing them with code makes both harder to maintain.
+
+Candidates (PhosphorSupport/Generation):
+- GeneratorInstructions.full (the big cloud/Anthropic system prompt)
+- GeneratorInstructions.onDevice (the compact on-device system prompt)
+- GeneratorInstructions.planning (the planning-turn instructions)
+- The prompt-builder bodies in ShaderGenerator: buildPrompt, buildPlanPrompt, buildCodegenPrompt, buildRetryPrompt, buildMalformedRetryPrompt.
+
+Design:
+- Static instruction texts (full, onDevice, planning) -> plain resource files (e.g. Resources/Prompts/instructions-full.md, instructions-ondevice.md, planning.md). Load lazily + cache, empty-string fallback if missing, exactly like PhosphorHeader.staticHelperSource.
+- The build*Prompt functions are NOT static — they interpolate runtime values (userPrompt, existingSource, compileError, decodeError, the plan). So they're TEMPLATES, not constants. Two options: (a) store the surrounding boilerplate as a resource with simple {placeholder} tokens and substitute in code, or (b) leave the interpolation in Swift but move only the long static preamble blocks to files. Pick the simpler one per case; full string interpolation is fine to keep in Swift where the template is short and mostly placeholders.
+- Keep availableHelpersSection composition in code (it wraps PhosphorInterface.source, already a resource).
+- Bundle as SwiftPM resources in PhosphorSupport (.copy), same pattern as Phosphor.h and the built-in textures.
+
+Acceptance:
+- No behavior change to generated prompts (round-trip identical text). Add a quick test that the loaded instruction files are non-empty and contain a known marker (e.g. 'kernel void').
+- Single source of truth; .md files are readable/diffable on their own.
+
+Touch points: GeneratorInstructions, ShaderGenerator (build*Prompt), Package.swift (resources), new Resources/Prompts/*.md. Relates to #88 (Phosphor.h on disk).
+
+---
+
+## 99: Persist generation transcripts as JSON; export writes that log
+
++++
+status: new
+priority: medium
+kind: feature
+labels: generation, effort:m
+created: 2026-06-22T22:36:14Z
++++
+
+Persist the AI generation transcript to disk as JSON by default, and make "export" simply write out that JSON log. Today the chat transcript (GenerationTurn list in GeneratePanel) is in-memory only and lost on close.
+
+Default persistence:
+- Write a structured JSON log to Application Support (e.g. ~/Library/Application Support/Phosphor/GenerationLogs/), or another appropriate per-app dir. Decide keying: per-document (keyed by document identity / bookmark) vs. a single rolling app-wide log vs. per-session. Lean per-document so a doc's history travels with it, with a global fallback for documents with no stable identity (flat .metal; see #78).
+- Append/update as generation happens; survive app relaunch and reopen of the transcript.
+
+Capture as much as we reasonably can per turn/run:
+- Timestamps (start/end), elapsed.
+- User prompt (verbatim), model id/displayName, planning on/off.
+- Plan (GeneratedPlan: intent, shape, plan prose, originalPrompt, sourceCode) when present.
+- The assembled request actually sent (buildPrompt/buildCodegenPrompt body) and the full instructions used — ties into the trace popover (#93) and keep-error-info (#96).
+- Each attempt's outcome: success, or corrections (GenerationCorrection: compile/decode + message). Retries.
+- The resulting GeneratedShader summary (title, resource/pass/uniform counts, flipY, output) and/or the final source.
+- Errors (terminal failures).
+
+Export:
+- "Export Transcript…" just serializes/copies the on-disk JSON log (fileExporter, JSON UTType). No separate export format/codepath — export == the log.
+- Optionally also offer a human-readable Markdown rendering later; JSON is the source of truth.
+
+Design notes:
+- Make GenerationTurn (and the supporting types) Codable; define a stable, versioned on-disk schema (include a schemaVersion) so we can evolve it.
+- Keep PhosphorSupport types (GenerationResult, GeneratedPlan, GenerationCorrection) Codable where they aren't already; the log model can live app-side and reference them.
+- Privacy: this stores prompts + source on disk. Fine for a local dev tool, but note it; consider a setting to disable logging.
+- This supersedes the in-memory-only note in #82/#83 for transcript persistence (versions/rollback #83 can build on this log).
+
+Touch points: new GenerationLog store (app-side), GeneratePanel (write turns as they happen + load on open), Codable conformances in PhosphorSupport, fileExporter for export, a Settings toggle. Relates to #82, #83, #93, #96, #78.
+
+---
+
+## 100: Add a Stop button to cancel an in-flight generation
+
++++
+status: new
+priority: medium
+kind: feature
+labels: generation, effort:s
+created: 2026-06-22T22:45:51Z
++++
+
+Add a way to cancel an in-flight generation. Today once you hit Generate/Modify there's no stop — you wait out the model turn(s), which can be 10-40s (worse with planning mode's two turns). The Generate button shows a spinner but isn't actionable.
+
+UI:
+- While isGenerating, turn the Generate/Modify button (or add an adjacent one) into a Stop button (e.g. stop.fill / xmark), wired to cancel.
+- On cancel: stop the spinner, leave the transcript as-is (the user prompt turn stays; optionally append a 'Cancelled' note), re-enable the composer, refocus the prompt.
+
+Mechanics:
+- generate() runs in a Task spawned from submit(); keep a handle to it (@State var generationTask: Task<Void, Never>?) and call .cancel().
+- ShaderGenerator.generate is async and awaits model.respond / respondPlan. Cancellation needs to propagate: check Task.isCancelled at await points and after each model turn, and have the port honor cancellation. FoundationModels' LanguageModelSession.respond should throw CancellationError when the surrounding Task is cancelled — verify; if not, we may only be able to stop BETWEEN turns (e.g. after the plan turn, before codegen; or before a retry) rather than mid-request.
+- Treat CancellationError specially: do NOT surface it as a .error turn; just unwind quietly.
+- Make sure the defer cleanup (isGenerating=false, onGeneratingChange(false), refocus) still runs.
+
+Open questions:
+- Can we cancel mid-model-call, or only between turns? Document whatever the backend actually supports (don't claim mid-request cancel if FoundationModels won't honor it).
+- If we cancelled after text was already applied (shouldn't happen — we apply only after the full result), ensure no partial writes.
+
+Touch points: GeneratePanel (Stop button + Task handle + cancel + CancellationError handling), possibly ShaderGenerator (cancellation checks between turns), LanguageModelPort/FoundationModelAdapter (confirm respond honors cancellation).
+
+---
+
+## 101: Composer: Shift+Enter inserts newline (Enter still sends)
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: effort:s
+created: 2026-06-22T22:46:16Z
++++
+
+In the generation composer, Enter submits the prompt (.onSubmit(submit)) and there's no good way to insert a newline — so writing a multi-line prompt (pasting a shader, describing several requirements) is awkward. Standard chat-composer behavior: Enter = send, Shift+Enter = newline.
+
+Goal:
+- Shift+Enter inserts a newline in the prompt; plain Enter sends.
+- Keep the field growing 2...6 lines as now.
+
+Approach:
+- The current control is `TextField(..., axis: .vertical)` with `.onSubmit`. A plain TextField's onSubmit fires on Enter and there's no built-in Shift+Enter-for-newline affordance.
+- Options to evaluate:
+  (a) Keep TextField(axis:.vertical) and intercept the keyboard: a Shift+Enter key handler that inserts "\n" while plain Enter calls submit. On macOS this likely needs an .onKeyPress(.return) handler (return .handled to send when no modifiers; return .ignored when Shift is held so the newline is inserted). Verify .onKeyPress modifier detection works inside a focused TextField.
+  (b) Switch to a TextEditor for the prompt and handle Enter/Shift+Enter explicitly (TextEditor inserts newlines by default, so we'd intercept plain Enter to submit). TextEditor gives more control but loses TextField niceties (placeholder, rounded border) — we'd restyle.
+- Prefer the lightest approach that actually works; don't over-build. If .onKeyPress on TextField handles it cleanly, keep TextField.
+
+Acceptance:
+- Plain Enter sends (unchanged).
+- Shift+Enter inserts a newline and the field grows.
+- Multi-line prompts submit correctly.
+
+Touch points: GeneratePanel composer (prompt TextField/onSubmit, possibly TextEditor + onKeyPress).
+
+---
+
+## 102: Collapse large user prompts behind a disclosure in the transcript
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: effort:s
+created: 2026-06-22T22:46:44Z
++++
+
+Large user-prompt bubbles in the generation transcript (TurnRow .user) dominate the chat — pasting a whole Shadertoy/GLSL shader or a long multi-line prompt makes one giant bubble that pushes everything else off-screen. Collapse long prompts behind a disclosure.
+
+Behavior:
+- If a user prompt exceeds a threshold (e.g. > N lines or > M characters), render it collapsed: show the first few lines (or a one-line summary) with a "Show more"/disclosure affordance to expand, and "Show less" to re-collapse.
+- Short prompts render as today (no disclosure).
+- Keep it selectable/copyable when expanded (#95).
+- Collapsed state is per-turn UI state (in-memory); default collapsed for long prompts.
+
+Notes:
+- Use DisclosureGroup or a custom expand/collapse with a line-limited Text + a toggle. Line-limit the collapsed view (e.g. .lineLimit(3)) and a gradient/"…" affordance.
+- Applies to the user bubble specifically; assistant/plan/error already have their own structure (plan prose could reuse the same treatment later, out of scope here).
+- Pick sensible thresholds; don't collapse a normal 1-2 line prompt.
+
+Touch points: GeneratePanel TurnRow (.user branch) — likely a small CollapsibleText/expandable subview.
+
+---
+
+## 103: Refactor PhosphorSupport into multiple targets
+
++++
+status: new
+priority: medium
+kind: task
+labels: architecture, effort:l
+created: 2026-06-22T22:54:21Z
+updated: 2026-06-22T22:55:23Z
++++
+
+Split the monolithic `PhosphorSupport` package into several focused targets, decoupling concerns and clarifying dependencies.
+
+Current PhosphorSupport sub-areas: Audio, Compile, Generation, Model, Parser, Resources, Runtime, Source.
+
+Proposed targets (to be refined):
+- Generation — shader/material generation
+- Model — core data model
+- Runtime — rendering & runtime
+- Parser/Compile — parsing & compilation
+- (others as appropriate: Audio, Source, Resources)
+
+Goal: clear target boundaries with explicit dependencies so e.g. the app doesn't pull in generation code unnecessarily.
 
 ---
