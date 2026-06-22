@@ -2920,12 +2920,13 @@ Touch points: PhosphorInspectorView, GeneratePanel (becomes inspector content), 
 ## 82: Chat-style generation history UI
 
 +++
-status: new
+status: closed
 priority: medium
 kind: feature
 labels: effort:l
 created: 2026-06-22T16:43:15Z
-updated: 2026-06-22T16:52:43Z
+updated: 2026-06-22T17:09:12Z
+closed: 2026-06-22T17:09:12Z
 +++
 
 Turn the inspector-hosted Generate tab (#81) into a chat-like view that keeps and displays a history of prompts and responses. No rollback/branching — that is #83.
@@ -2944,6 +2945,8 @@ Out of scope (own issues):
 - Rendered-frame previews per turn -> relates to #48.
 
 Touch points: PhosphorInspectorView (Generate tab), GeneratePanel, ShaderGenerator / PromptHistory (transcript model).
+
+- `2026-06-22T17:09:12Z`: Chat-style generation history UI shipped: scrollable transcript (List) of user prompts + assistant turns over a bottom-pinned composer (prompt field, model picker, Generate/Modify). In-flight status distinguishes fresh vs. modify (with source byte count) and surfaces the actual Metal compiler errors on retry. Prior user prompts re-hydrate from PromptHistory on open. ShaderGenerator.generate now returns GenerationResult (source + title). Rollback/branching remain in #83.
 
 ---
 

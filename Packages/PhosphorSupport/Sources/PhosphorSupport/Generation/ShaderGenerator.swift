@@ -115,7 +115,7 @@ public struct ShaderGenerator {
         prompt: String,
         existingSource: String = "",
         progress: (@Sendable @MainActor (GenerationPhase) -> Void)? = nil
-    ) async throws -> String {
+    ) async throws -> GenerationResult {
         let priorPrompts = PromptHistory.extract(from: existingSource)
 
         // First attempt.
@@ -126,7 +126,7 @@ public struct ShaderGenerator {
 
         // Compile check. If we don't have a device or the source has no
         // front-matter we can validate, just return as-is.
-        guard let device else { return source }
+        guard let device else { return GenerationResult(source: source, title: generated.title) }
         if let compileError = Self.tryCompile(source: source, device: device) {
             await progress?(.retrying(compileError: compileError))
             // One retry. The port retains history so the model already knows
@@ -135,7 +135,7 @@ public struct ShaderGenerator {
             generated = try await respond(to: followUp, label: "retry")
             source = try generated.toMetalSource(prompts: priorPrompts + [prompt])
         }
-        return source
+        return GenerationResult(source: source, title: generated.title)
     }
 
     /// Sends a prompt through the port, logs the result, and rejects an empty
@@ -213,6 +213,18 @@ public struct ShaderGenerator {
 
             User request: \(userPrompt)
             """
+    }
+}
+
+/// The outcome of a successful generation: the full `.metal` source plus the
+/// model-provided title, surfaced so the chat UI can label each turn.
+public struct GenerationResult: Hashable, Sendable {
+    public let source: String
+    public let title: String
+
+    public init(source: String, title: String) {
+        self.source = source
+        self.title = title
     }
 }
 

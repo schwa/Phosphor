@@ -72,8 +72,8 @@ struct ShaderGeneratorTests {
     func happyPath() async throws {
         let fake = FakeLanguageModel(replies: [makeShader(body: validBody)])
         let generator = ShaderGenerator(model: fake, device: try device())
-        let source = try await generator.generate(prompt: "make a thing")
-        #expect(source.contains("kernel void image"))
+        let result = try await generator.generate(prompt: "make a thing")
+        #expect(result.source.contains("kernel void image"))
         #expect(fake.prompts.count == 1)
     }
 
@@ -84,8 +84,8 @@ struct ShaderGeneratorTests {
             makeShader(body: validBody)
         ])
         let generator = ShaderGenerator(model: fake, device: try device())
-        let source = try await generator.generate(prompt: "make a thing")
-        #expect(source.contains("kernel void image"))
+        let result = try await generator.generate(prompt: "make a thing")
+        #expect(result.source.contains("kernel void image"))
         #expect(fake.prompts.count == 2)
         // The retry prompt carries the compiler error feedback.
         #expect(fake.prompts[1].contains("failed to compile"))
@@ -105,8 +105,8 @@ struct ShaderGeneratorTests {
         // Even a broken body returns as-is when there's no device to compile.
         let fake = FakeLanguageModel(replies: [makeShader(body: brokenBody)])
         let generator = ShaderGenerator(model: fake, device: nil)
-        let source = try await generator.generate(prompt: "make a thing")
-        #expect(source.contains("kernel void image"))
+        let result = try await generator.generate(prompt: "make a thing")
+        #expect(result.source.contains("kernel void image"))
         #expect(fake.prompts.count == 1)
     }
 

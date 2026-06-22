@@ -27,15 +27,13 @@ struct PhosphorInspectorView: View {
                 PhosphorConfigurationEditorView(parsed: parsed, text: $text)
             }
             Tab("Generate", systemImage: "sparkles", value: InspectorTab.generate) {
-                ScrollView {
-                    GeneratePanel(
-                        text: $text,
-                        parsed: parsed,
-                        isUntouchedTemplate: isUntouchedTemplate,
-                        onTextChange: onTextChange,
-                        onGeneratingChange: onGeneratingChange
-                    )
-                }
+                GeneratePanel(
+                    text: $text,
+                    parsed: parsed,
+                    isUntouchedTemplate: isUntouchedTemplate,
+                    onTextChange: onTextChange,
+                    onGeneratingChange: onGeneratingChange
+                )
             }
         }
     }
