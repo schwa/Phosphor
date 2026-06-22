@@ -15,7 +15,7 @@ struct ShaderEditorView: View {
 
     @State private var model = EditorModel()
     @State private var showHeader: Bool = false
-    @State private var showGenerate: Bool = false
+    @SceneStorage("phosphor.ui.inspectorTab") private var inspectorTab: InspectorTab = .output
     @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
     @SceneStorage("phosphor.ui.showFrameTiming") private var showFrameTiming: Bool = true
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
@@ -133,11 +133,13 @@ struct ShaderEditorView: View {
             }
             ToolbarItem(placement: .principal) {
                 Button {
-                    showGenerate = true
+                    inspectorTab = .generate
+                    showInspector = true
                 } label: {
                     Label("Generate", systemImage: "sparkles")
                 }
                 .keyboardShortcut("p", modifiers: [.command, .shift])
+                .help("Open the AI generation panel in the inspector")
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -149,17 +151,23 @@ struct ShaderEditorView: View {
                 .help("Toggle inspector panel")
             }
         }
-        .sheet(isPresented: $showGenerate) {
-            GeneratePanel(
-                isPresented: $showGenerate,
-                text: $text,
-                parsed: parsed,
-                isUntouchedTemplate: isUntouchedTemplate,
-                onTextChange: onTextChange
-            )
-        }
         .inspector(isPresented: $showInspector) {
-            PhosphorInspectorView(parsed: parsed, text: $text)
+            PhosphorInspectorView(
+                parsed: parsed,
+                text: $text,
+                isUntouchedTemplate: isUntouchedTemplate,
+                onTextChange: onTextChange,
+                selection: $inspectorTab,
+                onGeneratingChange: { generating in
+                    // Keep the inspector + Generate tab visible while a
+                    // generation is in flight so progress is obvious.
+                    if generating {
+                        inspectorTab = .generate
+                        showInspector = true
+                    }
+                }
+            )
+            .inspectorColumnWidth(min: 360, ideal: 480, max: 900)
         }
     }
 }

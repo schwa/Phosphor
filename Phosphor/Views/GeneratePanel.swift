@@ -1,14 +1,18 @@
 import PhosphorSupport
 import SwiftUI
 
-/// Sheet that prompts the user for a natural-language description, runs
-/// ``ShaderGenerator``, and replaces the document's text on success.
+/// Inspector panel that prompts the user for a natural-language description,
+/// runs ``ShaderGenerator``, and replaces the document's text on success.
+///
+/// Non-modal: lives in the inspector so the user can iterate while watching
+/// the live preview. Reports generation start/stop via ``onGeneratingChange``
+/// so the host can keep the inspector open.
 struct GeneratePanel: View {
-    @Binding var isPresented: Bool
     @Binding var text: String
     let parsed: ParsedPhosphorSource
     let isUntouchedTemplate: Bool
     let onTextChange: () -> Void
+    var onGeneratingChange: (Bool) -> Void = { _ in }
 
     @Environment(\.textMutator) private var textMutator
 
@@ -70,11 +74,6 @@ struct GeneratePanel: View {
 
             HStack {
                 Spacer()
-                Button("Cancel") {
-                    isPresented = false
-                }
-                .disabled(isGenerating)
-
                 Button {
                     Task { await generate() }
                 } label: {
@@ -93,10 +92,12 @@ struct GeneratePanel: View {
 
     private func generate() async {
         isGenerating = true
+        onGeneratingChange(true)
         errorMessage = nil
         statusMessage = nil
         defer {
             isGenerating = false
+            onGeneratingChange(false)
             statusMessage = nil
         }
 
@@ -114,7 +115,6 @@ struct GeneratePanel: View {
                 text = source
                 onTextChange()
             }
-            isPresented = false
         } catch {
             errorMessage = "\(error)"
         }
@@ -133,7 +133,6 @@ struct GeneratePanel: View {
 
 #Preview("Fresh") {
     GeneratePanel(
-        isPresented: .constant(true),
         text: .constant(""),
         parsed: ParsedPhosphorSource(source: ""),
         isUntouchedTemplate: true
@@ -142,7 +141,6 @@ struct GeneratePanel: View {
 
 #Preview("Modify") {
     GeneratePanel(
-        isPresented: .constant(true),
         text: .constant("// existing kernel\nkernel void image() {}"),
         parsed: ParsedPhosphorSource(source: ""),
         isUntouchedTemplate: false

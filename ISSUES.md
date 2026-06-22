@@ -2894,11 +2894,13 @@ Replaced the two-state side-by-side/overlay layout toggle with a three-state cyc
 ## 81: Move generation panel into the inspector (non-modal)
 
 +++
-status: new
+status: closed
 priority: medium
 kind: feature
 labels: effort:m
 created: 2026-06-22T16:43:05Z
+updated: 2026-06-22T16:50:31Z
+closed: 2026-06-22T16:50:31Z
 +++
 
 Move AI generation out of the modal .sheet into the inspector (PhosphorInspectorView) so the user can iterate while watching the live preview. Straightforward relocation; no chat/history work here.
@@ -2910,6 +2912,8 @@ Scope:
 - Keep the current single-prompt generate/modify flow as-is; chat-style turns and rollback are out of scope (see follow-up issue).
 
 Touch points: PhosphorInspectorView, GeneratePanel (becomes inspector content), ShaderEditorView (drop the sheet).
+
+- `2026-06-22T16:50:31Z`: Generation moved into the inspector as a non-modal 'Generate' tab. Dropped the .sheet; toolbar button + Cmd-Shift-P open the inspector and select the tab. Wider inspector via inspectorColumnWidth(min:360 ideal:480 max:900). Inspector force-opens to the Generate tab while a generation is in flight. Chat UI + rollback remain in #82.
 
 ---
 
