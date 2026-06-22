@@ -126,9 +126,29 @@ public struct ShaderGenerator {
         let allPrompts = priorPrompts + [prompt]
 
         // Records every model turn (request + decoded response / error) so the
-        // full wire log can be persisted (#99).
+        // full wire log can be persisted (#99). On any failure we rethrow a
+        // GenerationFailure carrying whatever exchanges were captured, so the
+        // failed requests/responses aren't lost.
         let recorder = ExchangeRecorder()
+        do {
+            return try await runGenerate(
+                prompt: prompt, existingSource: existingSource, allPrompts: allPrompts,
+                plan: plan, recorder: recorder, progress: progress
+            )
+        } catch {
+            throw GenerationFailure(underlying: error, exchanges: recorder.exchanges)
+        }
+    }
 
+    @preconcurrency
+    private func runGenerate(
+        prompt: String,
+        existingSource: String,
+        allPrompts: [String],
+        plan: Bool,
+        recorder: ExchangeRecorder,
+        progress: (@Sendable @MainActor (GenerationPhase) -> Void)?
+    ) async throws -> GenerationResult {
         // Optional planning turn.
         var generatedPlan: GeneratedPlan?
         if plan {
@@ -390,8 +410,8 @@ public struct ShaderGenerator {
 ///
 /// Modeled generically over an error ``Kind`` so future retry classes (e.g.
 /// malformed/decode failures, #94) reuse the same shape.
-public struct GenerationCorrection: Hashable, Sendable {
-    public enum Kind: String, Hashable, Sendable {
+public struct GenerationCorrection: Hashable, Sendable, Codable {
+    public enum Kind: String, Hashable, Sendable, Codable {
         /// The produced shader failed to compile; the Metal compiler errors
         /// were fed back to the model.
         case compile
@@ -440,6 +460,22 @@ public struct GenerationResult: Hashable, Sendable {
         self.plan = plan
         self.exchanges = exchanges
     }
+}
+
+/// Thrown by ``ShaderGenerator/generate(prompt:existingSource:plan:progress:)``
+/// when generation ultimately fails, carrying the model exchanges captured up
+/// to the failure so the full wire log survives the error (#99). Unwrap
+/// ``underlying`` for the user-facing message.
+public struct GenerationFailure: Error {
+    public let underlying: any Error
+    public let exchanges: [GenerationExchange]
+
+    public init(underlying: any Error, exchanges: [GenerationExchange]) {
+        self.underlying = underlying
+        self.exchanges = exchanges
+    }
+
+    public var localizedDescription: String { "\(underlying)" }
 }
 
 /// Accumulates ``GenerationExchange`` records across the turns of one

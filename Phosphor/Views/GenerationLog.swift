@@ -1,5 +1,6 @@
 import Foundation
 import os
+import PhosphorSupport
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -11,7 +12,7 @@ import UniformTypeIdentifiers
 /// evolve.
 nonisolated struct GenerationLog: Codable, Hashable {
     /// On-disk schema version. Bump when the shape changes incompatibly.
-    static let currentSchemaVersion = 1
+    static let currentSchemaVersion = 2
 
     var schemaVersion: Int = currentSchemaVersion
     /// Stable key identifying which document/shader this log belongs to.
@@ -20,15 +21,35 @@ nonisolated struct GenerationLog: Codable, Hashable {
     var createdAt: Date
     /// When it was last written.
     var updatedAt: Date
-    /// The transcript, oldest first.
+    /// The display transcript, oldest first (drives the chat UI).
     var turns: [GenerationTurn]
+    /// The full wire record: one entry per generation run, each holding every
+    /// model turn (request + decoded response / error) (#99).
+    var runs: [GenerationRun]
 
-    init(identity: String, turns: [GenerationTurn] = []) {
+    init(identity: String, turns: [GenerationTurn] = [], runs: [GenerationRun] = []) {
         self.identity = identity
         self.createdAt = .now
         self.updatedAt = .now
         self.turns = turns
+        self.runs = runs
     }
+}
+
+/// One generation run's complete wire record: the exchanges plus the plan and
+/// final source, so the JSON log holds everything sent and received (#99).
+nonisolated struct GenerationRun: Codable, Hashable {
+    var startedAt: Date
+    var prompt: String
+    var planned: Bool
+    var exchanges: [GenerationExchange]
+    var plan: GeneratedPlan?
+    var corrections: [GenerationCorrection]
+    /// Final source on success; nil if the run failed.
+    var finalSource: String?
+    var finalTitle: String?
+    /// Terminal error string, if the run failed.
+    var error: String?
 }
 
 /// A `FileDocument` wrapper so a ``GenerationLog`` can be written out via
@@ -108,9 +129,20 @@ enum GenerationLogStore {
     /// Writes `turns` for `identity`, merging into any existing log's metadata.
     /// Best-effort; failures are logged, not thrown.
     static func save(identity: String, turns: [GenerationTurn]) {
+        update(identity: identity) { $0.turns = turns }
+    }
+
+    /// Appends a full wire-record run (#99) for `identity`.
+    static func appendRun(identity: String, run: GenerationRun) {
+        update(identity: identity) { $0.runs.append(run) }
+    }
+
+    /// Loads (or creates) the log, applies `mutate`, and writes it back.
+    /// Best-effort; failures are logged, not thrown.
+    private static func update(identity: String, _ mutate: (inout GenerationLog) -> Void) {
         guard let url = url(for: identity) else { return }
         var log = load(identity: identity) ?? GenerationLog(identity: identity)
-        log.turns = turns
+        mutate(&log)
         log.updatedAt = .now
         log.schemaVersion = GenerationLog.currentSchemaVersion
         do {

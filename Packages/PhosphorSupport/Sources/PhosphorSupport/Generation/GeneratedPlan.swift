@@ -62,7 +62,7 @@ public struct GeneratedPlan: Hashable, Sendable {
 
 extension PlanShape: Hashable {}
 extension PlanShape: Codable {}
-extension PlannedApproach: Codable, Hashable, Sendable {}
+extension PlannedApproach: Codable, Hashable {}
 extension GeneratedPlan: Codable {}
 
 public extension PlanShape {

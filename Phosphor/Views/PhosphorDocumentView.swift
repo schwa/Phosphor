@@ -16,7 +16,7 @@ struct PhosphorDocumentView: View {
             parsed: document.parsed,
             onTextChange: { document.refreshParsed() },
             isUntouchedTemplate: document.isUntouchedTemplate,
-            logIdentity: document.fileURL?.absoluteString
+            logIdentity: document.logIdentity
         )
         .environment(\.textMutator, TextMutator { newText, actionName in
             document.setText(newText, actionName: actionName, undoManager: undoManager)

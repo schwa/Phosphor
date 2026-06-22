@@ -41,6 +41,14 @@ final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
     /// Backing file URL when opened from / saved to disk.
     var fileURL: URL?
 
+    /// Key for the active shader's on-disk generation transcript log (#99):
+    /// the bundle URL plus the active shader name, or `nil` for an unsaved
+    /// bundle (transcript kept in memory only).
+    var logIdentity: String? {
+        guard let url = fileURL, let shader = activeShader else { return nil }
+        return "\(url.absoluteString)#\(shader)"
+    }
+
     /// The `FileWrapper` representing the last successful read or write.
     /// Carried across saves so unchanged children survive incremental
     /// writes without us having to materialize them again.

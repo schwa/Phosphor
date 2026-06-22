@@ -211,6 +211,31 @@ struct ShaderGeneratorTests {
         #expect(result.plan == nil)
     }
 
+    @Test("Exchanges record every model turn (request + response)")
+    func exchangesRecorded() async throws {
+        let fake = FakeLanguageModel(replies: [makeShader(body: validBody)])
+        fake.plannedApproach = PlannedApproach(intent: "x", shape: .singlePassImage, plan: "do x")
+        let generator = ShaderGenerator(model: fake, device: try device())
+        let result = try await generator.generate(prompt: "a galaxy", plan: true)
+        // One plan exchange + one codegen exchange.
+        #expect(result.exchanges.count == 2)
+        #expect(result.exchanges[0].kind == .plan)
+        #expect(result.exchanges[0].response?.approach?.intent == "x")
+        #expect(result.exchanges[1].kind == .codegen)
+        #expect(result.exchanges[1].response?.shader?.body.contains("kernel void image") == true)
+        #expect(result.exchanges.allSatisfy { !$0.request.isEmpty })
+    }
+
+    @Test("A compile retry records two codegen-side exchanges")
+    func exchangesIncludeRetry() async throws {
+        let fake = FakeLanguageModel(replies: [makeShader(body: brokenBody), makeShader(body: validBody)])
+        let generator = ShaderGenerator(model: fake, device: try device())
+        let result = try await generator.generate(prompt: "a thing")
+        #expect(result.exchanges.count == 2)
+        #expect(result.exchanges[0].kind == .codegen)
+        #expect(result.exchanges[1].kind == .compileRetry)
+    }
+
     @Test("A persistently malformed model rethrows after the single retry")
     func decodeRetryGivesUp() async throws {
         // First call throws, retry has no scripted reply -> throws again.
@@ -219,19 +244,26 @@ struct ShaderGeneratorTests {
             then: []
         )
         let generator = ShaderGenerator(model: fake, device: try device())
-        await #expect(throws: ShaderGeneratorError.self) {
+        // generate() wraps the underlying error in GenerationFailure so the
+        // exchanges survive (#99).
+        await #expect(throws: GenerationFailure.self) {
             _ = try await generator.generate(prompt: "make a thing")
         }
         #expect(fake.prompts.count == 2)
     }
 
-    @Test("Empty body throws emptyBody")
+    @Test("Empty body throws emptyBody (wrapped in GenerationFailure)")
     func emptyBodyThrows() async throws {
         let fake = FakeLanguageModel(replies: [makeShader(body: "   \n  ")])
         let generator = ShaderGenerator(model: fake, device: try device())
-        await #expect(throws: ShaderGeneratorError.self) {
+        let failure = await #expect(throws: GenerationFailure.self) {
             _ = try await generator.generate(prompt: "make a thing")
         }
+        // The real cause is still reachable, and exchanges were captured.
+        if case .emptyBody = failure?.underlying as? ShaderGeneratorError {} else {
+            Issue.record("expected emptyBody underlying")
+        }
+        #expect(failure?.exchanges.isEmpty == false)
     }
 
     @Test("Compile check is skipped when no device is available")

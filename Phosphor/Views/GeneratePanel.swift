@@ -28,6 +28,9 @@ struct GeneratePanel: View {
     @State private var isGenerating: Bool = false
     @State private var status: GenerationStatus?
     @State private var turns: [GenerationTurn] = []
+    /// Full wire-record runs for this session (#99). Source of truth for the
+    /// current session; mirrored to disk only for saved documents.
+    @State private var runs: [GenerationRun] = []
     /// Source identity we last seeded the transcript from, so re-hydration
     /// only happens when the document actually changes underneath us (e.g.
     /// switching shaders in a bundle), not on every keystroke.
@@ -180,7 +183,7 @@ struct GeneratePanel: View {
         .background(.background.secondary)
         .fileExporter(
             isPresented: $showExporter,
-            document: TranscriptDocument(log: GenerationLog(identity: logIdentity ?? "transcript", turns: turns)),
+            document: TranscriptDocument(log: exportLog),
             contentType: .json,
             defaultFilename: "Transcript"
         ) { _ in }
@@ -188,6 +191,13 @@ struct GeneratePanel: View {
 
     private var canSubmit: Bool {
         !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isGenerating
+    }
+
+    /// The log to export: built from the live in-memory session state (turns +
+    /// full wire-record runs), so it works identically for saved and unsaved
+    /// documents (#99).
+    private var exportLog: GenerationLog {
+        GenerationLog(identity: logIdentity ?? "unsaved", turns: turns, runs: runs)
     }
 
     private func submit() {
@@ -215,6 +225,7 @@ struct GeneratePanel: View {
         }
 
         let started = ContinuousClock.now
+        let runStarted = Date()
         do {
             let adapter = try FoundationModelAdapter.make(model: selectedModel)
             let result = try await ShaderGenerator(model: adapter).generate(
@@ -255,9 +266,40 @@ struct GeneratePanel: View {
                 title: result.title,
                 summary: "\(verb) in \(Self.formatted(elapsed))"
             ))
+            logRun(GenerationRun(
+                startedAt: runStarted, prompt: submitted, planned: planFirst,
+                exchanges: result.exchanges, plan: result.plan,
+                corrections: result.corrections,
+                finalSource: result.source, finalTitle: result.title, error: nil
+            ))
         } catch {
             let elapsed = started.duration(to: .now)
-            turns.append(.error("\(error)\n\nFailed after \(Self.formatted(elapsed))"))
+            // Unwrap GenerationFailure so the user sees the real error, and we
+            // keep the exchanges captured up to the failure (#99).
+            let underlying: any Error
+            let exchanges: [GenerationExchange]
+            if let failure = error as? GenerationFailure {
+                underlying = failure.underlying
+                exchanges = failure.exchanges
+            } else {
+                underlying = error
+                exchanges = []
+            }
+            turns.append(.error("\(underlying)\n\nFailed after \(Self.formatted(elapsed))"))
+            logRun(GenerationRun(
+                startedAt: runStarted, prompt: submitted, planned: planFirst,
+                exchanges: exchanges, plan: nil, corrections: [],
+                finalSource: nil, finalTitle: nil, error: "\(underlying)"
+            ))
+        }
+    }
+
+    /// Records a full wire-record run for the session, and mirrors it to disk
+    /// when the document is saved (has an identity) (#99).
+    private func logRun(_ run: GenerationRun) {
+        runs.append(run)
+        if let logIdentity {
+            GenerationLogStore.appendRun(identity: logIdentity, run: run)
         }
     }
 
@@ -280,12 +322,15 @@ struct GeneratePanel: View {
     private func hydrateIfNeeded() {
         guard seededFromSource != text else { return }
         seededFromSource = text
-        // Prefer the persisted JSON log (full history incl. responses); fall
-        // back to user prompts embedded in the source (#99).
+        // Prefer the persisted JSON log (full history incl. responses + the
+        // wire-record runs); fall back to user prompts embedded in the source
+        // (#99). Only saved documents have an on-disk log.
         if let logIdentity, let log = GenerationLogStore.load(identity: logIdentity), !log.turns.isEmpty {
             turns = log.turns
+            runs = log.runs
         } else {
             turns = PromptHistory.extract(from: text).map { .user($0) }
+            runs = []
         }
     }
 }

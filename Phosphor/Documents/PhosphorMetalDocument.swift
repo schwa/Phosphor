@@ -19,6 +19,13 @@ final class PhosphorMetalDocument: ReadableDocument, WritableDocument {
     /// Brand-new documents and preview instances have `nil`.
     var fileURL: URL?
 
+    /// Key for the on-disk generation transcript log (#99): the file URL when
+    /// saved, else `nil` — unsaved docs keep their transcript in memory only
+    /// (a `session:` file could never be re-associated on reopen).
+    var logIdentity: String? {
+        fileURL?.absoluteString
+    }
+
     /// Cached parse of `text`. Rebuilt by ``refreshParsed()`` whenever `text`
     /// changes. Stored, not computed, so the parse cost is amortized across
     /// many view reads of `parsed.configuration` per frame.
