@@ -3014,11 +3014,13 @@ created: 2026-06-22T17:04:47Z
 ## 87: Tell the generator about the Phosphor.h helpers
 
 +++
-status: new
+status: closed
 priority: medium
 kind: enhancement
 labels: effort:s
 created: 2026-06-22T17:17:46Z
+updated: 2026-06-22T17:58:21Z
+closed: 2026-06-22T17:58:21Z
 +++
 
 The shader-generation instructions (GeneratorInstructions) describe the Uniforms/UserUniforms/textures contract but never tell the model which helper functions and constants the synthetic Phosphor.h header already provides. As a result the model re-implements (or worse, calls non-existent) helpers.
@@ -3038,6 +3040,8 @@ Plan:
 - Keep it in sync with PhosphorHeader so the list doesn't drift; consider generating the signature list from a shared source of truth rather than hand-maintaining two copies.
 
 Touch points: GeneratorInstructions (full + onDevice), PhosphorHeader.
+
+- `2026-06-22T17:58:21Z`: The shader generator now receives the available Phosphor.h helpers as a declarations-only interface. PhosphorInterface.source derives this AT RUNTIME from the single source of truth (Phosphor.h) using the existing tree-sitter-cpp dependency: function bodies (compound_statement) are stripped, leaving signatures + doc comments; constants/macros/typedefs kept verbatim. Cached, with full-source fallback on parse failure. Large-context models get it appended under an 'AVAILABLE HELPERS (already declared — do not re-define, no #include)' heading; on-device stays compact. No generated file or script to keep in sync.
 
 ---
 

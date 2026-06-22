@@ -10,11 +10,31 @@ import Foundation
 /// plus a `read` binding for each declared input.
 enum GeneratorInstructions {
     /// Selects the instruction set sized for the model's context window.
+    ///
+    /// Large-context models also get the full ``PhosphorInterface`` (the
+    /// declarations-only view of `Phosphor.h`) appended so the model knows
+    /// exactly which helpers and constants are in scope. The on-device model's
+    /// context is too small for the full list; its compact prompt names the
+    /// key helpers in prose instead.
     static func instructions(for model: GenerationModel) -> String {
         switch model {
-        case .onDevice: return onDevice
-        case .privateCloudCompute, .anthropic: return full
+        case .onDevice:
+            return onDevice
+
+        case .privateCloudCompute, .anthropic:
+            return full + "\n\n" + availableHelpersSection
         }
+    }
+
+    /// The `Phosphor.h` helper interface, wrapped with a heading explaining
+    /// that these are already in scope and must not be re-defined.
+    private static var availableHelpersSection: String {
+        """
+        AVAILABLE HELPERS (already declared in the prelude — call them, do NOT
+        re-define them, and do NOT write `#include`):
+
+        \(PhosphorInterface.source)
+        """
     }
 
     /// Full instructions for cloud / Anthropic models with large context.

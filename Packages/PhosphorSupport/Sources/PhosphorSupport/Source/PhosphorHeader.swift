@@ -96,11 +96,13 @@ public enum PhosphorHeader {
     /// somehow missing (kernels then lose the helpers but still compile their
     /// own code).
     static func helpersDecl() -> String {
-        staticHelpers
+        staticHelperSource
     }
 
-    /// Lazily-loaded, process-cached contents of the static helper file.
-    private static let staticHelpers: String = {
+    /// Lazily-loaded, process-cached contents of the static `Phosphor.h`
+    /// helper file (the full implementations). ``PhosphorInterface`` derives
+    /// the declarations-only view from this.
+    public static let staticHelperSource: String = {
         guard let url = Bundle.module.url(forResource: "Phosphor", withExtension: "h"),
               let text = try? String(contentsOf: url, encoding: .utf8) else {
             return ""
