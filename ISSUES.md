@@ -2917,7 +2917,7 @@ Touch points: PhosphorInspectorView, GeneratePanel (becomes inspector content), 
 
 ---
 
-## 82: Chat-style generation UI with version rollback
+## 82: Chat-style generation history UI
 
 +++
 status: new
@@ -2925,30 +2925,85 @@ priority: medium
 kind: feature
 labels: effort:l
 created: 2026-06-22T16:43:15Z
+updated: 2026-06-22T16:52:43Z
 +++
 
-Turn the inspector-hosted generation panel (see prerequisite issue #81) into a chat-like, iterative experience with a version transcript and rollback. This is the big piece.
+Turn the inspector-hosted Generate tab (#81) into a chat-like view that keeps and displays a history of prompts and responses. No rollback/branching — that is #83.
 
-1. Chat-like interaction
-   - Show the conversation as a turn list: user prompts and resulting shader versions, in order. Each user turn produced a shader; each assistant turn is 'generated vN' with a title + short summary/diff affordance.
-   - Compose box at the bottom; follow-up prompts modify the current shader (existing 'modify existing source' flow already supports this).
-   - PromptHistory already extracts prior prompts embedded in source (PromptHistory.extract) -> reuse/extend as the backing transcript so history survives reopen.
+Layout (Generate inspector tab):
+- A chat-like list at the top showing the conversation in order: each user turn (the prompt) followed by the assistant turn (the resulting shader version, e.g. 'Generated v2' with a title / short summary).
+- The text prompt field and model picker move to the BOTTOM of the tab (compose area), with the Generate/Modify button.
+- Follow-up prompts modify the current shader (existing 'modify existing source' flow already supports this) and append a new turn.
 
-2. Version rollback
-   - Let the user jump back to any previous generated version and continue from there (branch the conversation).
-   - Bundle documents (.phosphord): we control the on-disk tree, so store version snapshots (e.g. a versions/ or history sidecar) per shader and restore them.
-   - Flat .metal documents: hard — a single text file with no place to stash history. Evaluate: (a) in-memory only for the session, (b) compact history in a front-matter/comment block (bloats the file), (c) app-side sidecar keyed by file identity (fragile across moves/renames). Pick a pragmatic default and document the limitation.
+History / persistence:
+- Keep an in-session transcript of prompts + responses for display.
+- PromptHistory already extracts prior prompts embedded in source (PromptHistory.extract) -> reuse/extend as the backing transcript where possible so some history survives reopen. In-memory is acceptable for v1; durable per-version storage is #83.
+
+Out of scope (own issues):
+- Version rollback / branching -> #83.
+- Rendered-frame previews per turn -> relates to #48.
+
+Touch points: PhosphorInspectorView (Generate tab), GeneratePanel, ShaderGenerator / PromptHistory (transcript model).
+
+---
+
+## 83: Version rollback / branching for generated shaders
+
++++
+status: new
+priority: low
+kind: feature
+labels: effort:l
+created: 2026-06-22T16:52:33Z
++++
+
+Let the user jump back to any previous generated version in the chat history (#82) and continue from there, branching the conversation. Split out of #82 — NOT part of the initial chat UI.
+
+- Bundle documents (.phosphord): we control the on-disk tree, so store version snapshots (e.g. a versions/ or history sidecar) per shader and restore them.
+- Flat .metal documents: hard — a single text file with no place to stash history. Evaluate: (a) in-memory only for the session, (b) compact history in a front-matter/comment block (bloats the file), (c) app-side sidecar keyed by file identity (fragile across moves/renames). Pick a pragmatic default and document the limitation.
 
 Open questions:
-- Transcript persistence model per document type (in-memory vs. embedded vs. sidecar).
-- How rollback interacts with undo (#76): is selecting an old version an undoable text edit, or a separate history mechanism?
+- Transcript/version persistence model per document type (in-memory vs. embedded vs. sidecar).
+- How rollback interacts with undo (#76/#79): is selecting an old version an undoable text edit, or a separate history mechanism?
 - Diff/preview between versions.
 
-Related:
-- #81 (prerequisite: non-modal inspector hosting).
-- #76 (undoable text mutations) — generation writes text; rollback and undo should be coherent.
-- #48 (rendered-frame screenshot feedback) — a chat panel is the natural place to show/attach rendered previews per turn.
+Depends on #82 (chat history UI).
 
-Touch points: PhosphorInspectorView, GeneratePanel, ShaderGenerator / PromptHistory (transcript), PhosphorBundleDocument (version storage).
+---
+
+## 84: Add 'New Bundle' option to splash screen
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-06-22T16:55:19Z
++++
+
+The splash screen (Phosphor/Views/SplashScene.swift) only offers a single 'New Metal Shader' button. There is no way to create a new bundle (.phosphord) document from the splash screen, even though PhosphorBundleDocument exists. Add a 'New Bundle' button/action alongside 'New Metal Shader'.
+
+---
+
+## 85: Use 'icon and text' toolbar display mode for detail pane
+
++++
+status: new
+priority: low
+kind: enhancement
+created: 2026-06-22T16:56:02Z
++++
+
+Set the detail pane toolbar (NavigationSplitView detail in Phosphor/Views/PhosphorBundleDocumentView.swift) to display mode 'icon and text' if possible, so toolbar items show both their icon and label.
+
+---
+
+## 86: Dark mode support
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-06-22T17:04:47Z
++++
 
 ---
