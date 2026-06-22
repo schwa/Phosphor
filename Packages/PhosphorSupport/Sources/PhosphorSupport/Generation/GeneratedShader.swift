@@ -104,6 +104,21 @@ public enum GeneratedUniformKind: String {
     case color
 }
 
+// MARK: - Codable
+//
+// The generation schema types are made Codable so the exact decoded model
+// response can be logged verbatim in the generation wire log (#99). The
+// `@Generable` macro doesn't add Codable, so we conform explicitly; synthesis
+// covers all members.
+
+extension GeneratedShader: Codable, Hashable, Sendable {}
+extension GeneratedResource: Codable, Hashable, Sendable {}
+extension GeneratedPixelFormat: Codable, Hashable, Sendable {}
+extension GeneratedPass: Codable, Hashable, Sendable {}
+extension GeneratedBinding: Codable, Hashable, Sendable {}
+extension GeneratedUniform: Codable, Hashable, Sendable {}
+extension GeneratedUniformKind: Codable, Hashable, Sendable {}
+
 // MARK: - Conversion to runtime model
 
 public extension GeneratedShader {

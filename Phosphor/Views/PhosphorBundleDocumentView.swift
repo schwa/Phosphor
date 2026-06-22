@@ -22,6 +22,14 @@ struct PhosphorBundleDocumentView: View {
         Set(document.assets.keys)
     }
 
+    /// Per-shader log identity: the bundle URL plus the active shader name, so
+    /// each shader in the bundle keeps its own transcript (#99). nil for an
+    /// unsaved bundle with no stable URL.
+    private var bundleLogIdentity: String? {
+        guard let url = document.fileURL, let shader = document.activeShader else { return nil }
+        return "\(url.absoluteString)#\(shader)"
+    }
+
     private var activeTextBinding: Binding<String> {
         Binding(
             get: { document.activeText },
@@ -50,7 +58,8 @@ struct PhosphorBundleDocumentView: View {
                 text: activeTextBinding,
                 parsed: document.parsed,
                 onTextChange: { document.refreshParsed() },
-                isUntouchedTemplate: document.isUntouchedTemplate
+                isUntouchedTemplate: document.isUntouchedTemplate,
+                logIdentity: bundleLogIdentity
             )
             .environment(\.textMutator, TextMutator { newText, actionName in
                 document.setActiveText(newText, actionName: actionName, undoManager: undoManager)

@@ -15,6 +15,7 @@ struct PhosphorInspectorView: View {
     @Binding var text: String
     let isUntouchedTemplate: Bool
     let onTextChange: () -> Void
+    var logIdentity: String?
     @Binding var selection: InspectorTab
     var onGeneratingChange: (Bool) -> Void = { _ in }
 
@@ -32,6 +33,7 @@ struct PhosphorInspectorView: View {
                     parsed: parsed,
                     isUntouchedTemplate: isUntouchedTemplate,
                     onTextChange: onTextChange,
+                    logIdentity: logIdentity,
                     onGeneratingChange: onGeneratingChange
                 )
             }

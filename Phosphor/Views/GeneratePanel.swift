@@ -1,5 +1,6 @@
 import PhosphorSupport
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Chat-style generation panel hosted in the inspector's "Generate" tab.
 ///
@@ -16,6 +17,9 @@ struct GeneratePanel: View {
     let parsed: ParsedPhosphorSource
     let isUntouchedTemplate: Bool
     let onTextChange: () -> Void
+    /// Stable key for persisting this transcript to disk (#99). nil disables
+    /// persistence (e.g. previews, unsaved docs with no identity).
+    var logIdentity: String?
     var onGeneratingChange: (Bool) -> Void = { _ in }
 
     @Environment(\.textMutator) private var textMutator
@@ -33,6 +37,7 @@ struct GeneratePanel: View {
     /// Planning mode (#74): when on, a plan turn runs before codegen. Off by
     /// default (it adds a second model turn / latency); persisted.
     @AppStorage("phosphor.generation.planFirst") private var planFirst: Bool = false
+    @State private var showExporter = false
 
     private var selectedModel: GenerationModel {
         GenerationModel(rawValue: modelRawValue) ?? .onDevice
@@ -53,6 +58,11 @@ struct GeneratePanel: View {
             promptFocused = true
         }
         .onChange(of: text) { _, _ in hydrateIfNeeded() }
+        .onChange(of: turns) { _, newTurns in
+            if let logIdentity {
+                GenerationLogStore.save(identity: logIdentity, turns: newTurns)
+            }
+        }
     }
 
     // MARK: - Transcript
@@ -144,6 +154,13 @@ struct GeneratePanel: View {
                     .disabled(isGenerating)
                     .help("Run a planning step before generating. More deliberate, but slower (an extra model turn).")
 
+                Button("Export Transcript", systemImage: "square.and.arrow.up") {
+                    showExporter = true
+                }
+                .labelStyle(.iconOnly)
+                .help("Export this transcript as JSON")
+                .disabled(turns.isEmpty)
+
                 Spacer()
 
                 Button {
@@ -161,6 +178,12 @@ struct GeneratePanel: View {
         }
         .padding(12)
         .background(.background.secondary)
+        .fileExporter(
+            isPresented: $showExporter,
+            document: TranscriptDocument(log: GenerationLog(identity: logIdentity ?? "transcript", turns: turns)),
+            contentType: .json,
+            defaultFilename: "Transcript"
+        ) { _ in }
     }
 
     private var canSubmit: Bool {
@@ -257,8 +280,13 @@ struct GeneratePanel: View {
     private func hydrateIfNeeded() {
         guard seededFromSource != text else { return }
         seededFromSource = text
-        let prompts = PromptHistory.extract(from: text)
-        turns = prompts.map { .user($0) }
+        // Prefer the persisted JSON log (full history incl. responses); fall
+        // back to user prompts embedded in the source (#99).
+        if let logIdentity, let log = GenerationLogStore.load(identity: logIdentity), !log.turns.isEmpty {
+            turns = log.turns
+        } else {
+            turns = PromptHistory.extract(from: text).map { .user($0) }
+        }
     }
 }
 

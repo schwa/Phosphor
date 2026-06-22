@@ -8,14 +8,14 @@ import PhosphorSupport
 /// is tracked separately). Prior *user* prompts embedded in the source are
 /// re-hydrated on appear via `PromptHistory.extract` so some history survives
 /// reopen, even though responses don't.
-struct GenerationTurn: Identifiable, Hashable {
+nonisolated struct GenerationTurn: Identifiable, Hashable, Codable {
     /// Why a recoverable retry happened.
-    enum RetryKind: Hashable {
+    enum RetryKind: Hashable, Codable {
         case compile
         case malformed
     }
 
-    enum Role: Hashable {
+    enum Role: Hashable, Codable {
         case user
         /// The planning turn (#74): the model's approach before codegen.
         /// `intent` and `shape` head the bubble; `text` holds the prose.
@@ -32,9 +32,13 @@ struct GenerationTurn: Identifiable, Hashable {
         case error
     }
 
-    let id = UUID()
+    var id = UUID()
     let role: Role
     let text: String
+    /// When this turn was recorded. Defaults to now for live turns.
+    var timestamp: Date = .now
+
+    private enum CodingKeys: String, CodingKey { case id, role, text, timestamp }
 
     static func user(_ prompt: String) -> Self {
         GenerationTurn(role: .user, text: prompt)

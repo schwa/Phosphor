@@ -12,6 +12,8 @@ struct ShaderEditorView: View {
     let parsed: ParsedPhosphorSource
     let onTextChange: () -> Void
     let isUntouchedTemplate: Bool
+    /// Stable key for persisting the generation transcript (#99).
+    var logIdentity: String?
 
     @State private var model = EditorModel()
     @State private var showHeader: Bool = false
@@ -64,6 +66,7 @@ struct ShaderEditorView: View {
                 text: $text,
                 isUntouchedTemplate: isUntouchedTemplate,
                 onTextChange: onTextChange,
+                logIdentity: logIdentity,
                 selection: $inspectorTab,
                 onGeneratingChange: { generating in
                     // Keep the inspector + Generate tab visible while a

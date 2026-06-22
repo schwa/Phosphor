@@ -61,6 +61,9 @@ public struct GeneratedPlan: Hashable, Sendable {
 }
 
 extension PlanShape: Hashable {}
+extension PlanShape: Codable {}
+extension PlannedApproach: Codable, Hashable, Sendable {}
+extension GeneratedPlan: Codable {}
 
 public extension PlanShape {
     /// Human-readable label for UI (e.g. the transcript plan bubble).

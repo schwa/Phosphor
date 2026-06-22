@@ -125,11 +125,15 @@ public struct ShaderGenerator {
         let priorPrompts = PromptHistory.extract(from: existingSource)
         let allPrompts = priorPrompts + [prompt]
 
+        // Records every model turn (request + decoded response / error) so the
+        // full wire log can be persisted (#99).
+        let recorder = ExchangeRecorder()
+
         // Optional planning turn.
         var generatedPlan: GeneratedPlan?
         if plan {
             await progress?(.planning)
-            let approach = try await respondPlan(prompt: prompt, existingSource: existingSource)
+            let approach = try await respondPlan(prompt: prompt, existingSource: existingSource, recorder: recorder)
             let built = GeneratedPlan(approach: approach, originalPrompt: prompt, sourceCode: existingSource)
             generatedPlan = built
             await progress?(.planned(built))
@@ -146,10 +150,10 @@ public struct ShaderGenerator {
         var corrections: [GenerationCorrection] = []
 
         do {
-            let generated = try await respond(to: initialPrompt, label: "initial")
+            let generated = try await respond(to: initialPrompt, label: "initial", kind: .codegen, recorder: recorder)
             return try await finish(
                 generated: generated, prompts: allPrompts, plan: generatedPlan,
-                corrections: &corrections, progress: progress
+                corrections: &corrections, recorder: recorder, progress: progress
             )
         } catch let error as ShaderGeneratorError {
             // Only schema-decode failures are recoverable here; rethrow the rest
@@ -162,11 +166,11 @@ public struct ShaderGenerator {
                 """)
             await progress?(.retryingMalformed(decodeError: underlying))
             let followUp = Self.buildMalformedRetryPrompt(decodeError: underlying)
-            let generated = try await respond(to: followUp, label: "decode-retry")
+            let generated = try await respond(to: followUp, label: "decode-retry", kind: .malformedRetry, recorder: recorder)
             // The retry already consumed our one retry, so a compile failure
             // here is returned as-is (no second compile retry).
             let source = try generated.toMetalSource(prompts: allPrompts)
-            return GenerationResult(source: source, title: generated.title, corrections: corrections, plan: generatedPlan)
+            return GenerationResult(source: source, title: generated.title, corrections: corrections, plan: generatedPlan, exchanges: recorder.exchanges)
         }
     }
 
@@ -178,13 +182,14 @@ public struct ShaderGenerator {
         prompts: [String],
         plan: GeneratedPlan?,
         corrections: inout [GenerationCorrection],
+        recorder: ExchangeRecorder,
         progress: (@Sendable @MainActor (GenerationPhase) -> Void)?
     ) async throws -> GenerationResult {
         var generated = firstGenerated
         var source = try generated.toMetalSource(prompts: prompts)
 
         // No device / no front-matter to validate -> return as-is.
-        guard let device else { return GenerationResult(source: source, title: generated.title, corrections: corrections, plan: plan) }
+        guard let device else { return GenerationResult(source: source, title: generated.title, corrections: corrections, plan: plan, exchanges: recorder.exchanges) }
 
         if let compileError = Self.tryCompile(source: source, device: device), corrections.isEmpty {
             // Keep the failure around even though we're about to fix it (#96).
@@ -195,22 +200,51 @@ public struct ShaderGenerator {
                 """)
             await progress?(.retrying(compileError: compileError))
             let followUp = Self.buildRetryPrompt(compileError: compileError)
-            generated = try await respond(to: followUp, label: "retry")
+            generated = try await respond(to: followUp, label: "retry", kind: .compileRetry, recorder: recorder)
             source = try generated.toMetalSource(prompts: prompts)
         }
-        return GenerationResult(source: source, title: generated.title, corrections: corrections, plan: plan)
+        return GenerationResult(source: source, title: generated.title, corrections: corrections, plan: plan, exchanges: recorder.exchanges)
     }
 
-    /// Sends the planning prompt and returns the model's approach.
-    private func respondPlan(prompt: String, existingSource: String) async throws -> PlannedApproach {
+    /// Sends the planning prompt and returns the model's approach, recording
+    /// the exchange.
+    private func respondPlan(prompt: String, existingSource: String, recorder: ExchangeRecorder) async throws -> PlannedApproach {
         let planPrompt = Self.buildPlanPrompt(userPrompt: prompt, existingSource: existingSource)
-        return try await model.respondPlan(to: planPrompt)
+        let started = Date()
+        let clock = ContinuousClock.now
+        do {
+            let approach = try await model.respondPlan(to: planPrompt)
+            recorder.record(GenerationExchange(
+                kind: .plan, model: model.displayName, request: planPrompt,
+                response: .init(approach: approach), startedAt: started,
+                elapsed: clock.elapsedSeconds))
+            return approach
+        } catch {
+            recorder.record(GenerationExchange(
+                kind: .plan, model: model.displayName, request: planPrompt,
+                error: "\(error)", startedAt: started, elapsed: clock.elapsedSeconds))
+            throw error
+        }
     }
 
-    /// Sends a prompt through the port, logs the result, and rejects an empty
-    /// body.
-    private func respond(to prompt: String, label: String) async throws -> GeneratedShader {
-        let generated = try await model.respond(to: prompt)
+    /// Sends a prompt through the port, records the exchange, logs the result,
+    /// and rejects an empty body.
+    private func respond(to prompt: String, label: String, kind: GenerationExchange.Kind, recorder: ExchangeRecorder) async throws -> GeneratedShader {
+        let started = Date()
+        let clock = ContinuousClock.now
+        let generated: GeneratedShader
+        do {
+            generated = try await model.respond(to: prompt)
+        } catch {
+            recorder.record(GenerationExchange(
+                kind: kind, model: model.displayName, request: prompt,
+                error: "\(error)", startedAt: started, elapsed: clock.elapsedSeconds))
+            throw error
+        }
+        recorder.record(GenerationExchange(
+            kind: kind, model: model.displayName, request: prompt,
+            response: .init(shader: generated), startedAt: started,
+            elapsed: clock.elapsedSeconds))
         Self.logGeneration(label: label, model: model.displayName, generated: generated)
         if generated.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw ShaderGeneratorError.emptyBody(model: model.displayName)
@@ -391,12 +425,36 @@ public struct GenerationResult: Hashable, Sendable {
     /// The plan that drove this generation, when planning mode was on (#74).
     /// `nil` for a direct (unplanned) generation.
     public let plan: GeneratedPlan?
+    /// Every model turn (request + decoded response / error), oldest first
+    /// (#99). The complete wire record of this generation.
+    public let exchanges: [GenerationExchange]
 
-    public init(source: String, title: String, corrections: [GenerationCorrection] = [], plan: GeneratedPlan? = nil) {
+    public init(
+        source: String, title: String,
+        corrections: [GenerationCorrection] = [], plan: GeneratedPlan? = nil,
+        exchanges: [GenerationExchange] = []
+    ) {
         self.source = source
         self.title = title
         self.corrections = corrections
         self.plan = plan
+        self.exchanges = exchanges
+    }
+}
+
+/// Accumulates ``GenerationExchange`` records across the turns of one
+/// generation. A reference type so the value-type ``ShaderGenerator`` can
+/// thread it through its async helpers.
+final class ExchangeRecorder: @unchecked Sendable {
+    private(set) var exchanges: [GenerationExchange] = []
+    func record(_ exchange: GenerationExchange) { exchanges.append(exchange) }
+}
+
+extension ContinuousClock.Instant {
+    /// Seconds elapsed from this instant to now.
+    var elapsedSeconds: Double {
+        let d = duration(to: .now)
+        return Double(d.components.seconds) + Double(d.components.attoseconds) / 1e18
     }
 }
 
