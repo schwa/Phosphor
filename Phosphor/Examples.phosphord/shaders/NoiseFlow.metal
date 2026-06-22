@@ -1,0 +1,50 @@
+/* phosphor:environment
+flipY = true
+output = "image"
+uniforms = []
+
+[[passes]]
+enabled = true
+id = "image"
+textures = [ { access = "write", id = "image" } ]
+
+[[textures]]
+format = "rgba32Float"
+id = "image"
+init = { kind = "zero" }
+size = "drawable"
+swap = "none"
+*/
+
+#include "Phosphor.h"
+
+uint2 gid [[thread_position_in_grid]];
+
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame) {
+    float2 r = resolution;
+    float2 FC = position;
+    float4 o = float4(0);
+    float t = time;
+
+    float3 d = float3(FC.xy * 2.0 - r, r.x) / r.x;
+    float3 p = float3(0);
+
+    for(float i = 0.0, s = 0.0; i < 200.0; i++) {
+        s = exp(fmod(i, 5.0));
+        p += d * (p.y + 0.2 - 0.2 * snoise2D((p.xz * 0.6 + t * 0.2) * s)) / s;
+    }
+
+    float3 temp = d + 0.03 * (d + 1.0) / length(d.xy - 1.3) - 0.7 / (p.z + 1.0) - min(0.2 + p + p, float3(0)).y;
+    o.grb = 0.5 * temp;
+    return o;
+}
+
+kernel void image(
+    device const Uniforms&     uniforms     [[buffer(0)]],
+    device const UserUniforms& userUniforms [[buffer(1)]])
+{
+    float4 color = mainImage(float2(gid), uniforms.resolution, uniforms.mouse,
+                             uniforms.time, uniforms.frame);
+    color.a = 1.0;
+    uniforms.textures.image.write(color, gid);
+}

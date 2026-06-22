@@ -34,6 +34,11 @@ struct SplashView: View {
         PhosphorMetalDocument.readableContentTypes + PhosphorBundleDocument.readableContentTypes
     }
 
+    /// URL of the read-only `Examples.phosphord` bundle shipped inside the app.
+    private var examplesBundleURL: URL? {
+        Bundle.main.url(forResource: "Examples", withExtension: "phosphord")
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             // Left panel - branding and actions
@@ -69,6 +74,16 @@ struct SplashView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
+
+                    if examplesBundleURL != nil {
+                        Button {
+                            exportExamples()
+                        } label: {
+                            Label("Examples…", systemImage: "sparkles")
+                                .frame(width: 160)
+                        }
+                        .controlSize(.large)
+                    }
 
                     Button {
                         isFileImporterPresented = true
@@ -155,6 +170,55 @@ struct SplashView: View {
             } catch {
                 // Document open failed - system will show alert
             }
+        }
+    }
+
+    /// Copies the read-only bundled `Examples.phosphord` to a user-chosen
+    /// folder, then opens the writable copy. The in-bundle original is never
+    /// edited.
+    private func exportExamples() {
+        guard let source = examplesBundleURL else { return }
+
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Export Here"
+        panel.message = "Choose where to save the Examples bundle."
+        panel.directoryURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+
+        guard panel.runModal() == .OK, let directory = panel.url else { return }
+
+        let destination = directory.appendingPathComponent(source.lastPathComponent)
+        do {
+            if FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)) {
+                try FileManager.default.removeItem(at: destination)
+            }
+            try FileManager.default.copyItem(at: source, to: destination)
+            // The in-bundle copy may be read-only; make sure the export is writable.
+            try makeWritable(at: destination)
+            openFile(at: destination)
+        } catch {
+            NSApp.presentError(error)
+        }
+    }
+
+    /// Clears the read-only flag on `url` and everything beneath it.
+    private func makeWritable(at url: URL) throws {
+        let fileManager = FileManager.default
+        var urls = [url]
+        if let enumerator = fileManager.enumerator(at: url, includingPropertiesForKeys: nil) {
+            for case let child as URL in enumerator {
+                urls.append(child)
+            }
+        }
+        for fileURL in urls {
+            var values = URLResourceValues()
+            values.isUserImmutable = false
+            var mutableURL = fileURL
+            try? mutableURL.setResourceValues(values)
+            try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fileURL.path(percentEncoded: false))
         }
     }
 }
