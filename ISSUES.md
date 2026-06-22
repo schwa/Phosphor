@@ -2641,7 +2641,7 @@ Wants: group related controls, separate playback transport from view-options fro
 
 ---
 
-## 74: AI pre-processor step that classifies the prompt and routes to specialized sub-processors
+## 74: Planning mode: turn a vague idea or pasted shader into a concrete generation plan
 
 +++
 status: open
@@ -2649,28 +2649,38 @@ priority: low
 kind: feature
 labels: effort:xl
 created: 2026-06-22T15:39:19Z
-updated: 2026-06-22T15:40:24Z
+updated: 2026-06-22T16:30:34Z
 +++
 
-Add a routing/classification stage in front of shader generation. Today ShaderGenerator runs a single generic flow (buildPrompt -> model -> compile/retry) regardless of what the user asked for. Instead, a pre-processor should first try to understand the *kind* of shader being requested, then dispatch to one of N specialized sub-processors, each with tailored instructions, front-matter scaffolding, and examples.
+Add a planning stage in front of shader generation. Today ShaderGenerator runs a single one-shot flow (buildPrompt -> model -> compile/retry) and the user gets back finished .metal source they can't steer. For vague prompts ("make it feel like rain") or pasted source (Shadertoy GLSL, another shader to port), the model has to guess intent, structure, and front-matter all at once. Planning mode separates "what are we building" from "write the code".
 
-Motivating examples:
-- A 'game of life' / cellular-automaton style request implies ping-ponged feedback textures (swap=ping-pong, a read+write pass). Route to a feedback/simulation sub-processor that pre-builds the multi-pass + ping-pong front-matter so the model only writes the kernel logic.
-- A request that looks like Shadertoy code (mainImage(out vec4 fragColor, in vec2 fragCoord), iTime/iResolution) routes to a Shadertoy-translation sub-processor that maps GLSL->MSL and the Shadertoy uniform set to Phosphor builtins.
-- Plain single-pass image shaders route to the existing generic path.
+Goal: take a vague description OR pasted shader code and produce a *plan* — a structured, human-readable description of what the shader will do and how it'll be built — before any code is generated. The user can read, tweak, or accept the plan; accepting it feeds the plan into the existing generate flow as rich, structured input.
 
-Design sketch:
-- Classification: a cheap first model turn (or heuristic + model) that returns a category enum + confidence. Categories are open-ended; start with { feedbackSimulation, shadertoyPort, singlePassImage, unknown }.
-- Routing: each category maps to a sub-processor that supplies its own system/instruction prompt, optional front-matter template, and few-shot examples.
-- Fits the existing ports/adapters shape: sub-processors are strategies behind a common protocol; ShaderGenerator orchestrates classify -> route -> generate -> compile/retry. Keep the compile-and-retry loop shared.
+What a plan captures:
+- Intent: one-line summary of the effect.
+- Shape: single-pass image, multi-pass, or feedback/simulation (ping-pong). Feedback/sim implies pre-built multi-pass + ping-pong front-matter so the model only writes the kernel logic.
+- Source mapping (when porting): detect Shadertoy code (mainImage(out vec4 fragColor, in vec2 fragCoord), iTime/iResolution) and lay out the GLSL->MSL + Shadertoy-uniform -> Phosphor-builtin mapping as plan steps.
+- Resources/uniforms/passes the front-matter will need.
+- Open decisions surfaced to the user (e.g. "wrap or clamp at edges?").
+
+Flow:
+- Plan: a model turn (heuristics can pre-detect Shadertoy/feedback to seed it) that returns a structured plan object, not code.
+- Review: GeneratePanel shows the plan; user can edit fields / free-text notes or just hit Generate.
+- Generate: the accepted plan is serialized into the prompt handed to the existing buildPrompt -> model -> compile/retry loop. The plan replaces today's bare userPrompt as the model's instructions.
+- Skip: trivial prompts or a user toggle ("just generate") bypass planning and go straight to the current path.
+
+Design notes:
+- Fits ports/adapters: a Planner type behind a protocol, parallel to LanguageModelPort. ShaderGenerator orchestrates plan -> review -> generate; the compile/retry loop stays shared and unchanged.
+- Plan is a Codable value type (GeneratedShader-adjacent) so it can be shown, edited, persisted, and round-tripped.
+- Plan-as-input keeps front-matter scaffolding (feedback ping-pong, multi-pass) in the plan, so the codegen turn is narrower and more reliable.
 
 Open questions:
-- Classify with a separate model call vs. fold into a single structured-output generation? (Extra latency/cost vs. simpler flow.)
-- How to handle low-confidence/unknown -> fall back to the generic path.
-- Where examples live (per sub-processor) and how to keep them in sync with the Phosphor front-matter format.
-- Should classification be user-overridable (a manual 'treat this as Shadertoy' toggle in the Generate panel)?
+- Separate plan model call vs. fold plan + code into one structured-output turn (latency/cost vs. steerability — planning mode wants the explicit review step).
+- How editable is the plan? Free-text notes only, or structured fields the UI exposes?
+- Persist plans alongside prompt history / in the shader front-matter?
+- Auto-skip planning for short/simple prompts, or always offer it behind a toggle?
 
-Touchpoints: PhosphorSupport/Generation (ShaderGenerator, LanguageModelPort, GeneratorInstructions, GeneratedShader), GeneratePanel UI for surfacing the chosen route / override.
+Touchpoints: PhosphorSupport/Generation (ShaderGenerator, LanguageModelPort, GeneratorInstructions, GeneratedShader, PromptHistory), GeneratePanel UI for showing/editing/accepting the plan and the skip toggle.
 
 - `2026-06-22T15:40:24Z`: Related to #32 (Shadertoy import): a 'shadertoyPort' sub-processor here overlaps with #32's GLSL->MSL translation path. Keep translation logic shareable.
 
@@ -2827,5 +2837,33 @@ Considerations:
 - Whatever we choose affects #77 (rollback), #65 (asset selection), #51 (front-matter defaults), and the splash 'New Metal Shader' button.
 
 Ask: which direction? Once decided, spin off concrete follow-up issues.
+
+---
+
+## 79: Redo not available after undoing a programmatic text mutation
+
++++
+status: new
+priority: high
+kind: none
+labels: effort:s
+created: 2026-06-22T16:39:02Z
++++
+
+Undoing a programmatic, undoable text mutation works, but Redo never becomes available afterward.
+
+Symptoms observed (via the DEBUG-only 'Debug > Append Comment' command, which routes through the same TextMutator path as Generate/Reformat):
+- Run Append Comment: the comment is appended to the document text.
+- Edit menu shows 'Undo Append Comment' (action name correct).
+- Cmd-Z: the comment is removed (undo restores prior text correctly).
+- After undo, the Redo menu item stays greyed out / never lights up.
+
+So undo registration and the action name work; only the redo step is missing. Same behavior was originally seen with Generate.
+
+Infrastructure in place (from #76):
+- PhosphorMetalDocument.setText(_:actionName:undoManager:) and PhosphorBundleDocument.setText(_:for:actionName:undoManager:) register undo via UndoManager.registerUndo(withTarget:), with the undo closure calling setText again to swap values (intended to provide redo for free).
+- TextMutator bridges the doc-agnostic editor UI to those methods; injected via environment and re-published as a focused-scene value for menu commands.
+
+Not yet root-caused; do not over-theorize here. Reproduce with the debug command, then investigate why the nested registerUndo inside the undo closure does not register as a redo action.
 
 ---
