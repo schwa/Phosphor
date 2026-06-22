@@ -56,101 +56,8 @@ struct ShaderEditorView: View {
         }
         .focusedSceneValue(\.shaderText, $text)
         .focusedSceneValue(\.shaderTextMutator, textMutator)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Button {
-                    layoutMode.cycle()
-                } label: {
-                    Label("Layout", systemImage: layoutMode.systemImage)
-                }
-                .help(layoutMode.nextLayoutHelp)
-            }
-            ToolbarItem(placement: .principal) {
-                ResourcePickerView(
-                    configuration: parsed.configuration,
-                    displayedResource: $model.displayedResource
-                )
-            }
-            ToolbarItem(placement: .principal) {
-                Button {
-                    showHeader.toggle()
-                } label: {
-                    Label("Phosphor.h", systemImage: "doc.text.magnifyingglass")
-                }
-                .popover(isPresented: $showHeader, arrowEdge: .top) {
-                    ScrollView([.horizontal, .vertical]) {
-                        MetalSourceView(text: PhosphorHeader.source(for: parsed.configuration))
-                            .padding(12)
-                    }
-                    .frame(minWidth: 480, minHeight: 360)
-                }
-            }
-            ToolbarItem(placement: .principal) {
-                Toggle(isOn: $showUniformsPanel) {
-                    Label("Uniforms", systemImage: "slider.horizontal.3")
-                }
-                .toggleStyle(.button)
-                .disabled(!hasUniforms)
-                .help(hasUniforms
-                        ? "Show or hide the uniforms panel"
-                        : "No uniforms declared in this shader")
-            }
-            ToolbarItem(placement: .principal) {
-                Toggle(isOn: $showFrameTiming) {
-                    Label("Frame Timing", systemImage: "gauge.with.needle")
-                }
-                .toggleStyle(.button)
-                .help("Show or hide the FPS / frame-timing overlay")
-            }
-            ToolbarItem(placement: .principal) {
-                Toggle(isOn: micToggleBinding) {
-                    Label("Microphone", systemImage: micEnabled ? "mic.fill" : "mic.slash")
-                }
-                .toggleStyle(.button)
-                .disabled(audioCapture?.isPermissionDenied ?? false)
-                .help(audioCapture?.isPermissionDenied == true
-                        ? "Microphone access was denied. Enable it in System Settings → Privacy & Security."
-                        : "Enable microphone input for audio-reactive shaders")
-            }
-            ToolbarItem(placement: .principal) {
-                Button {
-                    model.isPaused.toggle()
-                } label: {
-                    Label(
-                        model.isPaused ? "Play" : "Pause",
-                        systemImage: model.isPaused ? "play.fill" : "pause.fill"
-                    )
-                }
-                .help(model.isPaused ? "Resume" : "Pause time")
-            }
-            ToolbarItem(placement: .principal) {
-                Button {
-                    model.reset()
-                } label: {
-                    Label("Reset", systemImage: "arrow.counterclockwise")
-                }
-                .help("Reset time to 0 and reseed feedback shaders")
-            }
-            ToolbarItem(placement: .principal) {
-                Button {
-                    inspectorTab = .generate
-                    showInspector = true
-                } label: {
-                    Label("Generate", systemImage: "sparkles")
-                }
-                .keyboardShortcut("p", modifiers: [.command, .shift])
-                .help("Open the AI generation panel in the inspector")
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showInspector.toggle()
-                } label: {
-                    Label("Inspector", systemImage: "sidebar.right")
-                }
-                .keyboardShortcut("i", modifiers: [.command, .option])
-                .help("Toggle inspector panel")
-            }
-        }
+        .toolbarRole(.editor)
+        .toolbar(id: "phosphor.editor") { toolbarContent }
         .inspector(isPresented: $showInspector) {
             PhosphorInspectorView(
                 parsed: parsed,
@@ -168,6 +75,119 @@ struct ShaderEditorView: View {
                 }
             )
             .inspectorColumnWidth(min: 360, ideal: 480, max: 900)
+        }
+    }
+
+    /// The editor toolbar. Items carry stable ids so the system can persist
+    /// the user's customization (right-click → Customize Toolbar) and so
+    /// ordering survives launches. Grouped by purpose; transport and panel
+    /// toggles can be hidden by default and added back via customization.
+    @ToolbarContentBuilder
+    private var toolbarContent: some CustomizableToolbarContent {
+        // View: layout cycle + which resource the preview shows.
+        ToolbarItem(id: "layout", placement: .navigation) {
+            Button {
+                layoutMode.cycle()
+            } label: {
+                Label("Layout", systemImage: layoutMode.systemImage)
+            }
+            .help(layoutMode.nextLayoutHelp)
+        }
+        ToolbarItem(id: "resource", placement: .navigation) {
+            ResourcePickerView(
+                configuration: parsed.configuration,
+                displayedResource: $model.displayedResource
+            )
+        }
+
+        // Transport: play/pause + reset time.
+        ToolbarItem(id: "playPause", placement: .principal) {
+            Button {
+                model.isPaused.toggle()
+            } label: {
+                Label(
+                    model.isPaused ? "Play" : "Pause",
+                    systemImage: model.isPaused ? "play.fill" : "pause.fill"
+                )
+            }
+            .help(model.isPaused ? "Resume" : "Pause time")
+        }
+        ToolbarItem(id: "reset", placement: .principal) {
+            Button {
+                model.reset()
+            } label: {
+                Label("Reset", systemImage: "arrow.counterclockwise")
+            }
+            .help("Reset time to 0 and reseed feedback shaders")
+        }
+
+        // Panel toggles. Frame timing + mic are off by default in the toolbar;
+        // the user can add them back via Customize Toolbar.
+        ToolbarItem(id: "uniforms", placement: .automatic) {
+            Toggle(isOn: $showUniformsPanel) {
+                Label("Uniforms", systemImage: "slider.horizontal.3")
+            }
+            .toggleStyle(.button)
+            .disabled(!hasUniforms)
+            .help(hasUniforms
+                    ? "Show or hide the uniforms panel"
+                    : "No uniforms declared in this shader")
+        }
+        ToolbarItem(id: "frameTiming", placement: .automatic) {
+            Toggle(isOn: $showFrameTiming) {
+                Label("Frame Timing", systemImage: "gauge.with.needle")
+            }
+            .toggleStyle(.button)
+            .help("Show or hide the FPS / frame-timing overlay")
+        }
+        .defaultCustomization(.hidden)
+        ToolbarItem(id: "microphone", placement: .automatic) {
+            Toggle(isOn: micToggleBinding) {
+                Label("Microphone", systemImage: micEnabled ? "mic.fill" : "mic.slash")
+            }
+            .toggleStyle(.button)
+            .disabled(audioCapture?.isPermissionDenied ?? false)
+            .help(audioCapture?.isPermissionDenied == true
+                    ? "Microphone access was denied. Enable it in System Settings → Privacy & Security."
+                    : "Enable microphone input for audio-reactive shaders")
+        }
+        .defaultCustomization(.hidden)
+        ToolbarItem(id: "phosphorHeader", placement: .automatic) {
+            Button {
+                showHeader.toggle()
+            } label: {
+                Label("Phosphor.h", systemImage: "doc.text.magnifyingglass")
+            }
+            .help("View the generated Phosphor.h prelude")
+            .popover(isPresented: $showHeader, arrowEdge: .top) {
+                ScrollView([.horizontal, .vertical]) {
+                    MetalSourceView(text: PhosphorHeader.source(for: parsed.configuration))
+                        .padding(12)
+                }
+                .frame(minWidth: 480, minHeight: 360)
+            }
+        }
+        .defaultCustomization(.hidden)
+
+        // Primary actions, trailing.
+        ToolbarItem(id: "generate", placement: .primaryAction) {
+            Button {
+                inspectorTab = .generate
+                showInspector = true
+            } label: {
+                Label("Generate", systemImage: "sparkles")
+            }
+            .keyboardShortcut("p", modifiers: [.command, .shift])
+            .help("Open the AI generation panel in the inspector")
+        }
+        ToolbarItem(id: "inspector", placement: .primaryAction) {
+            Button {
+                showInspector.toggle()
+            } label: {
+                Label("Inspector", systemImage: "sidebar.right")
+            }
+            .keyboardShortcut("i", modifiers: [.command, .option])
+            .help("Toggle inspector panel")
         }
     }
 }

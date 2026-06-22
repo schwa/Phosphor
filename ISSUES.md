@@ -2611,12 +2611,13 @@ Note: PhosphorPixelFormat is a closed set; inference is best-effort to the neare
 ## 73: Toolbar is a mess
 
 +++
-status: open
+status: closed
 priority: medium
 kind: enhancement
 labels: effort:m
 created: 2026-06-22T15:38:09Z
-updated: 2026-06-22T15:40:16Z
+updated: 2026-06-22T22:09:27Z
+closed: 2026-06-22T22:09:27Z
 +++
 
 The shader editor toolbar (ShaderEditorView.swift) crams ~10 controls into .principal placement with no grouping or overflow handling:
@@ -2638,6 +2639,8 @@ Problems:
 - Mixed concerns sit side by side (a destructive-ish Reset next to a Generate sparkle next to view toggles).
 
 Wants: group related controls, separate playback transport from view-options from actions, and handle narrow-window overflow gracefully. Consider ToolbarItemGroup, placement variety, and/or an overflow menu.
+
+- `2026-06-22T22:09:27Z`: Reworked the editor toolbar: switched to .toolbar(id:) with stable per-item identifiers and CustomizableToolbarContent so it's user-customizable (right-click → Customize Toolbar) and ordering persists. Grouped by purpose and moved off the overstuffed .principal slot: .navigation (Layout, Resource), .principal (transport: Play/Pause, Reset), .automatic (Uniforms, Frame Timing, Mic, Phosphor.h), .primaryAction (Generate, Inspector). Frame Timing, Mic, and Phosphor.h are .defaultCustomization(.hidden) to cut default clutter. Added .toolbarRole(.editor). Closes #85 (per-item labels / display).
 
 ---
 
@@ -2990,13 +2993,17 @@ The splash screen (Phosphor/Views/SplashScene.swift) only offers a single 'New M
 ## 85: Use 'icon and text' toolbar display mode for detail pane
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 created: 2026-06-22T16:56:02Z
+updated: 2026-06-22T22:09:26Z
+closed: 2026-06-22T22:09:26Z
 +++
 
 Set the detail pane toolbar (NavigationSplitView detail in Phosphor/Views/PhosphorBundleDocumentView.swift) to display mode 'icon and text' if possible, so toolbar items show both their icon and label.
+
+- `2026-06-22T22:09:26Z`: Folded into the #73 toolbar redesign.
 
 ---
 
