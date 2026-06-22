@@ -10,7 +10,7 @@ struct DiagnosticsView: View {
         if !diagnostics.isEmpty {
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
-                    ForEach(diagnostics.enumerated(), id: \.offset) { _, diagnostic in
+                    ForEach(diagnostics, id: \.self) { diagnostic in
                         Text(verbatim: Self.diagnosticString(diagnostic))
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(.white)

@@ -121,7 +121,7 @@ private struct ConfigurationEditorView: View {
 
             if !diagnostics.isEmpty {
                 Section("Validation") {
-                    ForEach(Array(diagnostics.enumerated()), id: \.offset) { _, diagnostic in
+                    ForEach(diagnostics, id: \.self) { diagnostic in
                         Text(verbatim: String(describing: diagnostic))
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(diagnostic.isFatal ? .red : .secondary)

@@ -128,7 +128,7 @@ struct SplashView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List(selection: $selectedURL) {
-                        ForEach(Array(recentDocumentURLs.enumerated()), id: \.element) { index, url in
+                        ForEach(recentDocumentURLs.enumerated(), id: \.element) { index, url in
                             RecentDocumentRow(url: url, index: index)
                                 .tag(url)
                                 .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 12))
