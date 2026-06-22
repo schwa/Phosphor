@@ -174,3 +174,52 @@ inline float snoise4D(float4 v) {
     return 49.0 * (dot(m0*m0, float3(dot(p0,x0), dot(p1,x1), dot(p2,x2))) +
                    dot(m1*m1, float2(dot(p3,x3), dot(p4,x4))));
 }
+
+// Cheap 3D hash -> scalar in [0, 1]. Good enough for value noise; can show
+// faint patterning at very large coordinates.
+inline float hash13(float3 p) {
+    p = fract(p * 0.3183099 + 0.1);
+    p *= 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+// 3D value noise built on hash13. Smoothstep-interpolated; output in [0, 1].
+// Softer/cheaper than snoise3D and the natural base for volumetric fbm.
+// Named valueNoise3D (not vnoise) so it can't collide with a shader that
+// defines its own vnoise.
+inline float valueNoise3D(float3 x) {
+    float3 i = floor(x);
+    float3 f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    float n000 = hash13(i + float3(0,0,0));
+    float n100 = hash13(i + float3(1,0,0));
+    float n010 = hash13(i + float3(0,1,0));
+    float n110 = hash13(i + float3(1,1,0));
+    float n001 = hash13(i + float3(0,0,1));
+    float n101 = hash13(i + float3(1,0,1));
+    float n011 = hash13(i + float3(0,1,1));
+    float n111 = hash13(i + float3(1,1,1));
+    float nx00 = mix(n000, n100, f.x);
+    float nx10 = mix(n010, n110, f.x);
+    float nx01 = mix(n001, n101, f.x);
+    float nx11 = mix(n011, n111, f.x);
+    float nxy0 = mix(nx00, nx10, f.y);
+    float nxy1 = mix(nx01, nx11, f.y);
+    return mix(nxy0, nxy1, f.z);
+}
+
+// 5-octave fractal Brownian motion over valueNoise3D. Output roughly [0, 1].
+// Great base for volumetric clouds: sample fbm3D(p + float3(0, 0, time)) to
+// animate, and march fbm3D along a ray for density. Non-integer lacunarity
+// (2.02) breaks up grid alignment between octaves. Named fbm3D (not fbm) so
+// it can't collide with a shader that defines its own fbm.
+inline float fbm3D(float3 p) {
+    float a = 0.5;
+    float v = 0.0;
+    for (int i = 0; i < 5; i++) {
+        v += a * valueNoise3D(p);
+        p *= 2.02;
+        a *= 0.5;
+    }
+    return v;
+}
