@@ -28,6 +28,7 @@ struct GeneratePanel: View {
     /// only happens when the document actually changes underneath us (e.g.
     /// switching shaders in a bundle), not on every keystroke.
     @State private var seededFromSource: String?
+    @FocusState private var promptFocused: Bool
     @AppStorage("phosphor.generation.model") private var modelRawValue: String = GenerationModel.onDevice.rawValue
 
     private var selectedModel: GenerationModel {
@@ -44,7 +45,10 @@ struct GeneratePanel: View {
             Divider()
             composer
         }
-        .onAppear { hydrateIfNeeded() }
+        .onAppear {
+            hydrateIfNeeded()
+            promptFocused = true
+        }
         .onChange(of: text) { _, _ in hydrateIfNeeded() }
     }
 
@@ -119,6 +123,7 @@ struct GeneratePanel: View {
                 .lineLimit(2...6)
                 .textFieldStyle(.roundedBorder)
                 .disabled(isGenerating)
+                .focused($promptFocused)
                 .onSubmit(submit)
 
             HStack {
@@ -175,8 +180,10 @@ struct GeneratePanel: View {
             isGenerating = false
             onGeneratingChange(false)
             status = nil
+            promptFocused = true
         }
 
+        let started = ContinuousClock.now
         do {
             let adapter = try FoundationModelAdapter.make(model: selectedModel)
             let result = try await ShaderGenerator(model: adapter).generate(
@@ -185,6 +192,7 @@ struct GeneratePanel: View {
             ) { phase in
                 status = GenerationStatus(phase: phase, isModifying: modifying, sourceByteCount: sentBytes)
             }
+            let elapsed = started.duration(to: .now)
             if let textMutator {
                 textMutator.apply(result.source, actionName: modifying ? "Modify Shader" : "Generate Shader")
             } else {
@@ -194,12 +202,14 @@ struct GeneratePanel: View {
             // We just wrote the source ourselves; record what we expect so the
             // text onChange doesn't re-hydrate and wipe the transcript.
             seededFromSource = result.source
+            let verb = modifying ? "Modified shader" : "Generated shader"
             turns.append(.assistant(
                 title: result.title,
-                summary: modifying ? "Modified shader" : "Generated shader"
+                summary: "\(verb) in \(Self.formatted(elapsed))"
             ))
         } catch {
-            turns.append(.error("\(error)"))
+            let elapsed = started.duration(to: .now)
+            turns.append(.error("\(error)\n\nFailed after \(Self.formatted(elapsed))"))
         }
     }
 
@@ -209,6 +219,16 @@ struct GeneratePanel: View {
     /// we see a given document, and whenever the source changes to one we
     /// didn't write ourselves (e.g. switching shaders in a bundle). Responses
     /// aren't persisted, so re-hydrated turns are user prompts only.
+    /// Human-readable elapsed time, e.g. "0.8s" or "1m 12s".
+    private static func formatted(_ duration: Duration) -> String {
+        let seconds = Double(duration.components.seconds) + Double(duration.components.attoseconds) / 1e18
+        if seconds < 60 {
+            return String(format: "%.1fs", seconds)
+        }
+        let whole = Int(seconds.rounded())
+        return "\(whole / 60)m \(whole % 60)s"
+    }
+
     private func hydrateIfNeeded() {
         guard seededFromSource != text else { return }
         seededFromSource = text
