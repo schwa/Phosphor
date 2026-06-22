@@ -91,17 +91,17 @@ public enum PhosphorHeader {
     }
 
     /// Static math helpers + constants, loaded from the bundled
-    /// `Resources/PhosphorHeader.metal` resource (the single source of
-    /// truth). Cached after first read. Falls back to an empty string if
-    /// the resource is somehow missing (kernels then lose the helpers but
-    /// still compile their own code).
+    /// `Resources/Phosphor.h` resource (the single source of truth). Cached
+    /// after first read. Falls back to an empty string if the resource is
+    /// somehow missing (kernels then lose the helpers but still compile their
+    /// own code).
     static func helpersDecl() -> String {
         staticHelpers
     }
 
     /// Lazily-loaded, process-cached contents of the static helper file.
     private static let staticHelpers: String = {
-        guard let url = Bundle.module.url(forResource: "PhosphorHeader", withExtension: "metal"),
+        guard let url = Bundle.module.url(forResource: "Phosphor", withExtension: "h"),
               let text = try? String(contentsOf: url, encoding: .utf8) else {
             return ""
         }

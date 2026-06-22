@@ -38,7 +38,7 @@ let package = Package(
             ],
             resources: [
                 .copy("Resources/BuiltinTextures"),
-                .copy("Resources/PhosphorHeader.metal")
+                .copy("Resources/Phosphor.h")
             ]
         ),
         .testTarget(
