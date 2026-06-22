@@ -92,6 +92,26 @@ enum GeneratorInstructions {
           and read `uniforms.textures.imagePrev`. They are TWO different fields — never read
           and write the same field name in a feedback pass.
 
+        SEPARATE SIMULATION STATE FROM DISPLAY COLOR (critical for cellular automata,
+        particles, fluid, reaction-diffusion, any feedback simulation):
+        - The feedback texture is BOTH your state buffer AND what gets shown on screen.
+          If you overwrite the channel that holds simulation state with a display color,
+          the next frame reads corrupted state and the simulation breaks.
+        - Pick a fixed channel layout and keep it consistent every frame, including the
+          seed frame. A common pattern: store the authoritative state in ONE channel as
+          an exact value (e.g. `.r` = 0.0 or 1.0 for dead/alive), and use OTHER channels
+          (`.g`/`.b`) purely for a visual trail/age. Read neighbours/state ONLY from the
+          state channel; never threshold a channel you also tint for display.
+        - WRONG (Game of Life): seed writes alive into `.r`, but the step writes a tinted
+          colour like `float4(0.6, 1.0, 0.7, 1)` for live cells. Now `.r` is 0.6, the trail
+          path decays it toward 0, and a dead cell still counts as a live neighbour for a
+          few frames until it crosses your 0.5 threshold. The state and the look fight.
+        - RIGHT: write `next` (exactly 0.0/1.0) into `.r` every frame; compute a separate
+          `trail` in `.g` (e.g. `max(prev.g * 0.9, next)`); pick the on-screen colour from
+          `.r` and `.g` at the end. Neighbour counts read `prev*.r > 0.5` only.
+        - If state and display genuinely can't share a texture, use TWO ping-pong resources
+          (one for state, one for the rendered look) instead of overloading channels.
+
         Conventions:
         - Use `image` as the final output resource id.
         - `outputResourceID` must match one of your resources (almost always `image`).
@@ -193,6 +213,10 @@ enum GeneratorInstructions {
           from `uniforms.textures.<output_id>Prev` and WRITE the next to
           `uniforms.textures.<output_id>` (e.g. read `imagePrev`, write `image`). They are
           two distinct fields — never read and write the same field in one pass.
+        - In a simulation (Game of Life, etc.) keep state and display SEPARATE: store the
+          authoritative state in one channel as an exact value (e.g. `.r` = 0.0/1.0) every
+          frame including the seed, and use other channels for a trail/look. Read state only
+          from the state channel — never threshold a channel you also tint for display.
         - Only reference resources you declared. If you sample no inputs, `inputs` is empty.
         - Use `image` as the output resource id; for a single effect declare ONE resource
           `image` and ONE pass `image`. `outputResourceID` = "image".
