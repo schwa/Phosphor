@@ -1,4 +1,11 @@
-# Phosphor 2 — Data-Driven Shadertoy for MetalSprockets
+# RFC-000: Phosphor 2 — Data-Driven Shadertoy for MetalSprockets
+
+Status: Foundational (the original design doc; superseded in parts by later RFCs)
+Date: 2026-06-18
+
+> This is the founding design document for Phosphor 2, preserved as RFC-000.
+> Later RFCs revise specific areas (see RFC-001 for the texture-model redesign).
+> Where this doc and a later RFC disagree, the later RFC wins.
 
 A standalone, new project. Not a fork of Phosphor 1. Phosphor 1 keeps existing
 untouched; Phosphor 2 has its own package, target names, and demo (locations
