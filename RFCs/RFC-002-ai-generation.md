@@ -2,7 +2,8 @@
 
 Status: Draft
 Date: 2026-06-22
-Related issues: #48, #74, #82 (done), #83, #87 (done), #89 (done), #91
+Related issues: #48, #74, #82 (done), #83, #87 (done), #88 (done), #89 (done),
+#91, #93, #94, #95
 
 ## Summary
 
@@ -93,6 +94,12 @@ Transcript is in-memory for the session.
 - **No durable history.** The chat transcript and prior versions don't survive
   reopen (only the embedded `/* prompt: */` comments do).
 - **Single retry, compile-only.** The only feedback signal is "did it compile."
+  A *malformed/schema-decode* failure (the model returns content that doesn't
+  fit `GeneratedShader`) is not retried at all — the flow gives up immediately
+  (#94).
+- **Opaque turns.** A chat turn shows only a title + elapsed time; there's no
+  way to inspect what prompt/instructions were actually sent (#93). Most of the
+  transcript also isn't selectable/copyable (#95).
 
 ## Direction
 
@@ -109,7 +116,23 @@ These establish the pattern: **one source of truth, surfaced to the model as a
 clean interface.** Future context (e.g. a 3D-texture sampling API, #92) plugs in
 the same way.
 
-### 2. Multi-modal feedback (#48)
+### 2. Robust self-correction (retry policy)
+
+Today the generator retries once on a **compile** failure, feeding the Metal
+compiler errors back. Two gaps:
+
+- **#94 — retry on malformed/decode failures.** When the model returns content
+  that doesn't decode into `GeneratedShader` (observed in the wild:
+  `{"$PARAMETER_NAME": "undefined"}` with no `title`), the flow should feed the
+  decode error back and retry, exactly as it does for compile errors. Budget:
+  **at most one corrective retry total**, shared across compile *and* decode
+  failures — not two stacked retries. Preferred design: the port surfaces a
+  typed decode error and `ShaderGenerator` owns a single unified retry policy.
+  This was validated manually — pasting the decode error back into a follow-up
+  prompt recovered and produced a working shader — so the failure class is
+  transient/recoverable, not a hard backend dead-end.
+
+### 3. Multi-modal feedback (#48)
 
 Close the visual loop: attach the current rendered frame (a PNG snapshot of the
 live preview) to the generation request so vision-capable backends (Claude;
@@ -121,7 +144,7 @@ context — it turns "compile-only" feedback into "looks-correct" feedback.
 Longer term (out of #48's v1): generator-initiated "render N frames, diff against
 a target, iterate" loops.
 
-### 3. Plan-then-generate (#74)
+### 4. Plan-then-generate (#74)
 
 Insert a **planning stage** before code generation. A first model turn (seeded by
 heuristics that detect Shadertoy/feedback shapes) returns a *structured plan* —
@@ -135,9 +158,17 @@ code" and gives the user a steering point.
 Planning mode and screenshot feedback compose: a plan can reference the current
 frame ("the glow is too green; make it red").
 
-### 4. Iteration, history, and versioning
+### 5. Iteration, history, transparency, and versioning
 
 - **#82 (done):** chat history UI. — *shipped (in-memory).*
+- **#93:** generation trace. Click a turn to see what was actually sent — the
+  user prompt, the assembled request body, the full instructions (incl. the
+  helper interface) behind a disclosure, model + elapsed, retry info, and a
+  decoded-result summary. Note the Generable caveat: there is no raw model token
+  stream to show, only the assembled *request* and the *decoded* result. Sets up
+  attaching the screenshot (#48) and the plan (#74) to the same trace.
+- **#95:** make the transcript selectable/copyable throughout (today only the
+  error/status text is).
 - **#83:** version rollback / branching. Persist generated versions so the user
   can jump back and branch. Needs a persistence decision per document type
   (bundles can store a `versions/` sidecar; flat `.metal` files have nowhere to
@@ -145,7 +176,7 @@ frame ("the glow is too green; make it red").
   coherent with undo/redo (#76/#79): decide whether selecting an old version is
   an undoable text edit or a separate history mechanism.
 
-### 5. Post-process / output quality (#91)
+### 6. Post-process / output quality (#91)
 
 MetalFX spatial AI upscaling — orthogonal to generation, but part of the app's
 overall "AI" story: render at a lower internal resolution and upscale. Listed
@@ -157,11 +188,12 @@ A user opens the Generate tab and describes an effect (or pastes a Shadertoy
 shader). Optionally they enable "use current frame." The assistant first proposes
 a **plan** it can read and tweak. On accept, the model generates the shader with
 full context — the helper interface, the built-in textures, and (for vision
-backends) the rendered frame — then compiles, self-corrects on errors, and shows
-the result live. Each turn is a **versioned** entry in a persistent transcript;
-the user can roll back to any version and branch. Follow-up prompts ("make it
-pulse", "the red is too dark") refine the current version, with the live frame as
-a visual reference.
+backends) the rendered frame — then compiles, self-corrects once on compile *or*
+decode errors, and shows the result live. Each turn is a **versioned**,
+**inspectable** entry in a persistent transcript: the user can click it to see
+exactly what was sent, select/copy any of it, and roll back to any version and
+branch. Follow-up prompts ("make it pulse", "the red is too dark") refine the
+current version, with the live frame as a visual reference.
 
 ## Non-goals
 
