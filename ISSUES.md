@@ -1756,7 +1756,7 @@ priority: medium
 kind: feature
 labels: generation, effort:l
 created: 2026-06-19T03:25:39Z
-updated: 2026-06-22T15:40:16Z
+updated: 2026-06-22T15:49:24Z
 +++
 
 ## Problem
@@ -1808,6 +1808,8 @@ what's on screen.
   layer we use for Anthropic.
 - Pairs naturally with #44 (deepen the generation pipeline / ports & adapters)
   \u2014 the screenshot becomes another input on the LanguageModelPort.
+
+- `2026-06-22T15:49:24Z`: Related to #77 (chat-like generation panel): the chat panel is the natural place to attach per-turn rendered previews.
 
 ---
 
@@ -2716,5 +2718,114 @@ Touch points: PhosphorConfiguration (Model), SourceAssembler + PhosphorHeader (S
 compatibility = "shadertoy"
 output = "image"
 */
+
+---
+
+## 76: All programmatic text mutations must be undoable
+
++++
+status: open
+priority: high
+kind: bug
+labels: effort:m
+created: 2026-06-22T15:47:11Z
+updated: 2026-06-22T15:49:24Z
++++
+
+Several features mutate the document text directly, bypassing the editor's normal undo stack. After any of these runs, Cmd-Z does not restore the previous text (or behaves inconsistently). All text-modifying operations should register a single, coalesced undo step so the user can revert them.
+
+Confirmed: there is no UndoManager / registerUndo usage anywhere in the app or PhosphorSupport today.
+
+Operations that modify text and currently lack undo:
+- Reformat front-matter (ReformatCommand / FrontMatterFormatter).
+- AI generation / modify (GeneratePanel -> writes new source via the text binding + onTextChange, GeneratePanel.swift ~line 110).
+- Configuration UI edits (PhosphorConfigurationEditorView) that rewrite the front-matter block.
+- Any other path that assigns to document.text or activeText programmatically.
+
+Requirements:
+- Each operation registers one undo action (not per-character) with a clear action name (e.g. 'Reformat Front Matter', 'Generate Shader', 'Edit Configuration') so it shows in the Edit menu.
+- Undo restores the full prior text; redo re-applies. Front-matter + body must stay consistent (re-parse after undo/redo).
+- Works for both document types (PhosphorMetalDocument .text and PhosphorBundleDocument .activeText), and respects the active shader in a bundle.
+- Plays nicely with the 300ms recompile debounce.
+
+Open question: where undo registration lives. These are SDK 27 ReadableDocument/WritableDocument types (not NSDocument/FileDocument); confirm how to reach an UndoManager (SwiftUI @Environment(.undoManager) or document-owned). Centralizing text mutation behind one helper that registers undo is likely cleaner than per-call-site registerUndo.
+
+Touch points: ReformatCommand, GeneratePanel, PhosphorConfigurationEditorView, PhosphorMetalDocument/PhosphorBundleDocument, ShaderEditorView.
+
+- `2026-06-22T15:49:24Z`: Related to #77 (chat-like generation + version rollback): rollback and undo must be coherent — decide whether selecting an old version is an undoable text edit or a separate history mechanism.
+
+---
+
+## 77: Move generation into the inspector as a chat-like panel with version rollback
+
++++
+status: open
+priority: medium
+kind: feature
+labels: effort:l
+created: 2026-06-22T15:49:19Z
+updated: 2026-06-22T15:49:24Z
++++
+
+Rework the AI generation UX from the current modal GeneratePanel sheet into a persistent, chat-like panel hosted in the inspector (PhosphorInspectorView). Goals:
+
+1. Inspector-hosted, non-modal
+   - Move generation out of the .sheet (ShaderEditorView -> GeneratePanel) into the inspector so the user can iterate while watching the live preview.
+   - Keep the existing model picker, progress phases (GenerationPhase: generating / retrying), and error surfacing.
+
+2. Chat-like interaction
+   - Show the conversation as a turn list: user prompts and the resulting shader versions, in order. Each user turn produced a shader; each assistant turn is 'generated vN' with title + a short summary/diff affordance.
+   - Compose box at the bottom; follow-up prompts modify the current shader (existing 'modify existing source' flow already supports this).
+   - PromptHistory already extracts prior prompts embedded in the source (PromptHistory.extract) -> reuse/extend as the backing transcript so history survives reopen.
+
+3. Version rollback
+   - Let the user jump back to any previous generated version and continue from there (branch the conversation).
+   - Bundle documents (.phosphord): easy-ish — we control the on-disk tree, so we can store version snapshots (e.g. a versions/ or history sidecar) per shader and restore them.
+   - Flat .metal documents: hard — a single text file with no place to stash history. Options to evaluate: (a) keep history only in-memory for the session, (b) encode a compact history into a front-matter/comment block (bloats the file), (c) an app-side sidecar/store keyed by file identity (fragile across moves/renames). Pick a pragmatic default and document the limitation.
+
+Open questions:
+- Transcript persistence model for each document type (in-memory vs. embedded vs. sidecar).
+- How rollback interacts with undo (#76): is selecting an old version an undoable text edit, or a separate history mechanism?
+- Diff/preview between versions.
+
+Related:
+- #76 (undoable text mutations) — generation writes text; rollback and undo should be coherent.
+- #48 (rendered-frame screenshot feedback) — a chat panel is the natural place to show/attach rendered previews per turn.
+
+Touch points: PhosphorInspectorView, GeneratePanel (becomes inspector content), ShaderEditorView (drop the sheet), ShaderGenerator / PromptHistory (transcript), PhosphorBundleDocument (version storage).
+
+---
+
+## 78: Decision: retire, limit, or keep flat .metal documents?
+
++++
+status: new
+priority: medium
+kind: task
+labels: needs-info, decision
+created: 2026-06-22T15:49:43Z
+updated: 2026-06-22T15:49:47Z
++++
+
+DISCUSSION / DECISION — not a coding task yet.
+
+We support two document types: flat .metal files (PhosphorMetalDocument) and .phosphord bundles (PhosphorBundleDocument). The flat .metal path is already a second-class citizen and the gap is widening. Should we retire it, formally limit it, or invest to keep it at parity?
+
+Current capability gaps (.metal vs bundle):
+- Assets: .metal has none. PhosphorDocumentView passes assets: [:] to runtime.reload (PhosphorDocumentView.swift:26); bundles pass real assets. So image-init textures / texture demos can't work in a flat file.
+- Multiple shaders: bundles hold many shaders + a sidebar; .metal is single-source.
+- Likely-future gaps: generation history / version rollback (#77) is 'easy-ish' for bundles, hard for .metal; any per-document sidecar state has nowhere to live in a single text file.
+
+Options to weigh:
+1. Keep at parity — invest to give .metal an asset story (e.g. inline base64, or a same-folder convention). Expensive and awkward; some features fundamentally want a container.
+2. Limit / freeze — keep .metal as a lightweight 'single procedural shader, no assets' format. Document the limitation; features that need a container are bundle-only. Lowest effort, clearest mental model.
+3. Retire — drop the flat .metal DocumentGroup; make .phosphord the only native document. Provide import (open a .metal -> wrap into a bundle) and export (write the active shader back out as .metal). Cleanest long-term, but a UX/compat change and removes the 'just open a .metal file' affordance.
+
+Considerations:
+- .metal is great for quickly opening/sharing a single file and for Shadertoy-style snippets (no assets needed).
+- Most differentiating features (assets, multi-pass authoring, history) lean toward bundles.
+- Whatever we choose affects #77 (rollback), #65 (asset selection), #51 (front-matter defaults), and the splash 'New Metal Shader' button.
+
+Ask: which direction? Once decided, spin off concrete follow-up issues.
 
 ---
