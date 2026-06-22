@@ -235,7 +235,7 @@ public final class PhosphorRuntime {
         for texture in configuration.textures {
             liveIDs.insert(texture.id)
             let existing = textures[texture.id]
-            let (width, height) = pixelDimensions(for: texture.size, drawableSize: drawableSize)
+            let (width, height) = pixelDimensions(for: texture, drawableSize: drawableSize)
             let dimensionsChanged = (existing != nil) && (existing!.a.width != width || existing!.a.height != height)
             let pingPong = texture.swap != .none
             let pingPongChanged = (existing != nil) && (existing!.pingPong != pingPong)
@@ -457,13 +457,18 @@ public final class PhosphorRuntime {
         commandBuffer.commit()
     }
 
-    /// Looks up asset data, trying the literal name first then the name
-    /// without its extension (so kernels can write `file = "screenshot"`
-    /// for an asset stored on disk as `screenshot.png`).
+    /// Looks up asset data via ``resolveAsset(named:)``.
     private func assetData(named: String) -> Data? {
-        if let asset = assets[named] { return asset.data }
+        resolveAsset(named: named)?.data
+    }
+
+    /// Looks up an asset, trying the literal name first then the name without
+    /// its extension (so kernels can write `file = "screenshot"` for an asset
+    /// stored on disk as `screenshot.png`).
+    private func resolveAsset(named: String) -> PhosphorAsset? {
+        if let asset = assets[named] { return asset }
         let stem = (named as NSString).deletingPathExtension
-        if stem != named, let asset = assets[stem] { return asset.data }
+        if stem != named, let asset = assets[stem] { return asset }
         return nil
     }
 
@@ -471,8 +476,8 @@ public final class PhosphorRuntime {
         diagnostics.append(diagnostic)
     }
 
-    private func pixelDimensions(for size: TextureSize, drawableSize: CGSize) -> (Int, Int) {
-        switch size {
+    private func pixelDimensions(for texture: Texture, drawableSize: CGSize) -> (Int, Int) {
+        switch texture.size {
         case .drawable:
             return (max(1, Int(drawableSize.width.rounded())), max(1, Int(drawableSize.height.rounded())))
 
@@ -484,13 +489,30 @@ public final class PhosphorRuntime {
                 max(1, Int((Float(drawableSize.width) * scale).rounded())),
                 max(1, Int((Float(drawableSize.height) * scale).rounded()))
             )
+
+        case .native:
+            if let size = nativeAssetSize(for: texture) {
+                return (max(1, size.width), max(1, size.height))
+            }
+            // No image init or asset unavailable: fall back to drawable size.
+            return (max(1, Int(drawableSize.width.rounded())), max(1, Int(drawableSize.height.rounded())))
         }
+    }
+
+    /// Native pixel dimensions of a texture's image-init asset, or `nil` if it
+    /// has no image init or the asset is missing/undecodable.
+    private func nativeAssetSize(for texture: Texture) -> (width: Int, height: Int)? {
+        guard case .image(let file) = texture.initialContents,
+              let asset = resolveAsset(named: file) else {
+            return nil
+        }
+        return asset.pixelSize()
     }
 
     private func dimensionDependsOnDrawable(_ size: TextureSize) -> Bool {
         switch size {
         case .drawable, .scaledDrawable: return true
-        case .fixed: return false
+        case .fixed, .native: return false
         }
     }
 

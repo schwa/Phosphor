@@ -2478,10 +2478,12 @@ Generate panel lists models with hardcoded version numbers in displayName: 'Clau
 ## 67: Infer texture size from image asset
 
 +++
-status: new
+status: closed
 priority: low
 kind: feature
 created: 2026-06-21T05:04:54Z
+updated: 2026-06-22T03:52:35Z
+closed: 2026-06-22T03:52:35Z
 +++
 
 When a texture is init = { kind = "image", file = ... }, allow omitting size so the texture is allocated at the decoded image's native dimensions. Today TextureSize only supports drawable/scaledDrawable/fixed, so an image-backed texture must hardcode size (e.g. mandrill is 512x512) or it's allocated at drawable size and the image is copied into the corner. Add a size mode (e.g. "image"/auto, or treat missing size on an image init as native) in TextureSize + Resource+Codable + PhosphorRuntime.pixelDimensions/allocate, and update TextureDemo.metal to use it.

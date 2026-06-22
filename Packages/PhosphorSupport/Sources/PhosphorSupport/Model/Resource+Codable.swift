@@ -47,6 +47,9 @@ extension TextureSize: Codable {
         case .drawable:
             try container.encode("drawable")
 
+        case .native:
+            try container.encode("native")
+
         case .fixed(let width, let height):
             try container.encode(Sized(fixed: .init(width: width, height: height)))
 
@@ -61,6 +64,10 @@ extension TextureSize: Codable {
             switch string {
             case "drawable":
                 self = .drawable
+                return
+
+            case "native":
+                self = .native
                 return
 
             default:

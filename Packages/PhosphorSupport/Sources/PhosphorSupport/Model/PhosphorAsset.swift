@@ -32,4 +32,18 @@ public struct PhosphorAsset: Hashable, Sendable {
         }
         return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
+
+    /// Reads the image's native pixel dimensions from its header without
+    /// decoding the pixels. Returns `nil` when the data isn't a recognized
+    /// image. Cheap enough to call during texture sizing.
+    public func pixelSize() -> (width: Int, height: Int)? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetCount(source) > 0,
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int else {
+            return nil
+        }
+        return (width, height)
+    }
 }

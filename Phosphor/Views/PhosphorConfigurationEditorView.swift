@@ -206,6 +206,7 @@ private struct TextureSizeField: View {
         case drawable
         case fixed
         case scaled
+        case native
     }
 
     var body: some View {
@@ -214,10 +215,11 @@ private struct TextureSizeField: View {
                 Text("Drawable").tag(SizeKind.drawable)
                 Text("Fixed").tag(SizeKind.fixed)
                 Text("Scaled").tag(SizeKind.scaled)
+                Text("Native").tag(SizeKind.native)
             }
             .onChange(of: kind) { _, _ in commit() }
             switch kind {
-            case .drawable:
+            case .drawable, .native:
                 EmptyView()
 
             case .fixed:
@@ -240,6 +242,7 @@ private struct TextureSizeField: View {
     private func hydrate() {
         switch size {
         case .drawable: kind = .drawable
+        case .native: kind = .native
 
         case .fixed(let w, let h):
             kind = .fixed; width = w; height = h
@@ -252,6 +255,7 @@ private struct TextureSizeField: View {
     private func commit() {
         switch kind {
         case .drawable: size = .drawable
+        case .native: size = .native
         case .fixed: size = .fixed(width: width, height: height)
         case .scaled: size = .scaledDrawable(scale)
         }

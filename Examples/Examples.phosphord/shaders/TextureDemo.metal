@@ -11,9 +11,8 @@ textures = [ { access = "write", id = "image" }, { access = "read", id = "mandri
 format = "bgra8Unorm"
 id = "mandrill"
 init = { kind = "image", file = "mandrill" }
-size = { fixed = { width = 512, height = 512 } }
+size = "native"
 swap = "none"
-# TODO(#67): infer attributes from the image asset instead of hardcoding
 
 [[textures]]
 format = "rgba8Unorm"
