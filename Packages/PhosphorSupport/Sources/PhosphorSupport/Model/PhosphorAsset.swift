@@ -37,13 +37,46 @@ public struct PhosphorAsset: Hashable, Sendable {
     /// decoding the pixels. Returns `nil` when the data isn't a recognized
     /// image. Cheap enough to call during texture sizing.
     public func pixelSize() -> (width: Int, height: Int)? {
+        properties().flatMap { props in
+            guard let width = props[kCGImagePropertyPixelWidth] as? Int,
+                  let height = props[kCGImagePropertyPixelHeight] as? Int else {
+                return nil
+            }
+            return (width, height)
+        }
+    }
+
+    /// Header-level description of an image asset, used to infer a pixel
+    /// format. All values come from the image metadata without a full decode.
+    public struct ImageDescriptor: Hashable, Sendable {
+        /// Bits per component (e.g. 8 for PNG/JPEG, 16 or 32 for HDR formats).
+        public var bitsPerComponent: Int
+        /// Whether the image declares an alpha channel.
+        public var hasAlpha: Bool
+
+        public init(bitsPerComponent: Int, hasAlpha: Bool) {
+            self.bitsPerComponent = bitsPerComponent
+            self.hasAlpha = hasAlpha
+        }
+    }
+
+    /// Reads bit depth and alpha presence from the image header. Returns `nil`
+    /// when the data isn't a recognized image.
+    public func imageDescriptor() -> ImageDescriptor? {
+        guard let props = properties() else { return nil }
+        let depth = props[kCGImagePropertyDepth] as? Int ?? 8
+        let hasAlpha = props[kCGImagePropertyHasAlpha] as? Bool ?? false
+        return ImageDescriptor(bitsPerComponent: depth, hasAlpha: hasAlpha)
+    }
+
+    /// Image-source properties for the first frame, or `nil` when the data
+    /// isn't a recognized image.
+    private func properties() -> [CFString: Any]? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               CGImageSourceGetCount(source) > 0,
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-              let width = properties[kCGImagePropertyPixelWidth] as? Int,
-              let height = properties[kCGImagePropertyPixelHeight] as? Int else {
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] else {
             return nil
         }
-        return (width, height)
+        return properties
     }
 }

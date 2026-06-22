@@ -2556,10 +2556,12 @@ Not yet root-caused; needs verification.
 ## 72: Infer texture pixel format from image asset
 
 +++
-status: new
+status: closed
 priority: low
 kind: feature
 created: 2026-06-22T03:49:21Z
+updated: 2026-06-22T03:55:27Z
+closed: 2026-06-22T03:55:27Z
 +++
 
 Companion to #67 (infer texture size from image asset).

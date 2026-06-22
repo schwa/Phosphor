@@ -8,7 +8,7 @@ id = "image"
 textures = [ { access = "write", id = "image" }, { access = "read", id = "mandrill" } ]
 
 [[textures]]
-format = "bgra8Unorm"
+format = "auto"
 id = "mandrill"
 init = { kind = "image", file = "mandrill" }
 size = "native"

@@ -46,7 +46,13 @@ public enum TextureSize: Hashable, Sendable {
 }
 
 /// Pixel format options. Maps to `MTLPixelFormat` at runtime.
+///
+/// `.auto` is a sentinel: the runtime infers a concrete format from the
+/// texture's `init = { kind = "image", ... }` asset, falling back to
+/// `.rgba32Float` when there is no image init or the asset is
+/// missing/undecodable.
 public enum PhosphorPixelFormat: String, Hashable, Codable, Sendable, CaseIterable {
+    case auto
     case rgba8Unorm
     case bgra8Unorm
     case rgba16Float
