@@ -3212,3 +3212,152 @@ Open questions:
 Relates to #89 (2D built-in textures) and #87 (generation context).
 
 ---
+
+## 93: Generation trace: click a chat turn to see the full prompt sent
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: effort:m
+created: 2026-06-22T19:48:18Z
++++
+
+Each assistant turn in the Generate chat (#82) currently shows only a title + elapsed time. Capture a richer "generation trace" per turn and let the user click the turn to open a popover with the full details — primarily what was actually sent to the model, for transparency and debugging.
+
+Proposed popover contents (per assistant turn):
+- The user prompt, verbatim.
+- The full request body assembled by ShaderGenerator.buildPrompt (the EXISTING SHADER block for modifies, the bare prompt for fresh). This is the genuinely useful "what did we send."
+- Disclosure to reveal the full system instructions (GeneratorInstructions.instructions(for:) incl. the appended Phosphor.h interface) — long, so hidden by default.
+- Model name + elapsed time.
+- Retry info: whether a compile-retry happened, and the Metal compiler error that was fed back.
+- Decoded result summary from the GeneratedShader (title, resource/pass/uniform counts, flipY, outputResourceID).
+
+Generable caveat (document in code): with @Generable, FoundationModels decodes structured content directly into GeneratedShader — there is NO raw model text response to show. The popover shows the assembled REQUEST and the DECODED result, not a literal model token stream.
+
+Implementation sketch:
+- Introduce a GenerationTrace value (prompt, requestBody, instructions, model, elapsed, didRetry, compileError?, result summary).
+- ShaderGenerator.generate returns it alongside source+title (extend GenerationResult or add a sibling), threaded up into the GenerationTurn.
+- GeneratePanel: make assistant turns tappable -> .popover showing the trace. Keep it copyable (textSelection).
+- In-memory only for now (consistent with the session transcript; durable storage is #83).
+
+Sets up #48 (attach the rendered-frame screenshot to the same trace) and #74 (attach the plan).
+
+Touch points: ShaderGenerator, GenerationResult/new GenerationTrace, GenerationTurn, GeneratePanel.
+
+---
+
+## 94: Retry once on malformed/schema-decode response (feed the error back)
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: generation, effort:s
+created: 2026-06-22T19:49:40Z
++++
+
+When the model returns a response that fails to DECODE into the GeneratedShader schema, the generator gives up immediately with a malformedResponse error (e.g. observed: {"$PARAMETER_NAME": "undefined"} — no title, garbage content). We already retry once when the produced shader fails to COMPILE (#30), feeding the compiler errors back. Do the same for malformed/schema-decode failures: feed the decode error back and retry.
+
+Budget: AT MOST 1 retry to fix (one additional attempt), same as the compile retry. The two are part of the SAME overall budget — a request gets at most one corrective retry total, whether the first failure was a compile error or a decode/schema error. Do not stack two separate retries.
+
+Where it lives (decision needed):
+- The decode failure currently happens INSIDE FoundationModelAdapter.respond(to:), which throws malformedResponse before ShaderGenerator sees anything. The compile retry lives in ShaderGenerator.
+- Preferred: surface a typed "malformed/decode" error from the port and let ShaderGenerator own a single unified retry policy that handles compile errors AND decode errors the same way (one attempts budget). Avoid hiding retry logic inside the adapter.
+
+Retry prompt: tell the model its previous response didn't match the required schema, include the underlying decode error, and ask for a complete object with all required fields (title, body, resources, passes, uniforms, outputResourceID, flipY). The session already retains history.
+
+Caveat to keep in mind: the observed $PARAMETER_NAME/undefined failure may be a backend/tool-calling glitch in the Anthropic adapter (a literal placeholder leaking through) rather than a model-comprehension problem. A retry is still worth it (cheap, often transient) but may hit the same glitch; don't assume the retry always fixes it.
+
+Surface in the chat: if the single retry also fails, show the malformedResponse error as today.
+
+Touch points: ShaderGenerator (unified retry policy + budget), LanguageModelPort/FoundationModelAdapter (typed decode error), GenerationPhase (a retrying-on-malformed phase or reuse), tests.
+
+- `2026-06-22T19:51:47Z`: Validated manually: pasting the malformedResponse error back into a follow-up prompt ('i tried this before and got - malformedResponse(...)') produced a successful generation ('Pixelated Tube Fall'). Confirms feeding the decode error back recovers, and that this specific failure was transient/recoverable rather than a hard backend dead-end. Good evidence the automated single-retry is worth building.
+
+---
+
+## 95: Make the generation transcript text selectable
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: effort:xs
+created: 2026-06-22T19:50:59Z
++++
+
+Make the Generate chat transcript text selectable/copyable everywhere it reasonably can be. Today only the in-flight status detail (compiler errors) and the error-turn message have .textSelection(.enabled); user prompt bubbles and assistant turns (title + summary) are not selectable, so you can't copy a prompt back out or copy an error/title.
+
+Scope:
+- User prompt bubbles (TurnRow .user): enable selection so prompts can be copied/reused.
+- Assistant turns (TurnRow .assistant): enable selection on the title and summary.
+- Keep the already-selectable error turn and status detail.
+- Apply .textSelection(.enabled) at the appropriate container so all Text inside a turn is selectable; verify it doesn't break the tap target for the upcoming trace popover (#93).
+
+Notes:
+- Labels with an SF Symbol: only the text portion is selectable; that's fine.
+- Don't enable selection on interactive controls (model picker, buttons).
+
+Touch points: GeneratePanel TurnRow (user/assistant/error branches).
+
+---
+
+## 96: Keep compile/correction error info around after auto-correct (don't drop it)
+
++++
+status: closed
+priority: medium
+kind: enhancement
+labels: generation, effort:s
+created: 2026-06-22T19:55:38Z
+updated: 2026-06-22T20:01:07Z
+closed: 2026-06-22T20:01:07Z
++++
+
+When a generated shader fails to compile, we surface the error transiently (the in-flight status shows "First attempt didn't compile — retrying" plus the compiler errors) and then auto-correct. After a successful retry the error is DISCARDED: GenerationStatus lives only in @State and is reset to nil in the defer, so nothing about the original failure survives in the transcript or any log. The same will be true of future error classes (e.g. malformed/decode failures, #94).
+
+Goal: keep error info around even after a successful correction, so the user (and we) can see what went wrong and how it was fixed.
+
+Scope:
+- Record each failed attempt's error (compile error today; later decode/validation/runtime errors) as part of the turn's history, not just the transient status.
+- Surface it in the chat: e.g. the successful assistant turn notes "auto-corrected 1 compile error" and the error text is viewable (likely folds into the generation trace popover, #93).
+- Persist it with the turn for the session (in-memory is fine for now; durable storage is #83).
+- Also log it (os.Logger) so it's recoverable from the system log regardless of UI — the generator already logs generations; make sure the triggering error is logged, not just dropped.
+
+Notes:
+- Generalize beyond compile errors: model the per-attempt outcome (attempt N, error kind, error text) so #94's decode-retry and any future retries reuse it.
+- Don't bloat the happy-path UI: keep the corrected error tucked behind the trace/disclosure, with a short "auto-corrected" affordance on the turn.
+
+Touch points: ShaderGenerator (return per-attempt error history), GenerationStatus/GenerationTurn (carry attempt outcomes), GeneratePanel (surface in turn + trace #93), generator logging.
+
+- `2026-06-22T20:01:07Z`: Compile errors that trigger an auto-correct are now kept: ShaderGenerator records them on GenerationResult.corrections (modeled generically via GenerationCorrection so #94's decode retry can reuse it) and logs them via os.Logger before retrying. The successful assistant turn shows a collapsible 'Auto-corrected N compile error(s)' disclosure with the selectable error text; collapsed by default. In-memory for the session; folds into the trace popover (#93) later.
+
+---
+
+## 97: App launches with a transient 'missing asset' red banner that immediately disappears
+
++++
+status: new
+priority: medium
+kind: bug
+labels: effort:s
+created: 2026-06-22T20:03:23Z
++++
+
+On app launch (opening a document / example), a red diagnostics banner briefly appears reading something like "asset '<name>' missing ... — texture zero-filled" and then disappears on its own a moment later. It's a transient flash, not a persistent error — the shader renders fine once it settles.
+
+Repro: launch the app and open a shader (especially one with an image-init texture / asset). Watch the top-left diagnostics overlay on first paint.
+
+Hypothesis (NOT yet verified — needs confirming): the diagnostics come from PhosphorRuntime during the first parse/compile pass, before assets/textures are fully wired up. The editor reloads on a 300ms debounce, and the initial reload may run with an empty/incomplete asset registry (or before built-in/document assets are resolved), emitting a missingAsset diagnostic that's then cleared on the next reload once assets are present. So it's a startup ordering/race in how diagnostics are computed vs. when assets are available, surfaced by DiagnosticsView (the missingAsset case).
+
+Goal: don't show asset-missing (or any transient startup) diagnostics that are immediately invalidated. The banner should only appear for genuinely missing assets, after things have settled.
+
+Investigation steps:
+- Confirm the source: log/inspect runtime.diagnostics over the first ~second of launch; see whether a missingAsset diagnostic appears then clears.
+- Determine whether the first reload runs without the asset registry (timing vs. asset injection) and whether built-in texture resolution (#89) is in the path.
+- Decide the fix: suppress diagnostics until the first settled compile, debounce/clear stale diagnostics, or ensure assets are present before the first reload that can emit missingAsset.
+
+Touch points: PhosphorRuntime (diagnostics timing), DiagnosticsView (missingAsset rendering), the editor reload task (PhosphorDocumentView / PhosphorBundleDocumentView 300ms debounce), asset injection.
+
+---
