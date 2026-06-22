@@ -35,6 +35,9 @@ let package = Package(
                 .product(name: "TreeSitterCPP", package: "tree-sitter-cpp"),
                 .product(name: "TreeSitterTOML", package: "tree-sitter-toml"),
                 .product(name: "FoundationModelBackends", package: "FoundationModelBackends")
+            ],
+            resources: [
+                .copy("Resources/BuiltinTextures")
             ]
         ),
         .testTarget(

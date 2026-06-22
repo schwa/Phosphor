@@ -81,6 +81,24 @@ enum GeneratorInstructions {
           (NOT `channels.iChannel0` — that API is gone.)
         - Procedural patterns (gradient, plasma, noise, fractals) do NOT need inputs.
 
+        BUILT-IN IMAGE TEXTURES (always available, no import needed):
+        - To use an image, declare a resource and set its `imageFile` to one of the built-in
+          names below. That resource is pre-loaded with the image and sized to it. Then add
+          it as an input on a pass and sample it with `uniforms.textures.<id>.read(gid)`.
+        - Available built-ins (use these EXACT names; do not invent others):
+            * `builtin:mandrill`        — the classic mandrill/baboon photo (512x512, color)
+            * `builtin:testcard`        — a TV test card / calibration image (color)
+            * `builtin:noise-white`     — uniform white noise (grayscale)
+            * `builtin:noise-white-rgb` — independent white noise per channel (color)
+            * `builtin:noise-value`     — smooth value noise (grayscale)
+            * `builtin:noise-fbm`       — fractal (fBm) cloudy noise (grayscale)
+            * `builtin:noise-blue`      — blue noise, great for dithering (grayscale)
+        - Example: to tint the mandrill, declare resource { id: "src", imageFile:
+          "builtin:mandrill" } plus your output { id: "image" }; on the `image` pass add an
+          input pointing at `src`; in the kernel read `uniforms.textures.src.read(gid)`.
+        - Only set `imageFile` on resources that should hold an image. Compute targets and
+          feedback buffers leave it EMPTY.
+
         FEEDBACK (ping-pong, e.g. Game of Life, trails):
         - Declare the resource with `pingPong = true`, and add an input on the pass that
           points at the SAME resource as the pass's output.
@@ -217,6 +235,11 @@ enum GeneratorInstructions {
           authoritative state in one channel as an exact value (e.g. `.r` = 0.0/1.0) every
           frame including the seed, and use other channels for a trail/look. Read state only
           from the state channel — never threshold a channel you also tint for display.
+        - BUILT-IN IMAGES: to use an image, declare a resource with `imageFile` set to one of:
+          `builtin:mandrill`, `builtin:testcard`, `builtin:noise-white`, `builtin:noise-value`,
+          `builtin:noise-fbm`, `builtin:noise-blue` (exact names only). Add it as an input on a
+          pass and read it with `uniforms.textures.<id>.read(gid)`. Leave `imageFile` empty for
+          compute targets / feedback buffers.
         - Only reference resources you declared. If you sample no inputs, `inputs` is empty.
         - Use `image` as the output resource id; for a single effect declare ONE resource
           `image` and ONE pass `image`. `outputResourceID` = "image".

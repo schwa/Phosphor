@@ -432,11 +432,14 @@ public final class PhosphorRuntime {
 
     /// Looks up an asset, trying the literal name first then the name without
     /// its extension (so kernels can write `file = "screenshot"` for an asset
-    /// stored on disk as `screenshot.png`).
+    /// stored on disk as `screenshot.png`). Falls back to the framework's
+    /// built-in texture registry, so `file = "builtin:mandrill"` (or any
+    /// reserved built-in name) resolves with no import.
     private func resolveAsset(named: String) -> PhosphorAsset? {
         if let asset = assets[named] { return asset }
         let stem = (named as NSString).deletingPathExtension
         if stem != named, let asset = assets[stem] { return asset }
+        if let builtin = BuiltinTextures.asset(named: named) { return builtin }
         return nil
     }
 

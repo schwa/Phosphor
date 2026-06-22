@@ -30,7 +30,7 @@ private func makeShader(body: String, output: String = "image") -> GeneratedShad
     GeneratedShader(
         title: "Test",
         body: body,
-        resources: [GeneratedResource(id: output, format: .rgba32Float, pingPong: false)],
+        resources: [GeneratedResource(id: output, format: .rgba32Float, pingPong: false, imageFile: "")],
         passes: [GeneratedPass(id: output, output: output, inputs: [])],
         uniforms: [],
         outputResourceID: output,
@@ -134,7 +134,7 @@ struct ShaderGeneratorTests {
         let shader = GeneratedShader(
             title: "Life",
             body: validBody,
-            resources: [GeneratedResource(id: "image", format: .rgba32Float, pingPong: true)],
+            resources: [GeneratedResource(id: "image", format: .rgba32Float, pingPong: true, imageFile: "")],
             passes: [GeneratedPass(id: "image", output: "image",
                                    inputs: [GeneratedBinding(name: "iChannel0", resource: "image")])],
             uniforms: [],
@@ -154,5 +154,28 @@ struct ShaderGeneratorTests {
 
         // And the configuration is structurally valid (no duplicateBinding).
         #expect(validate(config).isEmpty)
+    }
+
+    @Test("A resource with imageFile maps to an image-init texture")
+    func imageFileMapsToImageInit() throws {
+        let shader = GeneratedShader(
+            title: "Tinted Mandrill",
+            body: validBody,
+            resources: [
+                GeneratedResource(id: "image", format: .rgba32Float, pingPong: false, imageFile: ""),
+                GeneratedResource(id: "src", format: .rgba32Float, pingPong: false, imageFile: "builtin:mandrill")
+            ],
+            passes: [GeneratedPass(id: "image", output: "image",
+                                   inputs: [GeneratedBinding(name: "iChannel0", resource: "src")])],
+            uniforms: [],
+            outputResourceID: "image",
+            flipY: false
+        )
+        let config = shader.toPhosphorConfiguration()
+        let src = try #require(config.textures.first { $0.id == ResourceID("src") })
+        let out = try #require(config.textures.first { $0.id == ResourceID("image") })
+        #expect(src.initialContents == .image(file: "builtin:mandrill"))
+        // Empty imageFile stays a plain zero-init compute target.
+        #expect(out.initialContents == .zero)
     }
 }

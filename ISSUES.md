@@ -3072,11 +3072,13 @@ Touch points: PhosphorHeader (helpersDecl -> load from resource), SourceAssemble
 ## 89: Bake built-in textures into the app for shaders to use
 
 +++
-status: new
+status: closed
 priority: medium
 kind: feature
 labels: effort:m
 created: 2026-06-22T17:21:41Z
+updated: 2026-06-22T17:39:23Z
+closed: 2026-06-22T17:39:23Z
 +++
 
 Ship a set of built-in textures with the app so shaders can reference them without the user importing anything. Resolve them the same way as bundled assets (TextureInit.image(file:) / texture inputs), but from an app-provided registry that's always available.
@@ -3095,6 +3097,8 @@ Scope / open questions:
 - Generated shaders (#87) should know these exist.
 
 Touch points: PhosphorAsset / asset registry, TextureInit + resolution path in PhosphorRuntime/ShaderCompiler, PhosphorConfiguration editor (TextureInitField image picker), resource bundling.
+
+- `2026-06-22T17:39:23Z`: Built-in textures shipped in PhosphorSupport (Bundle.module): mandrill, BBC test card, and 5 noise variants (white, white-rgb, value, fBm, blue). Noise generated deterministically via Tools/generate_noise_textures.py. Reserved 'builtin:' namespace via BuiltinTextures registry; PhosphorRuntime.resolveAsset falls back to it so document assets still win for plain names. Generator schema gained GeneratedResource.imageFile (maps to TextureInit.image), and the instructions list the exact built-in names + usage so the AI can request them. 3D volume noise split into #92.
 
 ---
 
@@ -3171,6 +3175,7 @@ priority: low
 kind: feature
 labels: effort:l
 created: 2026-06-22T17:33:22Z
+updated: 2026-06-22T17:33:41Z
 +++
 
 Add 3D (volume) noise textures to the built-in set so shaders can do proper volumetric / domain-warped effects (clouds, smoke, marble, flow fields) by sampling a tileable 3D field instead of stacking 2D lookups.
@@ -3180,20 +3185,20 @@ Why worthwhile:
 - Avoids the common hacks: 2D-noise-as-3D, or packing slices into a 2D atlas.
 
 Big caveat — this is NOT just adding files. The runtime is currently 2D-only:
-- PhosphorHeader emits  for every binding; sampling is  (2D coords).
+- PhosphorHeader emits `texture2d<float, access::...>` for every binding; sampling is `.read(gid)` (2D coords).
 - TextureInit.image(file:) decodes a single 2D CGImage; PhosphorRuntime materializes MTLTexture as 2D.
 - The @Generable schema + GeneratorInstructions assume 2D.
 
 Scope to evaluate:
-- A 3D texture resource kind (texture3d) end to end: model -> config -> MTLTextureType.type3D -> per-pass Textures struct field type -> sampling helper ( / ).
-- How a built-in 3D noise ships: a raw volume blob (e.g. RGBA8/float, WxHxD) + a small loader, since CGImage can't represent a volume. Generate with Python (extend Tools/generate_noise_textures.py) — value/Perlin/worley, tileable, seeded.
+- A 3D texture resource kind (texture3d) end to end: model -> config -> MTLTextureType.type3D -> per-pass Textures struct field type -> sampling helper (`.sample(sampler, float3 uv)` / `.read(uint3)`).
+- How a built-in 3D noise ships: a raw volume blob (RGBA8/float, WxHxD) + a small loader, since CGImage can't represent a volume. Generate with Python (extend Tools/generate_noise_textures.py): value/Perlin/worley, tileable, seeded.
 - Sizes: 32^3 or 64^3 is usually plenty; keep file size sane.
-- Built-in names + namespace (e.g. builtin:noise3d-value, builtin:noise3d-perlin, builtin:noise3d-worley).
+- Built-in names + namespace (builtin:noise3d-value, builtin:noise3d-perlin, builtin:noise3d-worley).
 - Teach the generator (instructions + schema) about 3D textures and how to sample them.
 - UI: texture-init picker should distinguish 2D vs 3D.
 
 Open questions:
-- Is a shipped volume blob worth the bytes vs. generating procedurally on the GPU at load? A small seeded compute pass could synthesize the volume into a texture3d at materialization — possibly better than shipping data. Evaluate.
+- Is a shipped volume blob worth the bytes vs. generating procedurally on the GPU at load? A small seeded compute pass could synthesize the volume into a texture3d at materialization, possibly better than shipping data. Evaluate.
 - Do we also want 2D array textures? Probably out of scope.
 
 Relates to #89 (2D built-in textures) and #87 (generation context).

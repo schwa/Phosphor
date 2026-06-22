@@ -45,6 +45,9 @@ public struct GeneratedResource {
 
     @Guide(description: "True if this resource is read AND written by the same pass (Shadertoy-style feedback). The runtime then keeps two textures and alternates each frame.")
     var pingPong: Bool
+
+    @Guide(description: "Optional. To seed this texture with a built-in image, set the image name (one of: 'builtin:mandrill', 'builtin:testcard', 'builtin:noise-white', 'builtin:noise-white-rgb', 'builtin:noise-value', 'builtin:noise-fbm', 'builtin:noise-blue'). The texture is then sized to the image and pre-loaded with it. Leave EMPTY for a normal compute target. Do not invent other names.")
+    var imageFile: String
 }
 
 @Generable
@@ -114,10 +117,12 @@ public extension GeneratedShader {
         // resource id per pass, separate channel inputs); we synthesize
         // bindings that include a write target for each pass's output.
         let textures: [Texture] = self.resources.map { resource in
-            Texture(
+            let trimmedFile = resource.imageFile.trimmingCharacters(in: .whitespacesAndNewlines)
+            return Texture(
                 id: ResourceID(resource.id),
                 format: pixelFormat(from: resource.format),
-                swap: resource.pingPong ? .endOfFrame : .none
+                swap: resource.pingPong ? .endOfFrame : .none,
+                initialContents: trimmedFile.isEmpty ? .zero : .image(file: trimmedFile)
             )
         }
 
