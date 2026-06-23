@@ -1,10 +1,10 @@
+#if os(macOS)
 import AppKit
 import AppleArchive
 import SwiftUI
 import System
 import UniformTypeIdentifiers
 
-#if os(macOS)
 struct SplashScene: Scene {
     var body: some Scene {
         Window("Welcome", id: "splash") {

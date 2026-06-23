@@ -25,10 +25,19 @@ struct CodePaneView: View {
 
     var body: some View {
         MetalSourceView(text: $text, palette: resolvedPalette)
-            .background(opaque ? Color(.textBackgroundColor) : .clear)
+            .background(opaque ? Self.editorBackground : .clear)
             .onChange(of: text) { _, _ in
                 onTextChange()
             }
+    }
+
+    /// Platform-appropriate opaque background for the code surface.
+    private static var editorBackground: Color {
+        #if os(macOS)
+        Color(.textBackgroundColor)
+        #else
+        Color(.systemBackground)
+        #endif
     }
 }
 

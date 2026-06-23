@@ -221,7 +221,9 @@ struct GeneratePanel: View {
                 .disabled(isGenerating)
 
                 Toggle("Plan first", isOn: $planFirst)
+                    #if os(macOS)
                     .toggleStyle(.checkbox)
+                    #endif
                     .disabled(isGenerating)
                     .help("Run a planning step before generating. More deliberate, but slower (an extra model turn).")
 

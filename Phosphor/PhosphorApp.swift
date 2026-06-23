@@ -1,4 +1,6 @@
+#if canImport(AppKit)
 import AppKit
+#endif
 import PhosphorModel
 import PhosphorCompile
 import PhosphorGeneration
@@ -8,12 +10,16 @@ import UniformTypeIdentifiers
 
 @main
 struct PhosphorApp: App {
+    #if os(macOS)
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    #endif
     @State private var audioCapture = AudioCaptureEngine()
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
 
     var body: some Scene {
+        #if os(macOS)
         SplashScene()
+        #endif
 
         DocumentGroup { document in
             PhosphorDocumentView(document: document)
@@ -23,12 +29,14 @@ struct PhosphorApp: App {
             PhosphorMetalDocument(configuration: configuration)
         }
         .commands {
+            #if os(macOS)
             CommandGroup(replacing: .newItem) {
                 MyNewDocumentButton(title: "New Metal Shader", contentType: .metalSource)
                     .keyboardShortcut("n", modifiers: .command)
                 MyNewDocumentButton(title: "New Phosphor Bundle", contentType: .phosphorBundle)
                     .keyboardShortcut("n", modifiers: [.command, .shift])
             }
+            #endif
             CommandGroup(after: .pasteboard) {
                 ReformatFrontMatterButton()
             }
@@ -45,9 +53,11 @@ struct PhosphorApp: App {
             PhosphorBundleDocument(configuration: configuration)
         }
 
+        #if os(macOS)
         Settings {
             SettingsView()
         }
+        #endif
     }
 
     /// Pushes the persisted toggle state into the engine on app launch and
@@ -66,6 +76,7 @@ struct PhosphorApp: App {
 /// - Re-shows the splash window when the app is reopened with no visible
 ///   windows (e.g. clicking the Dock icon), and after the last document window
 ///   closes.
+#if os(macOS)
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowObserver: Any?
 
@@ -118,3 +129,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 }
+#endif

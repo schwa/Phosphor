@@ -50,6 +50,7 @@ struct ShaderEditorLayoutView: View {
 
     var body: some View {
         @Bindable var model = model
+        #if os(macOS)
         switch layoutMode {
         case .horizontal:
             HSplitView {
@@ -68,23 +69,34 @@ struct ShaderEditorLayoutView: View {
             }
 
         case .overlay:
-            ZStack {
-                PreviewPaneView(parsed: parsed)
-                    .ignoresSafeArea()
-
-                CodePaneView(text: $text, onTextChange: onTextChange, opaque: false, palette: .darkWithBackdrop)
-                    .padding(16)
-            }
-            .modifier(PreviewOverlays(
-                diagnostics: parsed.diagnostics + runtime.diagnostics,
-                frameTiming: frameTiming,
-                uniforms: parsed.configuration.uniforms,
-                showUniformsPanel: showUniformsPanel,
-                uniformValues: $model.uniformValues
-            ))
+            overlayLayout
         }
+        #else
+        // iOS has no split views; always use the overlaid (ZStack) layout.
+        overlayLayout
+        #endif
     }
 
+    /// Code overlaid on a full-bleed preview (ZStack). The only layout on iOS.
+    private var overlayLayout: some View {
+        @Bindable var model = model
+        return ZStack {
+            PreviewPaneView(parsed: parsed)
+                .ignoresSafeArea()
+
+            CodePaneView(text: $text, onTextChange: onTextChange, opaque: false, palette: .darkWithBackdrop)
+                .padding(16)
+        }
+        .modifier(PreviewOverlays(
+            diagnostics: parsed.diagnostics + runtime.diagnostics,
+            frameTiming: frameTiming,
+            uniforms: parsed.configuration.uniforms,
+            showUniformsPanel: showUniformsPanel,
+            uniformValues: $model.uniformValues
+        ))
+    }
+
+    #if os(macOS)
     /// Preview pane with the standard diagnostics / frame-timing / uniforms
     /// overlays, shared by the split layouts.
     private var preview: some View {
@@ -98,6 +110,7 @@ struct ShaderEditorLayoutView: View {
                 uniformValues: $model.uniformValues
             ))
     }
+    #endif
 
     @ViewBuilder
     private var frameTiming: some View {
