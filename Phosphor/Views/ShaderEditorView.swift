@@ -98,6 +98,8 @@ struct ShaderEditorView: View {
                         .tag(mode)
                 }
             }
+            .pickerStyle(.segmented)
+            .labelStyle(.iconOnly)
             .help("Choose editor layout")
         }
         ToolbarItem(id: "resource", placement: .navigation) {
