@@ -92,12 +92,13 @@ struct ShaderEditorView: View {
     private var toolbarContent: some CustomizableToolbarContent {
         // View: layout cycle + which resource the preview shows.
         ToolbarItem(id: "layout", placement: .navigation) {
-            Button {
-                layoutMode.cycle()
-            } label: {
-                Label("Layout", systemImage: layoutMode.systemImage)
+            Picker("Layout", selection: $layoutMode) {
+                ForEach(LayoutMode.allCases) { mode in
+                    Label(mode.title, systemImage: mode.systemImage)
+                        .tag(mode)
+                }
             }
-            .help(layoutMode.nextLayoutHelp)
+            .help("Choose editor layout")
         }
         ToolbarItem(id: "resource", placement: .navigation) {
             ResourcePickerView(

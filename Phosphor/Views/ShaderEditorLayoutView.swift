@@ -8,19 +8,14 @@ import SwiftUI
 /// User-facing layout mode for the editor. Cycles through a horizontal
 /// splitter (default), a vertical splitter, and code overlaid on a
 /// full-bleed preview.
-enum LayoutMode: String, CaseIterable {
+enum LayoutMode: String, CaseIterable, Identifiable {
     case horizontal
     case vertical
     case overlay
 
-    /// Advance to the next layout, wrapping around.
-    mutating func cycle() {
-        let all = Self.allCases
-        let next = all.index(after: all.firstIndex(of: self)!)
-        self = next == all.endIndex ? all[all.startIndex] : all[next]
-    }
+    var id: Self { self }
 
-    /// SF Symbol shown on the toolbar button for the *current* layout.
+    /// SF Symbol shown for this layout.
     var systemImage: String {
         switch self {
         case .horizontal: "rectangle.split.2x1"
@@ -29,12 +24,12 @@ enum LayoutMode: String, CaseIterable {
         }
     }
 
-    /// Help text describing what the button will switch *to* next.
-    var nextLayoutHelp: String {
+    /// Human-readable name for this layout.
+    var title: String {
         switch self {
-        case .horizontal: "Switch to vertical split layout"
-        case .vertical: "Switch to overlay layout"
-        case .overlay: "Switch to horizontal split layout"
+        case .horizontal: "Horizontal Split"
+        case .vertical: "Vertical Split"
+        case .overlay: "Overlay"
         }
     }
 }
