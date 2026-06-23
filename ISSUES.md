@@ -3425,11 +3425,13 @@ Touch points: GeneratorInstructions, ShaderGenerator (build*Prompt), Package.swi
 ## 99: Persist generation transcripts as JSON; export writes that log
 
 +++
-status: new
+status: closed
 priority: medium
 kind: feature
 labels: generation, effort:m
 created: 2026-06-22T22:36:14Z
+updated: 2026-06-23T01:32:35Z
+closed: 2026-06-23T01:32:35Z
 +++
 
 Persist the AI generation transcript to disk as JSON by default, and make "export" simply write out that JSON log. Today the chat transcript (GenerationTurn list in GeneratePanel) is in-memory only and lost on close.
@@ -3458,6 +3460,8 @@ Design notes:
 - This supersedes the in-memory-only note in #82/#83 for transcript persistence (versions/rollback #83 can build on this log).
 
 Touch points: new GenerationLog store (app-side), GeneratePanel (write turns as they happen + load on open), Codable conformances in PhosphorSupport, fileExporter for export, a Settings toggle. Relates to #82, #83, #93, #96, #78.
+
+- `2026-06-23T01:32:36Z`: Shipped. Generation transcripts persist as JSON to Application Support (per-document for saved docs; in-memory for unsaved), and Export Transcript writes that same log. The model is nested and reproducible: GenerationLog -> interactions -> exchanges, where each exchange is self-contained (instructions, request, decoded response or error, producedSource) and each interaction carries sourceBefore. Versioned schema (v3), Codable throughout. The privacy/disable toggle was intentionally dropped per request; per-document keying chosen over app-wide.
 
 ---
 
