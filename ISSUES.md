@@ -3647,3 +3647,16 @@ Touch points: ShaderGenerator, FoundationModelAdapter / provider adapters, Gener
 Relates to #93 (per-turn trace popover surfaces a subset of this in the UI).
 
 ---
+
+## 106: Support MTLBuffers including loading from file
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-06-23T03:54:56Z
++++
+
+Add support for MTLBuffer resources, including the ability to load buffer contents from a file.
+
+---
