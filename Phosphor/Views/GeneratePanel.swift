@@ -193,7 +193,16 @@ struct GeneratePanel: View {
                 .textFieldStyle(.roundedBorder)
                 .disabled(isGenerating)
                 .focused($promptFocused)
-                .onSubmit(submit)
+                // Enter sends; Shift+Enter inserts a newline (#101). Returning
+                // `.ignored` (incl. when Shift is held) lets the vertical
+                // TextField insert the newline itself.
+                .onKeyPress(keys: [.return]) { keyPress in
+                    if keyPress.modifiers.contains(.shift) {
+                        return .ignored
+                    }
+                    submit()
+                    return .handled
+                }
 
             HStack {
                 Picker("Model", selection: $modelRawValue) {

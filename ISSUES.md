@@ -3498,11 +3498,13 @@ Touch points: GeneratePanel (Stop button + Task handle + cancel + CancellationEr
 ## 101: Composer: Shift+Enter inserts newline (Enter still sends)
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 labels: effort:s
 created: 2026-06-22T22:46:16Z
+updated: 2026-06-23T03:55:16Z
+closed: 2026-06-23T03:55:16Z
 +++
 
 In the generation composer, Enter submits the prompt (.onSubmit(submit)) and there's no good way to insert a newline — so writing a multi-line prompt (pasting a shader, describing several requirements) is awkward. Standard chat-composer behavior: Enter = send, Shift+Enter = newline.
