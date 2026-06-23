@@ -62,7 +62,7 @@ struct ShaderEditorView: View {
         .focusedSceneValue(\.shaderText, $text)
         .focusedSceneValue(\.shaderTextMutator, textMutator)
         .toolbarRole(.editor)
-        .toolbar(id: "phosphor.editor") { toolbarContent }
+        .toolbar { toolbarContent }
         .inspector(isPresented: $showInspector) {
             PhosphorInspectorView(
                 parsed: parsed,
@@ -84,14 +84,12 @@ struct ShaderEditorView: View {
         }
     }
 
-    /// The editor toolbar. Items carry stable ids so the system can persist
-    /// the user's customization (right-click → Customize Toolbar) and so
-    /// ordering survives launches. Grouped by purpose; transport and panel
-    /// toggles can be hidden by default and added back via customization.
+    /// The editor toolbar. Grouped by purpose: view controls, transport,
+    /// panel toggles, and primary actions.
     @ToolbarContentBuilder
-    private var toolbarContent: some CustomizableToolbarContent {
+    private var toolbarContent: some ToolbarContent {
         // View: layout cycle + which resource the preview shows.
-        ToolbarItem(id: "layout", placement: .navigation) {
+        ToolbarItem(placement: .navigation) {
             Picker("Layout", selection: $layoutMode) {
                 ForEach(LayoutMode.allCases) { mode in
                     Label(mode.title, systemImage: mode.systemImage)
@@ -102,7 +100,7 @@ struct ShaderEditorView: View {
             .labelStyle(.iconOnly)
             .help("Choose editor layout")
         }
-        ToolbarItem(id: "resource", placement: .navigation) {
+        ToolbarItem(placement: .navigation) {
             ResourcePickerView(
                 configuration: parsed.configuration,
                 displayedResource: $model.displayedResource
@@ -110,7 +108,7 @@ struct ShaderEditorView: View {
         }
 
         // Transport: play/pause + reset time.
-        ToolbarItem(id: "playPause", placement: .principal) {
+        ToolbarItem(placement: .principal) {
             Button {
                 model.isPaused.toggle()
             } label: {
@@ -121,7 +119,7 @@ struct ShaderEditorView: View {
             }
             .help(model.isPaused ? "Resume" : "Pause time")
         }
-        ToolbarItem(id: "reset", placement: .principal) {
+        ToolbarItem(placement: .principal) {
             Button {
                 model.reset()
             } label: {
@@ -130,9 +128,8 @@ struct ShaderEditorView: View {
             .help("Reset time to 0 and reseed feedback shaders")
         }
 
-        // Panel toggles. Frame timing + mic are off by default in the toolbar;
-        // the user can add them back via Customize Toolbar.
-        ToolbarItem(id: "uniforms", placement: .automatic) {
+        // Panel toggles.
+        ToolbarItem(placement: .automatic) {
             Toggle(isOn: $showUniformsPanel) {
                 Label("Uniforms", systemImage: "slider.horizontal.3")
             }
@@ -142,15 +139,14 @@ struct ShaderEditorView: View {
                     ? "Show or hide the uniforms panel"
                     : "No uniforms declared in this shader")
         }
-        ToolbarItem(id: "frameTiming", placement: .automatic) {
+        ToolbarItem(placement: .automatic) {
             Toggle(isOn: $showFrameTiming) {
                 Label("Frame Timing", systemImage: "gauge.with.needle")
             }
             .toggleStyle(.button)
             .help("Show or hide the FPS / frame-timing overlay")
         }
-        .defaultCustomization(.hidden)
-        ToolbarItem(id: "microphone", placement: .automatic) {
+        ToolbarItem(placement: .automatic) {
             Toggle(isOn: micToggleBinding) {
                 Label("Microphone", systemImage: micEnabled ? "mic.fill" : "mic.slash")
             }
@@ -160,8 +156,7 @@ struct ShaderEditorView: View {
                     ? "Microphone access was denied. Enable it in System Settings → Privacy & Security."
                     : "Enable microphone input for audio-reactive shaders")
         }
-        .defaultCustomization(.hidden)
-        ToolbarItem(id: "phosphorHeader", placement: .automatic) {
+        ToolbarItem(placement: .automatic) {
             Button {
                 showHeader.toggle()
             } label: {
@@ -176,10 +171,9 @@ struct ShaderEditorView: View {
                 .frame(minWidth: 480, minHeight: 360)
             }
         }
-        .defaultCustomization(.hidden)
 
         // Primary actions, trailing.
-        ToolbarItem(id: "generate", placement: .primaryAction) {
+        ToolbarItem(placement: .primaryAction) {
             Button {
                 inspectorTab = .generate
                 showInspector = true
@@ -189,7 +183,7 @@ struct ShaderEditorView: View {
             .keyboardShortcut("p", modifiers: [.command, .shift])
             .help("Open the AI generation panel in the inspector")
         }
-        ToolbarItem(id: "inspector", placement: .primaryAction) {
+        ToolbarItem(placement: .primaryAction) {
             Button {
                 showInspector.toggle()
             } label: {
