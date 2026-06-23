@@ -81,12 +81,14 @@ struct GeneratePanel: View {
     /// `interactions` (plus any legacy hydrated prompts and the live
     /// in-progress interaction). Nothing display-shaped is stored (#99).
     private var displayTurns: [GenerationTurn] {
-        var out: [GenerationTurn] = hydratedPrompts.map { .user($0) }
+        var out: [GenerationTurn] = hydratedPrompts.enumerated().map { index, prompt in
+            .user(prompt, id: "hydrated-\(index)")
+        }
         for interaction in interactions {
             out.append(contentsOf: Self.turns(for: interaction))
         }
         if let inProgressPrompt {
-            out.append(.user(inProgressPrompt))
+            out.append(.user(inProgressPrompt, id: "in-progress-prompt"))
             out.append(contentsOf: inProgressTurns)
         }
         return out
@@ -96,26 +98,30 @@ struct GeneratePanel: View {
     /// prompt, the plan (if any), one retry bubble per correction, and the
     /// outcome (assistant or error).
     private static func turns(for interaction: Interaction) -> [GenerationTurn] {
-        var out: [GenerationTurn] = [.user(interaction.prompt)]
+        // Derive stable ids from the (stable) interaction id so the projection
+        // produces identical identities across body evaluations — otherwise
+        // the transcript List rebuilds every row on every render.
+        let base = interaction.id.uuidString
+        var out: [GenerationTurn] = [.user(interaction.prompt, id: "\(base)-prompt")]
         if let plan = interaction.plan {
             let planElapsed = interaction.exchanges.first { $0.kind == .plan }?.elapsed
-            out.append(.plan(intent: plan.planIntent, shape: plan.planShape.displayName, body: plan.planBody, duration: planElapsed))
+            out.append(.plan(intent: plan.planIntent, shape: plan.planShape.displayName, body: plan.planBody, duration: planElapsed, id: "\(base)-plan"))
         }
         // Retries are derived from the exchanges: a retry exchange's request
         // carries the error that triggered it.
-        for exchange in interaction.exchanges {
+        for (index, exchange) in interaction.exchanges.enumerated() {
             switch exchange.kind {
-            case .compileRetry: out.append(.retried(exchange.request, kind: .compile, duration: exchange.elapsed))
-            case .malformedRetry: out.append(.retried(exchange.request, kind: .malformed, duration: exchange.elapsed))
+            case .compileRetry: out.append(.retried(exchange.request, kind: .compile, duration: exchange.elapsed, id: "\(base)-retry-\(index)"))
+            case .malformedRetry: out.append(.retried(exchange.request, kind: .malformed, duration: exchange.elapsed, id: "\(base)-retry-\(index)"))
             case .plan, .codegen: break
             }
         }
         if let title = interaction.finalTitle, interaction.finalSource != nil {
             // The codegen exchange that produced the final source times this turn.
             let codegenElapsed = interaction.exchanges.last { $0.producedSource != nil }?.elapsed
-            out.append(.assistant(title: title, summary: "Generated shader", duration: codegenElapsed))
+            out.append(.assistant(title: title, summary: "Generated shader", duration: codegenElapsed, id: "\(base)-result"))
         } else if let error = interaction.failureError {
-            out.append(.error(error, duration: interaction.exchanges.last?.elapsed))
+            out.append(.error(error, duration: interaction.exchanges.last?.elapsed, id: "\(base)-error"))
         }
         return out
     }

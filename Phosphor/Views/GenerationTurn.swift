@@ -35,7 +35,7 @@ nonisolated struct GenerationTurn: Identifiable, Hashable, Codable {
         case error
     }
 
-    var id = UUID()
+    var id = UUID().uuidString
     let role: Role
     let text: String
     /// When this turn was recorded. Defaults to now for live turns.
@@ -47,24 +47,24 @@ nonisolated struct GenerationTurn: Identifiable, Hashable, Codable {
 
     private enum CodingKeys: String, CodingKey { case id, role, text, timestamp, duration }
 
-    static func user(_ prompt: String) -> Self {
-        GenerationTurn(role: .user, text: prompt)
+    static func user(_ prompt: String, id: String = UUID().uuidString) -> Self {
+        GenerationTurn(id: id, role: .user, text: prompt)
     }
 
-    static func plan(intent: String, shape: String, body: String, duration: Double? = nil) -> Self {
-        GenerationTurn(role: .plan(intent: intent, shape: shape), text: body, duration: duration)
+    static func plan(intent: String, shape: String, body: String, duration: Double? = nil, id: String = UUID().uuidString) -> Self {
+        GenerationTurn(id: id, role: .plan(intent: intent, shape: shape), text: body, duration: duration)
     }
 
-    static func assistant(title: String, summary: String, duration: Double? = nil) -> Self {
-        GenerationTurn(role: .assistant(title: title), text: summary, duration: duration)
+    static func assistant(title: String, summary: String, duration: Double? = nil, id: String = UUID().uuidString) -> Self {
+        GenerationTurn(id: id, role: .assistant(title: title), text: summary, duration: duration)
     }
 
-    static func retried(_ errorText: String, kind: RetryKind, duration: Double? = nil) -> Self {
-        GenerationTurn(role: .retried(kind), text: errorText, duration: duration)
+    static func retried(_ errorText: String, kind: RetryKind, duration: Double? = nil, id: String = UUID().uuidString) -> Self {
+        GenerationTurn(id: id, role: .retried(kind), text: errorText, duration: duration)
     }
 
-    static func error(_ message: String, duration: Double? = nil) -> Self {
-        GenerationTurn(role: .error, text: message, duration: duration)
+    static func error(_ message: String, duration: Double? = nil, id: String = UUID().uuidString) -> Self {
+        GenerationTurn(id: id, role: .error, text: message, duration: duration)
     }
 }
 
