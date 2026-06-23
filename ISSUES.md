@@ -3530,11 +3530,13 @@ Touch points: GeneratePanel composer (prompt TextField/onSubmit, possibly TextEd
 ## 102: Collapse large user prompts behind a disclosure in the transcript
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 labels: effort:s
 created: 2026-06-22T22:46:44Z
+updated: 2026-06-23T03:29:14Z
+closed: 2026-06-23T03:29:14Z
 +++
 
 Large user-prompt bubbles in the generation transcript (TurnRow .user) dominate the chat — pasting a whole Shadertoy/GLSL shader or a long multi-line prompt makes one giant bubble that pushes everything else off-screen. Collapse long prompts behind a disclosure.

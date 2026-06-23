@@ -1,0 +1,54 @@
+/* phosphor:environment
+output = "image"
+
+[[textures]]
+id = "image"
+
+[[passes]]
+id = "image"
+textures = [
+    { id = "image", access = "write" },
+]
+*/
+
+#include "Phosphor.h"
+
+uint2 gid [[thread_position_in_grid]];
+
+float4 mainImage(float2 position, float2 resolution, float2 mouse, float time, float frame) {
+    float2 r = resolution;
+    float2 p = (position.xy * 2.0 - r) / r.y;
+    float2 n = float2(0), N = float2(0), q;
+    float4 o = float4(0);
+    float S = 5.0, a = 0.0, j = 0.0;
+    float t = time;
+
+    float2x2 m = rotate2D(5.0);
+
+    for(; j < 30.0; j++) {
+        p = p * m;
+        n = n * m;
+        q = p * S + j + n + t * 4.0 + sin(t * 4.0) * 0.8;
+        a += dot(cos(q) / S, r / r);
+        q = sin(q);
+        n += q;
+        N += q / (S + 20.0);
+        S *= 1.2;
+    }
+
+    o += 0.1 - a * 0.1;
+    o.r *= 5.0;
+    o += min(0.7, 0.001 / length(N));
+    o -= o * dot(p, p) * 0.7;
+    return o;
+}
+
+kernel void image(
+    device const Uniforms&     uniforms     [[buffer(0)]],
+    device const UserUniforms& userUniforms [[buffer(1)]])
+{
+    float4 color = mainImage(float2(gid), uniforms.resolution, uniforms.mouse,
+                             uniforms.time, uniforms.frame);
+    color.a = 1.0;
+    uniforms.textures.image.write(color, gid);
+}

@@ -98,21 +98,24 @@ struct GeneratePanel: View {
     private static func turns(for interaction: Interaction) -> [GenerationTurn] {
         var out: [GenerationTurn] = [.user(interaction.prompt)]
         if let plan = interaction.plan {
-            out.append(.plan(intent: plan.planIntent, shape: plan.planShape.displayName, body: plan.planBody))
+            let planElapsed = interaction.exchanges.first { $0.kind == .plan }?.elapsed
+            out.append(.plan(intent: plan.planIntent, shape: plan.planShape.displayName, body: plan.planBody, duration: planElapsed))
         }
         // Retries are derived from the exchanges: a retry exchange's request
         // carries the error that triggered it.
         for exchange in interaction.exchanges {
             switch exchange.kind {
-            case .compileRetry: out.append(.retried(exchange.request, kind: .compile))
-            case .malformedRetry: out.append(.retried(exchange.request, kind: .malformed))
+            case .compileRetry: out.append(.retried(exchange.request, kind: .compile, duration: exchange.elapsed))
+            case .malformedRetry: out.append(.retried(exchange.request, kind: .malformed, duration: exchange.elapsed))
             case .plan, .codegen: break
             }
         }
         if let title = interaction.finalTitle, interaction.finalSource != nil {
-            out.append(.assistant(title: title, summary: "Generated shader"))
+            // The codegen exchange that produced the final source times this turn.
+            let codegenElapsed = interaction.exchanges.last { $0.producedSource != nil }?.elapsed
+            out.append(.assistant(title: title, summary: "Generated shader", duration: codegenElapsed))
         } else if let error = interaction.failureError {
-            out.append(.error(error))
+            out.append(.error(error, duration: interaction.exchanges.last?.elapsed))
         }
         return out
     }
@@ -365,16 +368,6 @@ struct GeneratePanel: View {
     /// we see a given document, and whenever the source changes to one we
     /// didn't write ourselves (e.g. switching shaders in a bundle). Responses
     /// aren't persisted, so re-hydrated turns are user prompts only.
-    /// Human-readable elapsed time, e.g. "0.8s" or "1m 12s".
-    private static func formatted(_ duration: Duration) -> String {
-        let seconds = Double(duration.components.seconds) + Double(duration.components.attoseconds) / 1e18
-        if seconds < 60 {
-            return String(format: "%.1fs", seconds)
-        }
-        let whole = Int(seconds.rounded())
-        return "\(whole / 60)m \(whole % 60)s"
-    }
-
     private func hydrateIfNeeded() {
         guard seededFromSource != text else { return }
         seededFromSource = text
@@ -387,6 +380,72 @@ struct GeneratePanel: View {
         } else {
             interactions = []
             hydratedPrompts = PromptHistory.extract(from: text)
+        }
+    }
+}
+
+/// Human-readable elapsed time, e.g. "0.8s" or "1m 12s".
+private func formattedDuration(_ seconds: Double) -> String {
+    if seconds < 60 {
+        return String(format: "%.1fs", seconds)
+    }
+    let whole = Int(seconds.rounded())
+    return "\(whole / 60)m \(whole % 60)s"
+}
+
+/// A small trailing duration badge for non-user turns.
+private struct DurationBadge: View {
+    let seconds: Double
+
+    var body: some View {
+        Label(formattedDuration(seconds), systemImage: "clock")
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+            .labelStyle(.titleAndIcon)
+    }
+}
+
+/// Text that collapses behind a disclosure when it exceeds a line threshold.
+///
+/// Short text renders plainly. Long text is line-limited and shown with a
+/// "Show more" / "Show less" toggle; default collapsed. Used for long fields
+/// across the transcript — user prompts (#102), plan prose, retry/compiler
+/// errors, and terminal errors — so one giant bubble can't dominate the chat.
+private struct CollapsibleText: View {
+    let text: String
+    var font: Font.TextStyle = .body
+    var design: Font.Design = .default
+    /// Lines shown while collapsed.
+    var collapsedLineLimit: Int = 3
+    /// Collapse only when the text exceeds this many lines or characters.
+    var lineThreshold: Int = 4
+    var characterThreshold: Int = 280
+
+    @State private var expanded = false
+
+    private var isLong: Bool {
+        let lineCount = text.reduce(into: 1) { count, ch in if ch == "\n" { count += 1 } }
+        return lineCount > lineThreshold || text.count > characterThreshold
+    }
+
+    var body: some View {
+        if isLong {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(text)
+                    .font(.system(font, design: design))
+                    .lineLimit(expanded ? nil : collapsedLineLimit)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(expanded ? "Show less" : "Show more") {
+                    withAnimation(.easeInOut(duration: 0.15)) { expanded.toggle() }
+                }
+                .font(.caption2)
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+            }
+        } else {
+            Text(text)
+                .font(.system(font, design: design))
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -405,10 +464,12 @@ private struct TurnRow: View {
     private var rowContent: some View {
         switch turn.role {
         case .user:
+            // Long pasted prompts (e.g. whole shaders) collapse so one bubble
+            // can't dominate the transcript (#102).
             bubble(
                 alignment: .trailing,
                 background: Color.accentColor.opacity(0.18),
-                content: Text(turn.text)
+                content: CollapsibleText(text: turn.text)
             )
 
         case .plan(let intent, let shape):
@@ -425,9 +486,10 @@ private struct TurnRow: View {
                             .padding(.horizontal, 6)
                             .padding(.vertical, 1)
                             .background(.secondary.opacity(0.15), in: .capsule)
+                        Spacer(minLength: 4)
+                        durationBadge
                     }
-                    Text(turn.text)
-                        .font(.caption)
+                    CollapsibleText(text: turn.text, font: .caption)
                         .foregroundStyle(.secondary)
                 }
             )
@@ -437,8 +499,12 @@ private struct TurnRow: View {
                 alignment: .leading,
                 background: Color.secondary.opacity(0.12),
                 content: VStack(alignment: .leading, spacing: 2) {
-                    Label(title, systemImage: "sparkles")
-                        .font(.callout.weight(.medium))
+                    HStack(spacing: 6) {
+                        Label(title, systemImage: "sparkles")
+                            .font(.callout.weight(.medium))
+                        Spacer(minLength: 4)
+                        durationBadge
+                    }
                     Text(turn.text)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -450,11 +516,14 @@ private struct TurnRow: View {
                 alignment: .leading,
                 background: Color.orange.opacity(0.14),
                 content: VStack(alignment: .leading, spacing: 4) {
-                    Label(retryHeadline(kind), systemImage: "arrow.clockwise")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.orange)
-                    Text(turn.text)
-                        .font(.system(.caption2, design: .monospaced))
+                    HStack(spacing: 6) {
+                        Label(retryHeadline(kind), systemImage: "arrow.clockwise")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.orange)
+                        Spacer(minLength: 4)
+                        durationBadge
+                    }
+                    CollapsibleText(text: turn.text, font: .caption2, design: .monospaced)
                         .foregroundStyle(.secondary)
                 }
             )
@@ -463,10 +532,26 @@ private struct TurnRow: View {
             bubble(
                 alignment: .leading,
                 background: Color.red.opacity(0.12),
-                content: Label(turn.text, systemImage: "exclamationmark.triangle")
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                content: VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Label("Error", systemImage: "exclamationmark.triangle")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.red)
+                        Spacer(minLength: 4)
+                        durationBadge
+                    }
+                    CollapsibleText(text: turn.text, font: .caption)
+                        .foregroundStyle(.red)
+                }
             )
+        }
+    }
+
+    /// Trailing duration badge, shown when the turn carries an elapsed time.
+    @ViewBuilder
+    private var durationBadge: some View {
+        if let duration = turn.duration {
+            DurationBadge(seconds: duration)
         }
     }
 

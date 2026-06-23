@@ -40,27 +40,31 @@ nonisolated struct GenerationTurn: Identifiable, Hashable, Codable {
     let text: String
     /// When this turn was recorded. Defaults to now for live turns.
     var timestamp: Date = .now
+    /// Elapsed time, in seconds, of the model work that produced this turn.
+    /// `nil` for user turns and live (in-flight) turns whose work isn't timed
+    /// yet. Rendered as a small duration badge on non-user turns.
+    var duration: Double?
 
-    private enum CodingKeys: String, CodingKey { case id, role, text, timestamp }
+    private enum CodingKeys: String, CodingKey { case id, role, text, timestamp, duration }
 
     static func user(_ prompt: String) -> Self {
         GenerationTurn(role: .user, text: prompt)
     }
 
-    static func plan(intent: String, shape: String, body: String) -> Self {
-        GenerationTurn(role: .plan(intent: intent, shape: shape), text: body)
+    static func plan(intent: String, shape: String, body: String, duration: Double? = nil) -> Self {
+        GenerationTurn(role: .plan(intent: intent, shape: shape), text: body, duration: duration)
     }
 
-    static func assistant(title: String, summary: String) -> Self {
-        GenerationTurn(role: .assistant(title: title), text: summary)
+    static func assistant(title: String, summary: String, duration: Double? = nil) -> Self {
+        GenerationTurn(role: .assistant(title: title), text: summary, duration: duration)
     }
 
-    static func retried(_ errorText: String, kind: RetryKind) -> Self {
-        GenerationTurn(role: .retried(kind), text: errorText)
+    static func retried(_ errorText: String, kind: RetryKind, duration: Double? = nil) -> Self {
+        GenerationTurn(role: .retried(kind), text: errorText, duration: duration)
     }
 
-    static func error(_ message: String) -> Self {
-        GenerationTurn(role: .error, text: message)
+    static func error(_ message: String, duration: Double? = nil) -> Self {
+        GenerationTurn(role: .error, text: message, duration: duration)
     }
 }
 
