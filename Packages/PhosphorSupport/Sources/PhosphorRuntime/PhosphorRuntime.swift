@@ -311,7 +311,7 @@ public final class PhosphorRuntime {
 
             // Prefix.
             withUnsafePointer(to: copy) { srcPtr in
-                memcpy(buffer.contents(), srcPtr, builtinSize)
+                _ = memcpy(buffer.contents(), srcPtr, builtinSize)
             }
 
             // Texture handles.
