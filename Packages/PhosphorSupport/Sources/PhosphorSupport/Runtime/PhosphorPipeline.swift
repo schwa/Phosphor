@@ -1,5 +1,6 @@
 import Foundation
 import PhosphorModel
+import PhosphorCompile
 import Metal
 import MetalSprockets
 import MetalSprocketsAddOns

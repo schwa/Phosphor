@@ -1,5 +1,6 @@
 import Foundation
 import PhosphorModel
+import PhosphorCompile
 import FoundationModels
 
 /// Schema the Foundation Model produces when the user asks for a generated

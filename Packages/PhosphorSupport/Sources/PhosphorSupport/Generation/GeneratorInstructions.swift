@@ -1,5 +1,6 @@
 import Foundation
 import PhosphorModel
+import PhosphorCompile
 
 /// System prompts handed to the language model for shader generation.
 ///

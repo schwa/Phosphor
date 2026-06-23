@@ -11,7 +11,8 @@ let package = Package(
     ],
     products: [
         .library(name: "PhosphorSupport", targets: ["PhosphorSupport"]),
-        .library(name: "PhosphorModel", targets: ["PhosphorModel"])
+        .library(name: "PhosphorModel", targets: ["PhosphorModel"]),
+        .library(name: "PhosphorCompile", targets: ["PhosphorCompile"])
     ],
     dependencies: [
         .package(url: "https://github.com/schwa/MetalSprockets", from: "0.1.10"),
@@ -30,28 +31,37 @@ let package = Package(
                 .copy("Resources/BuiltinTextures")
             ]
         ),
+        // Parsing, source assembly, and Metal compilation. Depends on the
+        // model; owns the Phosphor.h prelude resource.
         .target(
-            name: "PhosphorSupport",
+            name: "PhosphorCompile",
             dependencies: [
                 "PhosphorModel",
-                .product(name: "MetalSprockets", package: "MetalSprockets"),
-                .product(name: "MetalSprocketsUI", package: "MetalSprockets"),
-                .product(name: "MetalSprocketsSupport", package: "MetalSprockets"),
-                .product(name: "MetalSprocketsAddOns", package: "MetalSprocketsAddOns"),
                 .product(name: "TOMLKit", package: "TOMLKit"),
                 .product(name: "SwiftTreeSitter", package: "swift-tree-sitter"),
                 .product(name: "SwiftTreeSitterLayer", package: "swift-tree-sitter"),
                 .product(name: "TreeSitterCPP", package: "tree-sitter-cpp"),
-                .product(name: "TreeSitterTOML", package: "tree-sitter-toml"),
-                .product(name: "FoundationModelBackends", package: "FoundationModelBackends")
+                .product(name: "TreeSitterTOML", package: "tree-sitter-toml")
             ],
             resources: [
                 .copy("Resources/Phosphor.h")
             ]
         ),
+        .target(
+            name: "PhosphorSupport",
+            dependencies: [
+                "PhosphorModel",
+                "PhosphorCompile",
+                .product(name: "MetalSprockets", package: "MetalSprockets"),
+                .product(name: "MetalSprocketsUI", package: "MetalSprockets"),
+                .product(name: "MetalSprocketsSupport", package: "MetalSprockets"),
+                .product(name: "MetalSprocketsAddOns", package: "MetalSprocketsAddOns"),
+                .product(name: "FoundationModelBackends", package: "FoundationModelBackends")
+            ]
+        ),
         .testTarget(
             name: "PhosphorSupportTests",
-            dependencies: ["PhosphorSupport", "PhosphorModel"],
+            dependencies: ["PhosphorSupport", "PhosphorModel", "PhosphorCompile"],
             resources: [
                 .copy("Resources")
             ]
