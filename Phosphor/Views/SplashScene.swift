@@ -1,5 +1,7 @@
 import AppKit
+import AppleArchive
 import SwiftUI
+import System
 import UniformTypeIdentifiers
 
 #if os(macOS)
@@ -34,9 +36,12 @@ struct SplashView: View {
         PhosphorMetalDocument.readableContentTypes + PhosphorBundleDocument.readableContentTypes
     }
 
-    /// URL of the read-only `Examples.phosphord` bundle shipped inside the app.
-    private var examplesBundleURL: URL? {
-        Bundle.main.url(forResource: "Examples", withExtension: "phosphord")
+    /// URL of the Apple Archive (`.aar`) holding the bundled example shaders.
+    /// The examples are shipped as an opaque archive (rather than a loose
+    /// `.phosphord` bundle) so Xcode doesn't try to compile the `.metal`
+    /// files inside it, and are expanded on demand when the user opens them.
+    private var examplesArchiveURL: URL? {
+        Bundle.main.url(forResource: "Examples.phosphord", withExtension: "aar")
     }
 
     var body: some View {
@@ -75,7 +80,7 @@ struct SplashView: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
 
-                    if examplesBundleURL != nil {
+                    if examplesArchiveURL != nil {
                         Button {
                             exportExamples()
                         } label: {
@@ -173,11 +178,12 @@ struct SplashView: View {
         }
     }
 
-    /// Copies the read-only bundled `Examples.phosphord` to a user-chosen
-    /// folder, then opens the writable copy. The in-bundle original is never
-    /// edited.
+    /// Expands the bundled examples archive into a user-chosen folder, then
+    /// opens the writable `.phosphord` bundle. The archive stores the bundle's
+    /// contents at its root, so it's extracted into a freshly created
+    /// `Examples.phosphord` directory at the destination.
     private func exportExamples() {
-        guard let source = examplesBundleURL else { return }
+        guard let archive = examplesArchiveURL else { return }
 
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
@@ -190,36 +196,53 @@ struct SplashView: View {
 
         guard panel.runModal() == .OK, let directory = panel.url else { return }
 
-        let destination = directory.appendingPathComponent(source.lastPathComponent)
+        let destination = directory.appendingPathComponent("Examples.phosphord")
         do {
             if FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)) {
                 try FileManager.default.removeItem(at: destination)
             }
-            try FileManager.default.copyItem(at: source, to: destination)
-            // The in-bundle copy may be read-only; make sure the export is writable.
-            try makeWritable(at: destination)
+            try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+            try extractArchive(at: archive, into: destination)
             openFile(at: destination)
         } catch {
             NSApp.presentError(error)
         }
     }
 
-    /// Clears the read-only flag on `url` and everything beneath it.
-    private func makeWritable(at url: URL) throws {
-        let fileManager = FileManager.default
-        var urls = [url]
-        if let enumerator = fileManager.enumerator(at: url, includingPropertiesForKeys: nil) {
-            for case let child as URL in enumerator {
-                urls.append(child)
-            }
+    /// Extracts an Apple Archive (`.aar`) into `destination` using the system
+    /// `AppleArchive` framework. No external process or third-party dependency.
+    private func extractArchive(at archive: URL, into destination: URL) throws {
+        guard let archivePath = FilePath(archive),
+              let readStream = ArchiveByteStream.fileStream(
+                path: archivePath,
+                mode: .readOnly,
+                options: [],
+                permissions: FilePermissions(rawValue: 0o644)
+              ) else {
+            throw CocoaError(.fileReadUnknown)
         }
-        for fileURL in urls {
-            var values = URLResourceValues()
-            values.isUserImmutable = false
-            var mutableURL = fileURL
-            try? mutableURL.setResourceValues(values)
-            try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fileURL.path(percentEncoded: false))
+        defer { try? readStream.close() }
+
+        guard let decompressStream = ArchiveByteStream.decompressionStream(readingFrom: readStream) else {
+            throw CocoaError(.fileReadCorruptFile)
         }
+        defer { try? decompressStream.close() }
+
+        guard let decodeStream = ArchiveStream.decodeStream(readingFrom: decompressStream) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        defer { try? decodeStream.close() }
+
+        guard let destinationPath = FilePath(destination),
+              let extractStream = ArchiveStream.extractStream(
+                extractingTo: destinationPath,
+                flags: [.ignoreOperationNotPermitted]
+              ) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        defer { try? extractStream.close() }
+
+        _ = try ArchiveStream.process(readingFrom: decodeStream, writingTo: extractStream)
     }
 }
 
