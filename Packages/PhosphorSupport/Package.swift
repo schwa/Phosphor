@@ -29,7 +29,8 @@ let package = Package(
         .target(
             name: "PhosphorModel",
             resources: [
-                .copy("Resources/BuiltinTextures")
+                .copy("Resources/BuiltinTextures"),
+                .copy("Resources/StarterTemplate.metal")
             ]
         ),
         // Parsing, source assembly, and Metal compilation. Owns Phosphor.h.

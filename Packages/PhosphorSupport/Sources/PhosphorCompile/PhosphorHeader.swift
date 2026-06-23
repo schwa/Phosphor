@@ -102,13 +102,17 @@ public enum PhosphorHeader {
 
     /// Lazily-loaded, process-cached contents of the static `Phosphor.h`
     /// helper file (the full implementations). ``PhosphorInterface`` derives
-    /// the declarations-only view from this.
+    /// the declarations-only view from this. A missing/unreadable resource is
+    /// a build error, so it traps rather than silently dropping the helpers.
     public static let staticHelperSource: String = {
-        guard let url = Bundle.module.url(forResource: "Phosphor", withExtension: "h"),
-              let text = try? String(contentsOf: url, encoding: .utf8) else {
-            return ""
+        guard let url = Bundle.module.url(forResource: "Phosphor", withExtension: "h") else {
+            fatalError("Missing bundled resource Phosphor.h")
         }
-        return text
+        do {
+            return try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            fatalError("Failed to read Phosphor.h: \(error)")
+        }
     }()
 
     /// Auto-generated `UserUniforms` struct.
