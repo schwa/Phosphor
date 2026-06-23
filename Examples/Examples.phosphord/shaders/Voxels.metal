@@ -5,39 +5,49 @@
 flipY = true
 output = "image"
 
-[[textures]]
-id = "image"
-format = "rgba16Float"
-
 [[passes]]
+enabled = true
 id = "image"
-textures = [
-    { id = "image", access = "write" },
-]
+inputs = []
+output = "image"
 
+[[resources]]
+id = "image"
+kind = "texture2D"
+
+    [resources.spec]
+    flipTiming = "endOfFrame"
+    format = "rgba32Float"
+    initial = "zero"
+    pingPong = false
+    size = "drawable"
 
 [[uniforms]]
 default = 1.5
 kind = "float"
 name = "cameraHeight"
-ui = { slider = { max = 5.0, min = 0.5 } }
+
+    [uniforms.ui.slider]
+    max = 5.0
+    min = 0.5
 
 [[uniforms]]
 default = 0.25
 kind = "float"
 name = "voxelSize"
-ui = { slider = { max = 1.0, min = 0.1 } }
+
+    [uniforms.ui.slider]
+    max = 1.0
+    min = 0.1
 
 [[uniforms]]
 default = 0.04
 kind = "float"
 name = "fogDensity"
-ui = { slider = { max = 0.1, min = 0.0 } }
-*/
 
-#include "Phosphor.h"
-
-uint2 gid [[thread_position_in_grid]];
+    [uniforms.ui.slider]
+    max = 0.1
+    min = 0.0*/
 
 // Simple hash for noise
 float hash(float2 p) {
@@ -169,17 +179,20 @@ float4 rayMarchVoxels(float3 ro, float3 rd, float voxelSize, float fogDensity) {
 /// Renders a procedural voxel terrain using DDA ray traversal.
 /// Camera orbits around the scene, terrain colored by height (water, sand, grass, rock, snow).
 kernel void image(
-    device const Uniforms&     uniforms     [[buffer(0)]],
-    device const UserUniforms& userUniforms [[buffer(1)]])
+    texture2d<float, access::write> outTexture     [[texture(0)]],
+    device const ChannelBindings&   channels       [[buffer(1)]],
+    device const Uniforms*          uniforms       [[buffer(0)]],
+    device const UserUniforms*      userUniforms   [[buffer(2)]],
+    uint2 gid                                      [[thread_position_in_grid]])
 {
-    float2 uv = (float2(gid) - 0.5 * uniforms.resolution) / uniforms.resolution.y;
+    float2 uv = (float2(gid) - 0.5 * uniforms->resolution) / uniforms->resolution.y;
     
-    float camHeight = userUniforms.cameraHeight;
-    float voxelSize = userUniforms.voxelSize;
-    float fogDensity = userUniforms.fogDensity;
+    float camHeight = userUniforms->cameraHeight;
+    float voxelSize = userUniforms->voxelSize;
+    float fogDensity = userUniforms->fogDensity;
     
     // Camera setup - orbiting around
-    float angle = uniforms.time * 0.3;
+    float angle = uniforms->time * 0.3;
     float3 ro = float3(sin(angle) * 10.0, camHeight + 3.0, cos(angle) * 10.0);
     float3 target = float3(0.0, 1.0, 0.0);
     
@@ -192,5 +205,5 @@ kernel void image(
     
     float4 col = rayMarchVoxels(ro, rd, voxelSize, fogDensity);
     
-    uniforms.textures.image.write(col, gid);
+    outTexture.write(col, gid);
 }
