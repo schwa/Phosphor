@@ -67,6 +67,9 @@ let package = Package(
                 "PhosphorModel",
                 "PhosphorCompile",
                 .product(name: "FoundationModelBackends", package: "FoundationModelBackends")
+            ],
+            resources: [
+                .copy("Prompts")
             ]
         ),
         .testTarget(

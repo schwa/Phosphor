@@ -3389,11 +3389,13 @@ Touch points: PhosphorRuntime (diagnostics timing), DiagnosticsView (missingAsse
 ## 98: Store prompts/instructions in resource files, not Swift string literals
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 labels: effort:m
 created: 2026-06-22T22:35:20Z
+updated: 2026-06-23T01:32:00Z
+closed: 2026-06-23T01:32:00Z
 +++
 
 Move the large prompt/instruction strings out of Swift triple-quoted literals into their own resource files (loaded via Bundle.module, cached), the way Phosphor.h now works (#88). They're long prose, awkward to read/edit/diff inside Swift, and mixing them with code makes both harder to maintain.
@@ -3415,6 +3417,8 @@ Acceptance:
 - Single source of truth; .md files are readable/diffable on their own.
 
 Touch points: GeneratorInstructions, ShaderGenerator (build*Prompt), Package.swift (resources), new Resources/Prompts/*.md. Relates to #88 (Phosphor.h on disk).
+
+- `2026-06-23T01:32:00Z`: Moved the static generator instruction blocks (full, onDevice, planning) into PhosphorGeneration/Prompts/*.md, loaded via a cached loadPrompt(_:) that fatalErrors on missing/unreadable (same convention as Phosphor.h / StarterTemplate). The build*Prompt template functions stay in Swift (they interpolate runtime values). Note: stripped a stray 4-space indent the full/onDevice strings carried from Swift multiline-literal indentation — semantically irrelevant in a system prompt. Tests pass.
 
 ---
 
