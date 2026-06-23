@@ -1,4 +1,5 @@
 import Foundation
+import PhosphorModel
 @testable import PhosphorSupport
 import Testing
 

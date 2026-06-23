@@ -1,4 +1,5 @@
 import Foundation
+import PhosphorModel
 import TOMLKit
 
 /// A source string plus its parsed front-matter configuration and any

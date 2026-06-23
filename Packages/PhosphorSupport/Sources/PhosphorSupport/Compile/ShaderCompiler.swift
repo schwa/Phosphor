@@ -1,4 +1,5 @@
 import Foundation
+import PhosphorModel
 import Metal
 
 /// The result of compiling a Phosphor source into a live Metal library.

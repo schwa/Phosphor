@@ -1,4 +1,5 @@
 import Foundation
+import PhosphorModel
 import simd
 
 /// Computes the byte layout of the auto-generated MSL `UserUniforms` struct

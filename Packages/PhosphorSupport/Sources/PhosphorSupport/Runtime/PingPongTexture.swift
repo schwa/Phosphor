@@ -1,4 +1,5 @@
 import Foundation
+import PhosphorModel
 import Metal
 
 /// A pair of textures (or just one, if `pingPong == false`) that the runtime

@@ -1,4 +1,5 @@
 import Foundation
+import PhosphorModel
 import Metal
 
 /// Compiles assembled Metal source into an `MTLLibrary`, and extracts

@@ -1,4 +1,5 @@
 import Foundation
+import PhosphorModel
 
 /// Builds the synthetic `Phosphor.h` content that the runtime prepends to
 /// every kernel's source before compilation.

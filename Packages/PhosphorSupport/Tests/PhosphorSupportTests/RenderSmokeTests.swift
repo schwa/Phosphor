@@ -1,4 +1,5 @@
 import Foundation
+import PhosphorModel
 import Metal
 import MetalSprockets
 @testable import PhosphorSupport

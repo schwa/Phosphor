@@ -10,7 +10,8 @@ let package = Package(
         .visionOS(.v27)
     ],
     products: [
-        .library(name: "PhosphorSupport", targets: ["PhosphorSupport"])
+        .library(name: "PhosphorSupport", targets: ["PhosphorSupport"]),
+        .library(name: "PhosphorModel", targets: ["PhosphorModel"])
     ],
     dependencies: [
         .package(url: "https://github.com/schwa/MetalSprockets", from: "0.1.10"),
@@ -22,9 +23,17 @@ let package = Package(
         .package(url: "https://github.com/schwa/FoundationModelBackends.git", branch: "main")
     ],
     targets: [
+        // Leaf: core data model. No Metal, no external generation deps.
+        .target(
+            name: "PhosphorModel",
+            resources: [
+                .copy("Resources/BuiltinTextures")
+            ]
+        ),
         .target(
             name: "PhosphorSupport",
             dependencies: [
+                "PhosphorModel",
                 .product(name: "MetalSprockets", package: "MetalSprockets"),
                 .product(name: "MetalSprocketsUI", package: "MetalSprockets"),
                 .product(name: "MetalSprocketsSupport", package: "MetalSprockets"),
@@ -37,13 +46,12 @@ let package = Package(
                 .product(name: "FoundationModelBackends", package: "FoundationModelBackends")
             ],
             resources: [
-                .copy("Resources/BuiltinTextures"),
                 .copy("Resources/Phosphor.h")
             ]
         ),
         .testTarget(
             name: "PhosphorSupportTests",
-            dependencies: ["PhosphorSupport"],
+            dependencies: ["PhosphorSupport", "PhosphorModel"],
             resources: [
                 .copy("Resources")
             ]

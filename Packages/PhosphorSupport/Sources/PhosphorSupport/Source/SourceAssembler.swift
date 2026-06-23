@@ -1,4 +1,5 @@
 import Foundation
+import PhosphorModel
 
 /// Assembles a full Metal compile unit for an configuration by:
 ///

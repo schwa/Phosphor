@@ -1,4 +1,5 @@
 import Foundation
+import PhosphorModel
 import TOMLKit
 
 /// Serializes a ``PhosphorConfiguration`` to the TOML body text that lives
