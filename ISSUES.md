@@ -3708,3 +3708,26 @@ created: 2026-06-23T16:03:48Z
 Shader generation currently goes through FoundationModelAdapter (Apple Intelligence) behind the LanguageModelPort protocol. Replace this with a real AI backend/tool rather than relying on the on-device Apple Intelligence model, which fakes/approximates the generation. Implement a LanguageModelPort conformance backed by a real model API.
 
 ---
+
+## 109: Create PhosphorKit package with a reusable PhosphorView
+
++++
+status: new
+priority: medium
+kind: feature
+labels: phosphorkit
+created: 2026-06-23T20:01:21Z
++++
+
+Extract a standalone `PhosphorKit` package exposing a high-level `PhosphorView` so other apps can drop phosphor shaders in with minimal effort.
+
+Goal: a third-party app should be able to add a phosphor/CRT-style shader effect by adding the package and embedding `PhosphorView` (or applying it as a view modifier), without pulling in the full Phosphor editor app.
+
+Open questions / scope:
+- API surface: `PhosphorView` as a standalone view vs. a `.phosphor()` SwiftUI modifier wrapping arbitrary content.
+- What's configurable (shader selection, uniforms/parameters, intensity) and sensible defaults.
+- Reuse the existing rendering core (MetalSprockets) from PhosphorSupport vs. a new lean dependency.
+- Package layout: new `Packages/PhosphorKit` alongside `PhosphorSupport`, or fold into it.
+- Example/demo target showing minimal integration.
+
+---
