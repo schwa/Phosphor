@@ -1,5 +1,8 @@
 import Foundation
-import PhosphorSupport
+import PhosphorModel
+import PhosphorCompile
+import PhosphorGeneration
+import PhosphorRuntime
 
 /// One entry in the generation chat transcript: either a user prompt or the
 /// model's response to it.

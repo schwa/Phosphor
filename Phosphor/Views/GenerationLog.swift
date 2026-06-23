@@ -1,6 +1,9 @@
 import Foundation
 import os
-import PhosphorSupport
+import PhosphorModel
+import PhosphorCompile
+import PhosphorGeneration
+import PhosphorRuntime
 import SwiftUI
 import UniformTypeIdentifiers
 

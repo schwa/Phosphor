@@ -1,6 +1,6 @@
 import Foundation
 import PhosphorModel
-@testable import PhosphorSupport
+@testable import PhosphorModel
 import Testing
 
 @Suite("TextureSize")

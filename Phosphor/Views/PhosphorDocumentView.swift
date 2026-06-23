@@ -1,4 +1,7 @@
-import PhosphorSupport
+import PhosphorModel
+import PhosphorCompile
+import PhosphorGeneration
+import PhosphorRuntime
 import SwiftUI
 
 /// Top-level view for a flat `.metal` document. Hands off to

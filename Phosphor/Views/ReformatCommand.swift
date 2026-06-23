@@ -1,4 +1,7 @@
-import PhosphorSupport
+import PhosphorModel
+import PhosphorCompile
+import PhosphorGeneration
+import PhosphorRuntime
 import SwiftUI
 
 /// Focused-value key carrying the active editor's `text` binding so a

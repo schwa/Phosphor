@@ -1,4 +1,7 @@
-import PhosphorSupport
+import PhosphorModel
+import PhosphorCompile
+import PhosphorGeneration
+import PhosphorRuntime
 import SwiftUI
 
 /// Doc-agnostic shader editor: split-pane source / preview, with toolbar.

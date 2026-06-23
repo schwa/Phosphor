@@ -1,4 +1,7 @@
-import PhosphorSupport
+import PhosphorModel
+import PhosphorCompile
+import PhosphorGeneration
+import PhosphorRuntime
 import SwiftUI
 
 /// Dropdown that lets the user pick which resource the preview should

@@ -1,4 +1,7 @@
-import PhosphorSupport
+import PhosphorModel
+import PhosphorCompile
+import PhosphorGeneration
+import PhosphorRuntime
 import SwiftUI
 
 /// Left side of the document split: the editable Metal source.

@@ -2,7 +2,7 @@ import Foundation
 import PhosphorModel
 @testable import PhosphorCompile
 import Metal
-@testable import PhosphorSupport
+@testable import PhosphorCompile
 import Testing
 
 @Suite("Compile against MTLDevice")

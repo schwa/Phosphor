@@ -1,7 +1,7 @@
 import Foundation
 import PhosphorModel
 import Metal
-@testable import PhosphorSupport
+@testable import PhosphorGeneration
 import Testing
 
 /// Scripted ``LanguageModelPort`` for testing the generator flow with no

@@ -1,5 +1,8 @@
 import MetalSprocketsUI
-import PhosphorSupport
+import PhosphorModel
+import PhosphorCompile
+import PhosphorGeneration
+import PhosphorRuntime
 import SwiftUI
 
 /// User-facing layout mode for the editor. Cycles through a horizontal

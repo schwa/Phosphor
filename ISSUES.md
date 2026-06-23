@@ -3549,12 +3549,13 @@ Touch points: GeneratePanel TurnRow (.user branch) — likely a small Collapsibl
 ## 103: Refactor PhosphorSupport into multiple targets
 
 +++
-status: new
+status: closed
 priority: medium
 kind: task
 labels: architecture, effort:l
 created: 2026-06-22T22:54:21Z
-updated: 2026-06-22T22:55:23Z
+updated: 2026-06-23T00:42:48Z
+closed: 2026-06-23T00:42:48Z
 +++
 
 Split the monolithic `PhosphorSupport` package into several focused targets, decoupling concerns and clarifying dependencies.
@@ -3569,5 +3570,14 @@ Proposed targets (to be refined):
 - (others as appropriate: Audio, Source, Resources)
 
 Goal: clear target boundaries with explicit dependencies so e.g. the app doesn't pull in generation code unnecessarily.
+
+- `2026-06-23T00:42:48Z`: Split the monolithic PhosphorSupport package into four focused targets and deleted the umbrella:
+
+- PhosphorModel — core data model + BuiltinTextures resource (leaf, no Metal).
+- PhosphorCompile — Parser + Compile + Source, owns Phosphor.h (-> Model; TOMLKit, tree-sitter).
+- PhosphorRuntime — Runtime + Audio (-> Model, Compile; MetalSprockets, AVFoundation).
+- PhosphorGeneration — Generation (-> Model, Compile; FoundationModelBackends).
+
+PhosphorSupport is gone; the app imports the modules directly (no @_exported anywhere). Tests @testable-import the relevant module. Layering is clean: Model <- Compile <- {Runtime, Generation}. 76 tests pass, app builds with no warnings.
 
 ---

@@ -1,5 +1,5 @@
 import Testing
-@testable import PhosphorSupport
+@testable import PhosphorCompile
 
 struct PhosphorInterfaceTests {
     @Test("Interface keeps signatures but strips function bodies")

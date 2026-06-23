@@ -1,6 +1,6 @@
 import Testing
 import PhosphorModel
-@testable import PhosphorSupport
+@testable import PhosphorModel
 
 struct BuiltinTexturesTests {
     @Test("Every registered built-in resolves to non-empty asset data")

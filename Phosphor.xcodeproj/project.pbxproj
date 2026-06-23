@@ -10,7 +10,10 @@
 		4569B9FD2F6CC65200A54965 /* MetalSprockets in Frameworks */ = {isa = PBXBuildFile; productRef = 4569B9FC2F6CC65200A54965 /* MetalSprockets */; };
 		4569B9FF2F6CC65200A54965 /* MetalSprocketsUI in Frameworks */ = {isa = PBXBuildFile; productRef = 4569B9FE2F6CC65200A54965 /* MetalSprocketsUI */; };
 		45D0A1012F80000000000001 /* MetalSprocketsSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 45D0A1002F80000000000001 /* MetalSprocketsSupport */; };
-		45D0A1032F80000000000001 /* PhosphorSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 45D0A1022F80000000000001 /* PhosphorSupport */; };
+		45D0A1032F80000000000001 /* PhosphorModel in Frameworks */ = {isa = PBXBuildFile; productRef = 45D0A1022F80000000000001 /* PhosphorModel */; };
+		45D0A1042F80000000000002 /* PhosphorCompile in Frameworks */ = {isa = PBXBuildFile; productRef = 45D0A1052F80000000000002 /* PhosphorCompile */; };
+		45D0A1062F80000000000003 /* PhosphorRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 45D0A1072F80000000000003 /* PhosphorRuntime */; };
+		45D0A1082F80000000000004 /* PhosphorGeneration in Frameworks */ = {isa = PBXBuildFile; productRef = 45D0A1092F80000000000004 /* PhosphorGeneration */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -81,7 +84,10 @@
 				4569B9FD2F6CC65200A54965 /* MetalSprockets in Frameworks */,
 				4569B9FF2F6CC65200A54965 /* MetalSprocketsUI in Frameworks */,
 				45D0A1012F80000000000001 /* MetalSprocketsSupport in Frameworks */,
-				45D0A1032F80000000000001 /* PhosphorSupport in Frameworks */,
+				45D0A1032F80000000000001 /* PhosphorModel in Frameworks */,
+				45D0A1042F80000000000002 /* PhosphorCompile in Frameworks */,
+				45D0A1062F80000000000003 /* PhosphorRuntime in Frameworks */,
+				45D0A1082F80000000000004 /* PhosphorGeneration in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -131,7 +137,10 @@
 				4569B9FC2F6CC65200A54965 /* MetalSprockets */,
 				4569B9FE2F6CC65200A54965 /* MetalSprocketsUI */,
 				45D0A1002F80000000000001 /* MetalSprocketsSupport */,
-				45D0A1022F80000000000001 /* PhosphorSupport */,
+				45D0A1022F80000000000001 /* PhosphorModel */,
+				45D0A1052F80000000000002 /* PhosphorCompile */,
+				45D0A1072F80000000000003 /* PhosphorRuntime */,
+				45D0A1092F80000000000004 /* PhosphorGeneration */,
 			);
 			productName = Phosphor;
 			productReference = 45C80D312E84475800136D6D /* Phosphor.app */;
@@ -315,9 +324,21 @@
 			package = 4569B9FB2F6CC65200A54965 /* XCRemoteSwiftPackageReference "MetalSprockets" */;
 			productName = MetalSprocketsSupport;
 		};
-		45D0A1022F80000000000001 /* PhosphorSupport */ = {
+		45D0A1022F80000000000001 /* PhosphorModel */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = PhosphorSupport;
+			productName = PhosphorModel;
+		};
+		45D0A1052F80000000000002 /* PhosphorCompile */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PhosphorCompile;
+		};
+		45D0A1072F80000000000003 /* PhosphorRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PhosphorRuntime;
+		};
+		45D0A1092F80000000000004 /* PhosphorGeneration */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PhosphorGeneration;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

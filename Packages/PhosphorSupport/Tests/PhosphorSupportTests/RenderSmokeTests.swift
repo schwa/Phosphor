@@ -3,7 +3,7 @@ import PhosphorModel
 @testable import PhosphorCompile
 import Metal
 import MetalSprockets
-@testable import PhosphorSupport
+@testable import PhosphorRuntime
 import Testing
 
 /// Headless smoke test: runs a single frame of every shipped Examples/*.metal

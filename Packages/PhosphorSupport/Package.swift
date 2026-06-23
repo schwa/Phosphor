@@ -10,9 +10,10 @@ let package = Package(
         .visionOS(.v27)
     ],
     products: [
-        .library(name: "PhosphorSupport", targets: ["PhosphorSupport"]),
         .library(name: "PhosphorModel", targets: ["PhosphorModel"]),
-        .library(name: "PhosphorCompile", targets: ["PhosphorCompile"])
+        .library(name: "PhosphorCompile", targets: ["PhosphorCompile"]),
+        .library(name: "PhosphorRuntime", targets: ["PhosphorRuntime"]),
+        .library(name: "PhosphorGeneration", targets: ["PhosphorGeneration"])
     ],
     dependencies: [
         .package(url: "https://github.com/schwa/MetalSprockets", from: "0.1.10"),
@@ -31,8 +32,7 @@ let package = Package(
                 .copy("Resources/BuiltinTextures")
             ]
         ),
-        // Parsing, source assembly, and Metal compilation. Depends on the
-        // model; owns the Phosphor.h prelude resource.
+        // Parsing, source assembly, and Metal compilation. Owns Phosphor.h.
         .target(
             name: "PhosphorCompile",
             dependencies: [
@@ -47,21 +47,35 @@ let package = Package(
                 .copy("Resources/Phosphor.h")
             ]
         ),
+        // Live rendering pipeline + audio capture.
         .target(
-            name: "PhosphorSupport",
+            name: "PhosphorRuntime",
             dependencies: [
                 "PhosphorModel",
                 "PhosphorCompile",
                 .product(name: "MetalSprockets", package: "MetalSprockets"),
                 .product(name: "MetalSprocketsUI", package: "MetalSprockets"),
                 .product(name: "MetalSprocketsSupport", package: "MetalSprockets"),
-                .product(name: "MetalSprocketsAddOns", package: "MetalSprocketsAddOns"),
+                .product(name: "MetalSprocketsAddOns", package: "MetalSprocketsAddOns")
+            ]
+        ),
+        // AI shader generation.
+        .target(
+            name: "PhosphorGeneration",
+            dependencies: [
+                "PhosphorModel",
+                "PhosphorCompile",
                 .product(name: "FoundationModelBackends", package: "FoundationModelBackends")
             ]
         ),
         .testTarget(
             name: "PhosphorSupportTests",
-            dependencies: ["PhosphorSupport", "PhosphorModel", "PhosphorCompile"],
+            dependencies: [
+                "PhosphorModel",
+                "PhosphorCompile",
+                "PhosphorRuntime",
+                "PhosphorGeneration"
+            ],
             resources: [
                 .copy("Resources")
             ]

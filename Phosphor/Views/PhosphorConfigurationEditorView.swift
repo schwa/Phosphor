@@ -1,4 +1,7 @@
-import PhosphorSupport
+import PhosphorModel
+import PhosphorCompile
+import PhosphorGeneration
+import PhosphorRuntime
 import SwiftUI
 
 /// Inspector tab that lets the user edit the parsed configuration's textures,
@@ -154,7 +157,7 @@ private struct ConfigurationEditorView: View {
 // MARK: - Textures
 
 private struct TexturesEditor: View {
-    @Binding var textures: [PhosphorSupport.Texture]
+    @Binding var textures: [PhosphorModel.Texture]
 
     var body: some View {
         ForEach($textures, id: \.id) { $texture in
@@ -167,7 +170,7 @@ private struct TexturesEditor: View {
         }
     }
 
-    private func uniqueNewTexture(existing: [PhosphorSupport.Texture]) -> PhosphorSupport.Texture {
+    private func uniqueNewTexture(existing: [PhosphorModel.Texture]) -> PhosphorModel.Texture {
         let usedIDs = Set(existing.map(\.id))
         var name = "texture"
         var counter = 2
@@ -175,12 +178,12 @@ private struct TexturesEditor: View {
             name = "texture\(counter)"
             counter += 1
         }
-        return PhosphorSupport.Texture(id: ResourceID(name))
+        return PhosphorModel.Texture(id: ResourceID(name))
     }
 }
 
 private struct TextureRow: View {
-    @Binding var texture: PhosphorSupport.Texture
+    @Binding var texture: PhosphorModel.Texture
 
     var body: some View {
         DisclosureGroup(texture.id.raw) {
@@ -349,7 +352,7 @@ private struct TextureInitField: View {
 
 private struct PassesEditor: View {
     @Binding var passes: [Pass]
-    let textures: [PhosphorSupport.Texture]
+    let textures: [PhosphorModel.Texture]
 
     var body: some View {
         ForEach($passes, id: \.id) { $pass in
@@ -376,7 +379,7 @@ private struct PassesEditor: View {
 
 private struct PassRow: View {
     @Binding var pass: Pass
-    let textures: [PhosphorSupport.Texture]
+    let textures: [PhosphorModel.Texture]
 
     var body: some View {
         DisclosureGroup(pass.id.raw) {
@@ -401,7 +404,7 @@ private struct PassRow: View {
 
 private struct BindingRow: View {
     @Binding var binding: Pass.TextureBinding
-    let textures: [PhosphorSupport.Texture]
+    let textures: [PhosphorModel.Texture]
 
     var body: some View {
         HStack {

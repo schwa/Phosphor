@@ -1,4 +1,4 @@
-@testable import PhosphorSupport
+@testable import PhosphorRuntime
 import Testing
 
 @Suite("PlaybackClock")
