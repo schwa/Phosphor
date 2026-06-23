@@ -4,52 +4,80 @@ import PhosphorSupport
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// On-disk record of a document's AI generation transcript (#99).
+/// On-disk record of a document's AI generation history (#99).
 ///
-/// The JSON log is the single source of truth: the chat transcript is mirrored
-/// to disk as it changes, reloaded when the panel reopens, and "Export
-/// Transcript…" simply writes this same JSON out. Versioned so the schema can
-/// evolve.
+/// The model is nested: the log holds one ``Interaction`` per user submission;
+/// each interaction holds the *work* — zero or more model request/response
+/// ``GenerationExchange``s — plus the final outcome. This single structure is
+/// the source of truth; the chat transcript is *derived* from it. It's
+/// persisted (for saved docs), reloaded on reopen, and written verbatim by
+/// "Export Transcript…". Versioned so the schema can evolve.
 nonisolated struct GenerationLog: Codable, Hashable {
     /// On-disk schema version. Bump when the shape changes incompatibly.
-    static let currentSchemaVersion = 2
+    static let currentSchemaVersion = 3
 
     var schemaVersion: Int = currentSchemaVersion
     /// Stable key identifying which document/shader this log belongs to.
     var identity: String
-    /// When the log was first created.
     var createdAt: Date
-    /// When it was last written.
     var updatedAt: Date
-    /// The display transcript, oldest first (drives the chat UI).
-    var turns: [GenerationTurn]
-    /// The full wire record: one entry per generation run, each holding every
-    /// model turn (request + decoded response / error) (#99).
-    var runs: [GenerationRun]
+    /// One entry per user submission, oldest first.
+    var interactions: [Interaction]
 
-    init(identity: String, turns: [GenerationTurn] = [], runs: [GenerationRun] = []) {
+    init(identity: String, interactions: [Interaction] = []) {
         self.identity = identity
         self.createdAt = .now
         self.updatedAt = .now
-        self.turns = turns
-        self.runs = runs
+        self.interactions = interactions
     }
 }
 
-/// One generation run's complete wire record: the exchanges plus the plan and
-/// final source, so the JSON log holds everything sent and received (#99).
-nonisolated struct GenerationRun: Codable, Hashable {
+/// One user submission and the work it produced (#99).
+///
+/// Just the user text plus the work: the ordered model request/response
+/// ``GenerationExchange``s. Everything else is *derived* from the exchanges —
+/// the plan (the plan exchange's response), the final shader + assembled
+/// source (the last codegen exchange's response + `producedSource`), retries
+/// (their own exchanges), and success/failure (the last exchange's outcome).
+/// No duplicated fields: the exchanges are the exact log.
+nonisolated struct Interaction: Codable, Hashable, Identifiable {
+    var id = UUID()
     var startedAt: Date
+    /// The user text that started this interaction.
     var prompt: String
-    var planned: Bool
+    /// The document source at the moment this interaction started — the input
+    /// state the model operated on (empty for a fresh generation). With
+    /// ``finalSource`` (the output) this makes the interaction self-contained
+    /// and reproducible without parsing the request (#99).
+    var sourceBefore: String
+    /// The work, oldest first.
     var exchanges: [GenerationExchange]
-    var plan: GeneratedPlan?
-    var corrections: [GenerationCorrection]
-    /// Final source on success; nil if the run failed.
-    var finalSource: String?
-    var finalTitle: String?
-    /// Terminal error string, if the run failed.
-    var error: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, startedAt, prompt, sourceBefore, exchanges
+    }
+
+    /// The plan, if a planning turn ran (derived from the plan exchange).
+    var plan: PlannedApproach? {
+        exchanges.first { $0.kind == .plan }?.response?.approach
+    }
+
+    /// The final assembled `.metal` source, if the interaction succeeded.
+    var finalSource: String? {
+        exchanges.last { $0.producedSource != nil }?.producedSource
+    }
+
+    /// The final shader title, if it succeeded.
+    var finalTitle: String? {
+        exchanges.last { $0.response?.shader != nil }?.response?.shader?.effectiveTitle
+    }
+
+    /// The terminal error, if the interaction failed (the last exchange errored
+    /// and nothing usable was produced).
+    var failureError: String? {
+        guard finalSource == nil else { return nil }
+        return exchanges.last?.error
+    }
 }
 
 /// A `FileDocument` wrapper so a ``GenerationLog`` can be written out via
@@ -126,15 +154,9 @@ enum GenerationLogStore {
         }
     }
 
-    /// Writes `turns` for `identity`, merging into any existing log's metadata.
-    /// Best-effort; failures are logged, not thrown.
-    static func save(identity: String, turns: [GenerationTurn]) {
-        update(identity: identity) { $0.turns = turns }
-    }
-
-    /// Appends a full wire-record run (#99) for `identity`.
-    static func appendRun(identity: String, run: GenerationRun) {
-        update(identity: identity) { $0.runs.append(run) }
+    /// Appends a completed ``Interaction`` for `identity` (#99). Best-effort.
+    static func appendInteraction(identity: String, interaction: Interaction) {
+        update(identity: identity) { $0.interactions.append(interaction) }
     }
 
     /// Loads (or creates) the log, applies `mutate`, and writes it back.

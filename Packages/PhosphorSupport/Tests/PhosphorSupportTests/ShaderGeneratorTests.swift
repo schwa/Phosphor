@@ -8,6 +8,7 @@ import Testing
 /// prompt it was asked.
 private final class FakeLanguageModel: LanguageModelPort, @unchecked Sendable {
     let displayName = "Fake"
+    let instructions = "fake instructions"
     private let replies: [GeneratedShader]
     private var index = 0
     private(set) var prompts: [String] = []
@@ -41,6 +42,7 @@ private final class FakeLanguageModel: LanguageModelPort, @unchecked Sendable {
 /// and whose subsequent responses come from `replies`.
 private final class ThrowFirstLanguageModel: LanguageModelPort, @unchecked Sendable {
     let displayName = "Fake"
+    let instructions = "fake instructions"
     private let firstError: ShaderGeneratorError
     private let replies: [GeneratedShader]
     private var index = 0

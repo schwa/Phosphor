@@ -60,6 +60,13 @@ public struct GeneratedPlan: Hashable, Sendable {
     }
 }
 
+public extension PlannedApproach {
+    /// Public read access to the model's plan fields (members are internal).
+    var planIntent: String { intent }
+    var planShape: PlanShape { shape }
+    var planBody: String { plan }
+}
+
 extension PlanShape: Hashable {}
 extension PlanShape: Codable {}
 extension PlannedApproach: Codable, Hashable {}

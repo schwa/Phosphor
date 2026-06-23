@@ -14,6 +14,10 @@ public protocol LanguageModelPort: Sendable {
     /// Human-readable backend name, used in error messages.
     var displayName: String { get }
 
+    /// The system instructions the session was configured with, recorded in
+    /// the generation log (#99).
+    var instructions: String { get }
+
     /// Sends `prompt` and decodes a ``GeneratedShader`` from the reply.
     ///
     /// - Throws: ``ShaderGeneratorError/malformedResponse(model:underlying:)``

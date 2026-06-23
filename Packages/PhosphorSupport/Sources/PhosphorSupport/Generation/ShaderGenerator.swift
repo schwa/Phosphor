@@ -190,6 +190,7 @@ public struct ShaderGenerator {
             // The retry already consumed our one retry, so a compile failure
             // here is returned as-is (no second compile retry).
             let source = try generated.toMetalSource(prompts: allPrompts)
+            recorder.setLastProducedSource(source)
             return GenerationResult(source: source, title: generated.title, corrections: corrections, plan: generatedPlan, exchanges: recorder.exchanges)
         }
     }
@@ -207,6 +208,7 @@ public struct ShaderGenerator {
     ) async throws -> GenerationResult {
         var generated = firstGenerated
         var source = try generated.toMetalSource(prompts: prompts)
+        recorder.setLastProducedSource(source)
 
         // No device / no front-matter to validate -> return as-is.
         guard let device else { return GenerationResult(source: source, title: generated.title, corrections: corrections, plan: plan, exchanges: recorder.exchanges) }
@@ -222,6 +224,7 @@ public struct ShaderGenerator {
             let followUp = Self.buildRetryPrompt(compileError: compileError)
             generated = try await respond(to: followUp, label: "retry", kind: .compileRetry, recorder: recorder)
             source = try generated.toMetalSource(prompts: prompts)
+            recorder.setLastProducedSource(source)
         }
         return GenerationResult(source: source, title: generated.title, corrections: corrections, plan: plan, exchanges: recorder.exchanges)
     }
@@ -235,14 +238,15 @@ public struct ShaderGenerator {
         do {
             let approach = try await model.respondPlan(to: planPrompt)
             recorder.record(GenerationExchange(
-                kind: .plan, model: model.displayName, request: planPrompt,
-                response: .init(approach: approach), startedAt: started,
-                elapsed: clock.elapsedSeconds))
+                kind: .plan, model: model.displayName, instructions: model.instructions,
+                request: planPrompt, response: .init(approach: approach),
+                startedAt: started, elapsed: clock.elapsedSeconds))
             return approach
         } catch {
             recorder.record(GenerationExchange(
-                kind: .plan, model: model.displayName, request: planPrompt,
-                error: "\(error)", startedAt: started, elapsed: clock.elapsedSeconds))
+                kind: .plan, model: model.displayName, instructions: model.instructions,
+                request: planPrompt, error: "\(error)",
+                startedAt: started, elapsed: clock.elapsedSeconds))
             throw error
         }
     }
@@ -257,14 +261,15 @@ public struct ShaderGenerator {
             generated = try await model.respond(to: prompt)
         } catch {
             recorder.record(GenerationExchange(
-                kind: kind, model: model.displayName, request: prompt,
-                error: "\(error)", startedAt: started, elapsed: clock.elapsedSeconds))
+                kind: kind, model: model.displayName, instructions: model.instructions,
+                request: prompt, error: "\(error)",
+                startedAt: started, elapsed: clock.elapsedSeconds))
             throw error
         }
         recorder.record(GenerationExchange(
-            kind: kind, model: model.displayName, request: prompt,
-            response: .init(shader: generated), startedAt: started,
-            elapsed: clock.elapsedSeconds))
+            kind: kind, model: model.displayName, instructions: model.instructions,
+            request: prompt, response: .init(shader: generated),
+            startedAt: started, elapsed: clock.elapsedSeconds))
         Self.logGeneration(label: label, model: model.displayName, generated: generated)
         if generated.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw ShaderGeneratorError.emptyBody(model: model.displayName)
@@ -484,6 +489,13 @@ public struct GenerationFailure: Error {
 final class ExchangeRecorder: @unchecked Sendable {
     private(set) var exchanges: [GenerationExchange] = []
     func record(_ exchange: GenerationExchange) { exchanges.append(exchange) }
+
+    /// Attaches the assembled `.metal` source to the most recent exchange
+    /// (the codegen turn that produced it).
+    func setLastProducedSource(_ source: String) {
+        guard !exchanges.isEmpty else { return }
+        exchanges[exchanges.count - 1].producedSource = source
+    }
 }
 
 extension ContinuousClock.Instant {

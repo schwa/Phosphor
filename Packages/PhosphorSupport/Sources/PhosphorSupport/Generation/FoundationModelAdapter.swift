@@ -11,12 +11,14 @@ import os
 /// so successive ``respond(to:)`` calls share conversation history.
 public final class FoundationModelAdapter: LanguageModelPort, @unchecked Sendable {
     public let displayName: String
+    public let instructions: String
     private let session: LanguageModelSession
     private static let logger = Logger(subsystem: "io.schwa.PhosphorSupport", category: "generator")
 
-    private init(session: LanguageModelSession, displayName: String) {
+    private init(session: LanguageModelSession, displayName: String, instructions: String) {
         self.session = session
         self.displayName = displayName
+        self.instructions = instructions
     }
 
     /// Builds an adapter for the chosen backend, reading any required API key
@@ -27,7 +29,7 @@ public final class FoundationModelAdapter: LanguageModelPort, @unchecked Sendabl
     ///   Anthropic backend when the key is absent or unreadable.
     public static func make(model: GenerationModel) throws -> FoundationModelAdapter {
         let session = try makeSession(model: model)
-        return FoundationModelAdapter(session: session, displayName: model.displayName)
+        return FoundationModelAdapter(session: session, displayName: model.displayName, instructions: GeneratorInstructions.instructions(for: model))
     }
 
     public func respond(to prompt: String) async throws -> GeneratedShader {

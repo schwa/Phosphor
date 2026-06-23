@@ -111,6 +111,11 @@ public enum GeneratedUniformKind: String {
 // `@Generable` macro doesn't add Codable, so we conform explicitly; synthesis
 // covers all members.
 
+public extension GeneratedShader {
+    /// Public read access to the model-chosen title (members are internal).
+    var effectiveTitle: String { title }
+}
+
 extension GeneratedShader: Codable, Hashable, Sendable {}
 extension GeneratedResource: Codable, Hashable, Sendable {}
 extension GeneratedPixelFormat: Codable, Hashable, Sendable {}
