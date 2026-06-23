@@ -2861,11 +2861,12 @@ Ask: which direction? Once decided, spin off concrete follow-up issues.
 ## 79: Redo not available after undoing a programmatic text mutation
 
 +++
-status: new
+status: open
 priority: high
-kind: none
+kind: bug
 labels: effort:s
 created: 2026-06-22T16:39:02Z
+updated: 2026-06-23T06:05:03Z
 +++
 
 Undoing a programmatic, undoable text mutation works, but Redo never becomes available afterward.
@@ -2966,11 +2967,12 @@ Touch points: PhosphorInspectorView (Generate tab), GeneratePanel, ShaderGenerat
 ## 83: Version rollback / branching for generated shaders
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
 labels: effort:l
 created: 2026-06-22T16:52:33Z
+updated: 2026-06-23T06:05:03Z
 +++
 
 Let the user jump back to any previous generated version in the chat history (#82) and continue from there, branching the conversation. Split out of #82 — NOT part of the initial chat UI.
@@ -2990,10 +2992,12 @@ Depends on #82 (chat history UI).
 ## 84: Add 'New Bundle' option to splash screen
 
 +++
-status: new
+status: open
 priority: medium
 kind: feature
+labels: effort:xs
 created: 2026-06-22T16:55:19Z
+updated: 2026-06-23T06:05:14Z
 +++
 
 The splash screen (Phosphor/Views/SplashScene.swift) only offers a single 'New Metal Shader' button. There is no way to create a new bundle (.phosphord) document from the splash screen, even though PhosphorBundleDocument exists. Add a 'New Bundle' button/action alongside 'New Metal Shader'.
@@ -3020,10 +3024,12 @@ Set the detail pane toolbar (NavigationSplitView detail in Phosphor/Views/Phosph
 ## 86: Dark mode support
 
 +++
-status: new
+status: open
 priority: medium
 kind: feature
+labels: effort:m
 created: 2026-06-22T17:04:47Z
+updated: 2026-06-23T06:05:14Z
 +++
 
 ---
@@ -3130,10 +3136,12 @@ Touch points: PhosphorAsset / asset registry, TextureInit + resolution path in P
 ## 90: Extract source code editor into a generic SourceEditor target in PhosphorSupport
 
 +++
-status: new
+status: open
 priority: medium
 kind: enhancement
+labels: effort:l
 created: 2026-06-22T17:25:10Z
+updated: 2026-06-23T06:05:14Z
 +++
 
 Move the source-code-editor-related code out of the Phosphor app target and into a new, dedicated target in the PhosphorSupport package. Make it generic — a general-purpose syntax-highlighted source code editor, not tied to shaders/Metal.
@@ -3160,10 +3168,12 @@ These are already deps of PhosphorSupport; the new target should own the tree-si
 ## 91: Built-in MetalFX spatial AI upscaling support
 
 +++
-status: new
+status: open
 priority: medium
 kind: feature
+labels: effort:m
 created: 2026-06-22T17:26:14Z
+updated: 2026-06-23T06:05:14Z
 +++
 
 Add built-in support for MetalFX spatial scaling (MTLFXSpatialScaler) so shaders can render at a lower internal resolution and be AI-upscaled to the display resolution.
@@ -3195,12 +3205,12 @@ So we don't need to write the scaler from scratch — wire this element into the
 ## 92: Support 3D noise textures (volume textures)
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
 labels: effort:l
 created: 2026-06-22T17:33:22Z
-updated: 2026-06-22T17:33:41Z
+updated: 2026-06-23T06:05:03Z
 +++
 
 Add 3D (volume) noise textures to the built-in set so shaders can do proper volumetric / domain-warped effects (clouds, smoke, marble, flow fields) by sampling a tileable 3D field instead of stacking 2D lookups.
@@ -3233,11 +3243,12 @@ Relates to #89 (2D built-in textures) and #87 (generation context).
 ## 93: Generation trace: click a chat turn to see the full prompt sent
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
 labels: effort:m
 created: 2026-06-22T19:48:18Z
+updated: 2026-06-23T06:05:18Z
 +++
 
 Each assistant turn in the Generate chat (#82) currently shows only a title + elapsed time. Capture a richer "generation trace" per turn and let the user click the turn to open a popover with the full details — primarily what was actually sent to the model, for transparency and debugging.
@@ -3261,6 +3272,8 @@ Implementation sketch:
 Sets up #48 (attach the rendered-frame screenshot to the same trace) and #74 (attach the plan).
 
 Touch points: ShaderGenerator, GenerationResult/new GenerationTrace, GenerationTurn, GeneratePanel.
+
+- `2026-06-23T06:05:18Z`: Related to #105 (verbose model logging): #93 surfaces a per-turn subset in the UI; #105 is the full off-by-default log.
 
 ---
 
@@ -3362,11 +3375,12 @@ Touch points: ShaderGenerator (return per-attempt error history), GenerationStat
 ## 97: App launches with a transient 'missing asset' red banner that immediately disappears
 
 +++
-status: new
+status: open
 priority: medium
 kind: bug
 labels: effort:s
 created: 2026-06-22T20:03:23Z
+updated: 2026-06-23T06:05:03Z
 +++
 
 On app launch (opening a document / example), a red diagnostics banner briefly appears reading something like "asset '<name>' missing ... — texture zero-filled" and then disappears on its own a moment later. It's a transient flash, not a persistent error — the shader renders fine once it settles.
@@ -3468,11 +3482,12 @@ Touch points: new GenerationLog store (app-side), GeneratePanel (write turns as 
 ## 100: Add a Stop button to cancel an in-flight generation
 
 +++
-status: new
+status: open
 priority: medium
 kind: feature
 labels: generation, effort:s
 created: 2026-06-22T22:45:51Z
+updated: 2026-06-23T06:05:03Z
 +++
 
 Add a way to cancel an in-flight generation. Today once you hit Generate/Modify there's no stop — you wait out the model turn(s), which can be 10-40s (worse with planning mode's two turns). The Generate button shows a spinner but isn't actionable.
@@ -3597,10 +3612,12 @@ PhosphorSupport is gone; the app imports the modules directly (no @_exported any
 ## 104: Support one-shot (init-time) passes
 
 +++
-status: new
+status: open
 priority: medium
-kind: none
+kind: feature
+labels: effort:m
 created: 2026-06-23T01:50:46Z
+updated: 2026-06-23T06:05:14Z
 +++
 
 Add the ability to mark a pass as one-shot so it runs once at init/reset time rather than every frame.
@@ -3619,11 +3636,12 @@ Open questions:
 ## 105: Anthropic-level diagnostic logging of all model data
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
+labels: effort:m
 created: 2026-06-23T03:32:38Z
-updated: 2026-06-23T03:32:42Z
+updated: 2026-06-23T06:05:14Z
 +++
 
 Add an opt-in, verbose diagnostic log that captures EVERYTHING exchanged with the language model, beyond the curated GenerationExchange/GenerationLog transcript. The goal is full transparency/debuggability of what the app sends and receives — the kind of complete request/response logging you'd want when filing a model-quality bug.
@@ -3653,12 +3671,40 @@ Relates to #93 (per-turn trace popover surfaces a subset of this in the UI).
 ## 106: Support MTLBuffers including loading from file
 
 +++
-status: new
+status: open
 priority: medium
 kind: feature
+labels: effort:m
 created: 2026-06-23T03:54:56Z
+updated: 2026-06-23T06:05:14Z
 +++
 
 Add support for MTLBuffer resources, including the ability to load buffer contents from a file.
+
+---
+
+## 107: Make a justfile to do the .aar encoding of examples
+
++++
+status: new
+priority: medium
+kind: none
+created: 2026-06-23T16:03:33Z
++++
+
+Add a justfile recipe to encode the examples (Examples/Examples.phosphord) into a .aar (Apple Archive) bundle, replacing the manual/zip process.
+
+---
+
+## 108: Use a real AI tool instead of faking it with Apple Intelligence
+
++++
+status: new
+priority: medium
+kind: none
+created: 2026-06-23T16:03:48Z
++++
+
+Shader generation currently goes through FoundationModelAdapter (Apple Intelligence) behind the LanguageModelPort protocol. Replace this with a real AI backend/tool rather than relying on the on-device Apple Intelligence model, which fakes/approximates the generation. Implement a LanguageModelPort conformance backed by a real model API.
 
 ---
