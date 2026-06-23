@@ -3613,3 +3613,37 @@ Open questions:
 - Field naming (`once`).
 
 ---
+
+## 105: Anthropic-level diagnostic logging of all model data
+
++++
+status: new
+priority: low
+kind: enhancement
+created: 2026-06-23T03:32:38Z
+updated: 2026-06-23T03:32:42Z
++++
+
+Add an opt-in, verbose diagnostic log that captures EVERYTHING exchanged with the language model, beyond the curated GenerationExchange/GenerationLog transcript. The goal is full transparency/debuggability of what the app sends and receives — the kind of complete request/response logging you'd want when filing a model-quality bug.
+
+Capture, per model turn:
+- Full system instructions verbatim (GeneratorInstructions, including the appended Phosphor.h interface), not truncated.
+- The exact assembled request/prompt body (existing-shader block for modifies, bare prompt for fresh).
+- All request parameters: model id/name, temperature/sampling, any decoding/Generable schema, max tokens, etc.
+- The raw provider response. For @Generable/FoundationModels there is no raw token stream (decoded directly into GeneratedShader) — log the decoded structured value plus any provider metadata that IS available. For HTTP-backed providers, log the raw request/response bodies and headers (redacting secrets).
+- Token usage / counts if the provider exposes them.
+- Timing (startedAt, elapsed) and outcome (success/decoded result, or error).
+- Retry chain: each compile/malformed retry with the error fed back.
+
+Requirements:
+- OFF by default; enable via a debug setting / env var. Verbose and potentially large.
+- Redact API keys / secrets; never log Keychain material.
+- Structured + greppable (e.g. JSONL to a file under Application Support, and/or os.Logger with a dedicated subsystem/category).
+- Don't break or slow generation; logging is best-effort like GenerationLogStore.
+- Consider a privacy note: prompts/source may be user-sensitive; keep local, document where it's written.
+
+Touch points: ShaderGenerator, FoundationModelAdapter / provider adapters, GenerationExchange (already captures instructions/request/response/elapsed — extend or add a sibling raw log), a new verbose logger, Settings toggle.
+
+Relates to #93 (per-turn trace popover surfaces a subset of this in the UI).
+
+---
