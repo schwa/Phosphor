@@ -3589,3 +3589,25 @@ Goal: clear target boundaries with explicit dependencies so e.g. the app doesn't
 PhosphorSupport is gone; the app imports the modules directly (no @_exported anywhere). Tests @testable-import the relevant module. Layering is clean: Model <- Compile <- {Runtime, Generation}. 76 tests pass, app builds with no warnings.
 
 ---
+
+## 104: Support one-shot (init-time) passes
+
++++
+status: new
+priority: medium
+kind: none
+created: 2026-06-23T01:50:46Z
++++
+
+Add the ability to mark a pass as one-shot so it runs once at init/reset time rather than every frame.
+
+Proposed approach:
+- Add a `once: Bool` field to `Pass` (default false), parsed from front-matter.
+- In `PhosphorPipeline`, encode one-shot passes only on the first frame after a compile/reload, and re-run them after `signalReset()` or a texture resize. Skip them on all other frames.
+- Track 'has run since reset' state on the runtime; reset it on init, recompile, `signalReset()`, and texture reallocation.
+
+Open questions:
+- Exact re-run triggers (reset + resize + recompile?).
+- Field naming (`once`).
+
+---
