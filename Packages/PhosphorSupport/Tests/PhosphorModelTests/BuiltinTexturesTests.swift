@@ -1,5 +1,4 @@
 import Testing
-import PhosphorModel
 @testable import PhosphorModel
 
 struct BuiltinTexturesTests {

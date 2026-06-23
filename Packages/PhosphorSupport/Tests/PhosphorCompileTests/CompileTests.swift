@@ -2,7 +2,6 @@ import Foundation
 import PhosphorModel
 @testable import PhosphorCompile
 import Metal
-@testable import PhosphorCompile
 import Testing
 
 @Suite("Compile against MTLDevice")
@@ -98,8 +97,4 @@ struct CompileTests {
         // Actually: 3*4 + 8 + 8 + 4 + 4 + 8 + 8 + 8 = 60 bytes, stride 64.
         #expect(MemoryLayout<BuiltinUniforms>.size >= 60)
     }
-}
-
-enum TestSkip: Error {
-    case noDevice
 }

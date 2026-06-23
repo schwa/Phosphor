@@ -69,16 +69,23 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "PhosphorSupportTests",
-            dependencies: [
-                "PhosphorModel",
-                "PhosphorCompile",
-                "PhosphorRuntime",
-                "PhosphorGeneration"
-            ],
+            name: "PhosphorModelTests",
+            dependencies: ["PhosphorModel"]
+        ),
+        .testTarget(
+            name: "PhosphorCompileTests",
+            dependencies: ["PhosphorModel", "PhosphorCompile"]
+        ),
+        .testTarget(
+            name: "PhosphorRuntimeTests",
+            dependencies: ["PhosphorModel", "PhosphorCompile", "PhosphorRuntime"],
             resources: [
                 .copy("Resources")
             ]
+        ),
+        .testTarget(
+            name: "PhosphorGenerationTests",
+            dependencies: ["PhosphorModel", "PhosphorCompile", "PhosphorGeneration"]
         )
     ],
     swiftLanguageModes: [.v6]

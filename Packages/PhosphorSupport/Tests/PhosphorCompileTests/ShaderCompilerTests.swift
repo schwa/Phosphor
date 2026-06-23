@@ -1,6 +1,5 @@
 import Foundation
 import PhosphorModel
-import PhosphorCompile
 import Metal
 @testable import PhosphorCompile
 import Testing

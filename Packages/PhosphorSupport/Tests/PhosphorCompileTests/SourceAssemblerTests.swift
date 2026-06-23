@@ -1,7 +1,6 @@
 import Foundation
 import PhosphorModel
 @testable import PhosphorCompile
-@testable import PhosphorCompile
 import Testing
 
 @Suite("PhosphorHeader")
