@@ -12,7 +12,7 @@ import UniformTypeIdentifiers
 /// `WritableDocument` protocols. The body is a single `text` property; the
 /// parsed view (front-matter + body split) is recomputed on demand.
 @Observable
-final class PhosphorMetalDocument: ReadableDocument, WritableDocument {
+final class PhosphorMetalDocument: Document {
     static let readableContentTypes: [UTType] = [.metalSource]
     static let writableContentTypes: [UTType] = [.metalSource]
 

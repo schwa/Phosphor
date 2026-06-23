@@ -21,7 +21,7 @@ import UniformTypeIdentifiers
 /// time to edit; the document keeps every shader's text in memory and
 /// writes the whole tree back on save.
 @Observable
-final class PhosphorBundleDocument: ReadableDocument, WritableDocument {
+final class PhosphorBundleDocument: Document {
     static let readableContentTypes: [UTType] = [.phosphorBundle]
     static let writableContentTypes: [UTType] = [.phosphorBundle]
 
