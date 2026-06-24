@@ -3879,3 +3879,28 @@ Open questions:
 - Add a dependency or hand-roll a minimal renderer?
 
 ---
+
+## 114: Use HTML rendering for the conversation tab
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: effort:l, generation
+created: 2026-06-24T22:51:33Z
++++
+
+Render the Generate panel transcript (Phosphor/Views/GeneratePanel.swift) using HTML — e.g. a WKWebView-backed view — instead of (or in addition to) SwiftUI Text. Assistant/user turns would be converted to HTML and displayed in a web view, giving full rich rendering: headings, lists, tables, fenced code blocks with syntax highlighting, links, etc.
+
+Considerations:
+- Likely convert Markdown -> HTML (Claude emits Markdown), then render in a web view. Overlaps with #113 (render Markdown) — this is the heavier 'full HTML/WebView' approach vs #113's lighter AttributedString path. Pick one direction.
+- Streaming: assistant text grows token-by-token; the web view needs incremental/cheap updates without flicker or losing scroll position.
+- Text selection, link handling (open externally), and theming (match app light/dark) need to work in the web view.
+- Performance/overhead of a WKWebView per panel vs native SwiftUI rendering.
+- Security: sanitize/sandbox the HTML; disable JS and remote loads if not needed.
+
+Open questions:
+- WKWebView vs a native Markdown renderer (#113) — decide and possibly close the other.
+- Per-message web views vs one web view for the whole transcript.
+
+---
