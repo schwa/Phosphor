@@ -129,10 +129,19 @@ struct GeneratePanel: View {
                     .foregroundStyle(.secondary)
             }
             TextField("Describe a shader or a change…", text: $prompt, axis: .vertical)
-                .lineLimit(2...6)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.plain)
+                .lineLimit(5...10)
+                .padding(8)
+                .background(.white, in: .rect(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(.separator, lineWidth: 1)
+                }
+                .foregroundStyle(.black)
                 .disabled(isGenerating)
                 .focused($promptFocused)
+                // Enter sends; Shift+Enter falls through so the field inserts a
+                // newline.
                 .onKeyPress(keys: [.return]) { keyPress in
                     if keyPress.modifiers.contains(.shift) { return .ignored }
                     submit()
