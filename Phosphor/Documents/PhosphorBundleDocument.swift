@@ -184,6 +184,55 @@ final class PhosphorBundleDocument: Document {
         }
     }
 
+    /// Renames a shader from `oldName` to `newName` (both full filenames),
+    /// preserving its body and keeping it active if it was. No-op if `oldName`
+    /// is missing, `newName` is empty, unchanged, or already taken. Undoable.
+    @MainActor
+    func renameShader(from oldName: String, to newName: String, undoManager: UndoManager?) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let body = shaders[oldName],
+              !trimmed.isEmpty,
+              trimmed != oldName,
+              shaders[trimmed] == nil else { return }
+
+        shaders.removeValue(forKey: oldName)
+        shaders[trimmed] = body
+        if activeShader == oldName {
+            activeShader = trimmed
+        }
+        refreshParsed()
+
+        undoManager?.registerUndo(withTarget: self) { document in
+            MainActor.assumeIsolated {
+                document.renameShader(from: trimmed, to: oldName, undoManager: undoManager)
+            }
+        }
+        undoManager?.setActionName("Rename Shader")
+    }
+
+    /// Renames an asset from `oldName` to `newName` (name stems, no extension),
+    /// preserving its bytes. No-op if `oldName` is missing, `newName` is empty,
+    /// unchanged, or already taken. Undoable.
+    @MainActor
+    func renameAsset(from oldName: String, to newName: String, undoManager: UndoManager?) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let asset = assets[oldName],
+              !trimmed.isEmpty,
+              trimmed != oldName,
+              assets[trimmed] == nil else { return }
+
+        assets.removeValue(forKey: oldName)
+        assets[trimmed] = PhosphorAsset(name: trimmed, data: asset.data)
+        refreshParsed()
+
+        undoManager?.registerUndo(withTarget: self) { document in
+            MainActor.assumeIsolated {
+                document.renameAsset(from: trimmed, to: oldName, undoManager: undoManager)
+            }
+        }
+        undoManager?.setActionName("Rename Asset")
+    }
+
     /// Returns a filename with `.metal` extension not currently in use.
     /// Appends `" N"` before the extension if the base is taken.
     private func uniqueShaderName(forBase base: String) -> String {
