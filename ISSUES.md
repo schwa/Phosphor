@@ -3854,3 +3854,28 @@ Just reorder the Tab() entries in the TabView; the InspectorTab enum cases and s
 - `2026-06-24T22:49:47Z`: Reordered the inspector tabs to Generate (1), Configuration (2), Output (3).
 
 ---
+
+## 113: Render Markdown in the generation conversation
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: effort:m, generation
+created: 2026-06-24T22:51:04Z
++++
+
+Assistant (and user) messages in the Generate panel transcript are rendered as plain text via SwiftUI Text (Phosphor/Views/GeneratePanel.swift, ConversationRow.content -> bubble, lines ~243-246 for .assistant, ~235-238 for .user). Claude's replies contain Markdown — bold, lists, inline code, fenced code blocks, links — which currently shows as raw markup.
+
+Render Markdown instead:
+- Assistant turns at minimum; ideally user turns too.
+- Support inline styling (bold/italic/inline code/links) and block elements (paragraphs, bullet/numbered lists, fenced code blocks).
+- SwiftUI Text supports a subset of Markdown via AttributedString(markdown:) but does NOT handle block elements (lists, code fences, headings). Decide between: (a) AttributedString for inline-only (cheap, misses code blocks), or (b) a fuller Markdown view (e.g. a small custom renderer, or a package) to get fenced code blocks — important since shader chat is code-heavy.
+- Streaming: the assistant text grows token-by-token (lastItemContentLength drives autoscroll). Whatever renderer we use must handle partial/incomplete Markdown gracefully (a half-open code fence shouldn't break layout).
+- Keep text selection working (.textSelection(.enabled) is applied today).
+
+Open questions:
+- Inline-only AttributedString vs a full block renderer — which is worth it?
+- Add a dependency or hand-roll a minimal renderer?
+
+---
