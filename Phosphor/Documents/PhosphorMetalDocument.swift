@@ -13,8 +13,8 @@ import UniformTypeIdentifiers
 /// parsed view (front-matter + body split) is recomputed on demand.
 @Observable
 final class PhosphorMetalDocument: Document {
-    static let readableContentTypes: [UTType] = [.metalSource]
-    static let writableContentTypes: [UTType] = [.metalSource]
+    static let readableContentTypes: [UTType] = [.phosphorSource, .metalSource]
+    static let writableContentTypes: [UTType] = [.phosphorSource, .metalSource]
 
     var text: String
 
@@ -120,4 +120,9 @@ extension UTType {
     /// `.metal` Metal source files. We declare this as a conformance of
     /// `public.source-code` since macOS already recognizes the extension.
     static let metalSource = UTType(importedAs: "com.apple.metal-shader-source", conformingTo: .sourceCode)
+
+    /// `.phosphor` single-file Phosphor shaders. Currently byte-identical to a
+    /// `.metal` file (front-matter comment + Metal body); declared as its own
+    /// UTType so Phosphor owns the extension and can diverge later.
+    static let phosphorSource = UTType(exportedAs: "io.schwa.phosphor.source", conformingTo: .sourceCode)
 }

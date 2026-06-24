@@ -31,8 +31,9 @@ struct PhosphorApp: App {
         .commands {
             #if os(macOS)
             CommandGroup(replacing: .newItem) {
-                MyNewDocumentButton(title: "New Metal Shader", contentType: .metalSource)
+                MyNewDocumentButton(title: "New Phosphor Shader", contentType: .phosphorSource)
                     .keyboardShortcut("n", modifiers: .command)
+                MyNewDocumentButton(title: "New Metal Shader", contentType: .metalSource)
                 MyNewDocumentButton(title: "New Phosphor Bundle", contentType: .phosphorBundle)
                     .keyboardShortcut("n", modifiers: [.command, .shift])
             }

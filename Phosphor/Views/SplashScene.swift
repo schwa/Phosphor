@@ -1,6 +1,7 @@
 #if os(macOS)
 import AppKit
 import AppleArchive
+import PhosphorRuntime
 import SwiftUI
 import System
 import UniformTypeIdentifiers
@@ -51,9 +52,9 @@ struct SplashView: View {
                 Spacer()
 
                 VStack(spacing: 20) {
-                    Image(nsImage: NSApp.applicationIconImage)
-                        .resizable()
+                    PhosphorView(named: "GenerationProgress", bundle: .main)
                         .frame(width: 128, height: 128)
+                        .clipShape(.rect(cornerRadius: 24))
                         .accessibilityHidden(true)
 
                     Text("Phosphor")

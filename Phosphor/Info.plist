@@ -18,6 +18,18 @@
 		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
+			<string>Phosphor Shader</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>io.schwa.phosphor.source</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
 			<string>Phosphor Bundle</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
@@ -59,6 +71,24 @@
 	</array>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.source-code</string>
+				<string>public.utf8-plain-text</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Phosphor Shader</string>
+			<key>UTTypeIdentifier</key>
+			<string>io.schwa.phosphor.source</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>phosphor</string>
+				</array>
+			</dict>
+		</dict>
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>

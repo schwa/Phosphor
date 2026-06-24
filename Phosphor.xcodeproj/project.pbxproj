@@ -299,20 +299,20 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		45D0A1112F80000000000011 /* XCRemoteSwiftPackageReference "PhosphorKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/schwa/PhosphorKit";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
-		};
 		4569B9FB2F6CC65200A54965 /* XCRemoteSwiftPackageReference "MetalSprockets" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/schwa/MetalSprockets";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 0.0.1;
+			};
+		};
+		45D0A1112F80000000000011 /* XCRemoteSwiftPackageReference "PhosphorKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/schwa/PhosphorKit";
+			requirement = {
+				branch = main;
+				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
