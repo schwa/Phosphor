@@ -46,6 +46,9 @@ enum ConversationProvider {
     /// over a billed API key.
     static func make() throws -> AnthropicProvider {
         if AnthropicOAuthStore.isLoggedIn {
+            // `tokenProvider()` returns a `@concurrent` closure so it matches the
+            // executor expectations of CollaborationKit's `AnthropicAuth.oauth`,
+            // whose module treats a bare `@Sendable` async closure as `@concurrent`.
             let auth = AnthropicAuth.oauth(AnthropicOAuthStore.tokenProvider())
             return AnthropicProvider(config: AnthropicConfig(auth: auth, model: model.id, maxTokens: 8_192))
         }

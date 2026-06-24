@@ -132,12 +132,12 @@ struct GeneratePanel: View {
                 .textFieldStyle(.plain)
                 .lineLimit(5...10)
                 .padding(8)
-                .background(.white, in: .rect(cornerRadius: 8))
+                .background(.background, in: .rect(cornerRadius: 8))
                 .overlay {
                     RoundedRectangle(cornerRadius: 8)
                         .strokeBorder(.separator, lineWidth: 1)
                 }
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .disabled(isGenerating)
                 .focused($promptFocused)
                 // Enter sends; Shift+Enter inserts a newline. We insert the
