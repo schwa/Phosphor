@@ -18,17 +18,12 @@ import UniformTypeIdentifiers
 /// Conversational mode is Claude-only (it needs reliable tool calling); the
 /// composer surfaces a clear message when no Anthropic API key is configured.
 struct GeneratePanel: View {
-    @Binding var text: String
     let parsed: ParsedPhosphorSource
-    let isUntouchedTemplate: Bool
-    let onTextChange: () -> Void
-    var logIdentity: String?
+    /// The persistent conversation store, owned by the editor view so chat
+    /// history survives inspector tab switches. `nil` until created.
+    let store: ConversationStore?
     var onGeneratingChange: (Bool) -> Void = { _ in }
 
-    @Environment(\.textMutator) private var textMutator
-    @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
-
-    @State private var store: ConversationStore?
     @State private var prompt: String = ""
     @State private var exportItem: ConversationExport?
     @State private var showExporter = false
@@ -50,32 +45,11 @@ struct GeneratePanel: View {
         }
         .onAppear {
             refreshCredentialStatus()
-            ensureStore()
             promptFocused = true
         }
         .onChange(of: store?.isGenerating ?? false) { _, generating in
             onGeneratingChange(generating)
         }
-    }
-
-    // MARK: - Store
-
-    private func ensureStore() {
-        guard store == nil else { return }
-        // Read the live binding; write through the undoable TextMutator so each
-        // model edit is a single, named undo step.
-        store = ConversationStore(
-            device: runtime.device,
-            readSource: { text },
-            writeSource: { newText, actionName in
-                if let textMutator {
-                    textMutator.apply(newText, actionName: actionName)
-                } else {
-                    text = newText
-                    onTextChange()
-                }
-            }
-        )
     }
 
     // MARK: - Transcript
@@ -205,7 +179,6 @@ struct GeneratePanel: View {
     }
 
     private func exportDebugInfo() {
-        ensureStore()
         Task {
             guard let store else { return }
             exportItem = await store.buildExport()
@@ -227,7 +200,6 @@ struct GeneratePanel: View {
 
     private func submit() {
         guard canSubmit else { return }
-        ensureStore()
         let submitted = prompt
         prompt = ""
         store?.send(submitted)

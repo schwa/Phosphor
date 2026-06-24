@@ -1,6 +1,6 @@
-import PhosphorModel
 import PhosphorCompile
 import PhosphorGeneration
+import PhosphorModel
 import PhosphorRuntime
 import SwiftUI
 
@@ -19,6 +19,9 @@ struct PhosphorInspectorView: View {
     let isUntouchedTemplate: Bool
     let onTextChange: () -> Void
     var logIdentity: String?
+    /// The persistent conversation store, owned by the editor view so it
+    /// survives tab switches. `nil` until created.
+    var conversation: ConversationStore?
     @Binding var selection: InspectorTab
     var onGeneratingChange: (Bool) -> Void = { _ in }
 
@@ -32,11 +35,8 @@ struct PhosphorInspectorView: View {
             }
             Tab("Generate", systemImage: "sparkles", value: InspectorTab.generate) {
                 GeneratePanel(
-                    text: $text,
                     parsed: parsed,
-                    isUntouchedTemplate: isUntouchedTemplate,
-                    onTextChange: onTextChange,
-                    logIdentity: logIdentity,
+                    store: conversation,
                     onGeneratingChange: onGeneratingChange
                 )
             }

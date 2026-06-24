@@ -1,6 +1,6 @@
-import PhosphorModel
 import PhosphorCompile
 import PhosphorGeneration
+import PhosphorModel
 import PhosphorRuntime
 import SwiftUI
 
@@ -19,6 +19,10 @@ struct ShaderEditorView: View {
     var logIdentity: String?
 
     @State private var model = EditorModel()
+    /// The conversational generation session. Owned here (not in
+    /// ``GeneratePanel``) so the chat history survives inspector tab switches,
+    /// which tear down the non-selected tab's view tree.
+    @State private var conversation: ConversationStore?
     @State private var showHeader: Bool = false
     @SceneStorage("phosphor.ui.inspectorTab") private var inspectorTab: InspectorTab = .output
     @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
@@ -27,11 +31,30 @@ struct ShaderEditorView: View {
     @SceneStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
     @SceneStorage("phosphor.ui.layoutMode") private var layoutMode: LayoutMode = .horizontal
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
+    @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
     @Environment(\.textMutator) private var textMutator
 
     /// True if the current document has at least one declared uniform.
     private var hasUniforms: Bool {
         !parsed.configuration.uniforms.isEmpty
+    }
+
+    /// Lazily creates the per-document conversation store, wiring it to the
+    /// live text binding and the undoable text mutator.
+    private func ensureConversation() {
+        guard conversation == nil else { return }
+        conversation = ConversationStore(
+            device: runtime.device,
+            readSource: { text },
+            writeSource: { newText, actionName in
+                if let textMutator {
+                    textMutator.apply(newText, actionName: actionName)
+                } else {
+                    text = newText
+                    onTextChange()
+                }
+            }
+        )
     }
 
     /// Two-way binding for the mic toggle: writes the AppStorage flag AND
@@ -58,6 +81,7 @@ struct ShaderEditorView: View {
         }
         .task {
             model.seedUniformDefaults(for: parsed.configuration)
+            ensureConversation()
         }
         .focusedSceneValue(\.shaderText, $text)
         .focusedSceneValue(\.shaderTextMutator, textMutator)
@@ -70,6 +94,7 @@ struct ShaderEditorView: View {
                 isUntouchedTemplate: isUntouchedTemplate,
                 onTextChange: onTextChange,
                 logIdentity: logIdentity,
+                conversation: conversation,
                 selection: $inspectorTab,
                 onGeneratingChange: { generating in
                     // Keep the inspector + Generate tab visible while a
