@@ -140,10 +140,14 @@ struct GeneratePanel: View {
                 .foregroundStyle(.black)
                 .disabled(isGenerating)
                 .focused($promptFocused)
-                // Enter sends; Shift+Enter falls through so the field inserts a
-                // newline.
+                // Enter sends; Shift+Enter inserts a newline. We insert the
+                // newline ourselves because returning `.ignored` doesn't
+                // reliably forward the keystroke to the field.
                 .onKeyPress(keys: [.return]) { keyPress in
-                    if keyPress.modifiers.contains(.shift) { return .ignored }
+                    if keyPress.modifiers.contains(.shift) {
+                        prompt += "\n"
+                        return .handled
+                    }
                     submit()
                     return .handled
                 }
