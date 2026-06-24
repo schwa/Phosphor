@@ -3755,9 +3755,50 @@ Scope:
 - Update PhosphorKit's PhosphorView loader once the canonical extension is settled.
 
 Open questions:
-- One UTType or keep '.metal' and add '.phosphor' as an alias?
-- Should existing '.metal' docs be migratable/openable as '.phosphor'?
 
+- `2026-06-24T20:30:30Z`: One UTType or keep '.metal' and add '.phosphor' as an alias?
+- `2026-06-24T20:30:30Z`: Should existing '.metal' docs be migratable/openable as '.phosphor'?
 - `2026-06-24T20:33:10Z`: Implemented .phosphor as a first-class single-file UTType (io.schwa.phosphor.source, ext .phosphor), currently byte-identical to .metal. Added exported UTType + document type to Info.plist, registered in PhosphorMetalDocument readable/writable types, added 'New Phosphor Shader' menu item, and updated PhosphorKit's PhosphorView loader to prefer .phosphor over .metal. Migration of existing .metal docs deferred (not needed; both open in the same document).
+
+---
+
+## 111: Make .phosphor files JSON with front-matter and source as separate keys
+
++++
+status: new
+priority: medium
+kind: none
+created: 2026-06-24T21:45:40Z
++++
+
+Change the on-disk '.phosphor' format from a Metal source file with an embedded TOML front-matter comment (/* phosphor:environment ... */) to a JSON blob that breaks the configuration out from the shader source.
+
+Proposed shape:
+{
+  "version": 1,
+  "configuration": { ...the PhosphorConfiguration as JSON (output, passes, textures, uniforms)... },
+  "source": "...the Metal kernel body, front-matter stripped..."
+}
+
+Motivation:
+- The configuration is already Codable (PhosphorConfiguration: Codable) and is currently round-tripped as TOML inside a C-style comment. Storing it as first-class JSON removes the parse-the-comment dance and makes the config machine-editable/tooling-friendly.
+- Keeping 'source' as its own key means the Metal body is clean (no front-matter), which is what the compiler/SourceAssembler already wants.
+
+Scope / touch points:
+- PhosphorKit:
+  - PhosphorCompile/FrontMatter.swift: add a JSON document model + decode path. ParsedPhosphorSource currently assumes a single source string with an embedded block (PhosphorFrontMatter.parse / extractBlock). Either add a new entry point (e.g. ParsedPhosphorSource(jsonData:)) or a PhosphorDocument codable type.
+  - PhosphorCompile/FrontMatterFormatter.swift: encodeBody/wrapFrontMatter/reformat assume the comment format; add JSON encode.
+  - PhosphorRuntime/PhosphorView.swift loadSource(): currently reads raw text; needs to parse JSON for .phosphor (keep raw .metal path).
+- Phosphor app:
+  - PhosphorMetalDocument reader/writer (reads/writes UTF-8 text today) needs a JSON branch for the .phosphor UTType while keeping .metal as plain source.
+  - Anything that calls ParsedPhosphorSource(source:) on .phosphor content.
+
+Open questions:
+- Versioning: include a 'version' field for forward-compat (suggested yes).
+- Does '.metal' stay the embedded-TOML-comment format, with '.phosphor' becoming the JSON format? (i.e. the two extensions diverge — this supersedes the 'currently byte-identical' note from #110.)
+- Migration: should the app auto-convert existing embedded-front-matter .phosphor files to JSON on open/save?
+- Where does the canonical PhosphorDocument codable type live — PhosphorModel or PhosphorCompile?
+
+Relates to #110 (which introduced .phosphor as a byte-identical alias of .metal).
 
 ---
