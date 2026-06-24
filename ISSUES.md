@@ -3689,13 +3689,17 @@ Add support for MTLBuffer resources, including the ability to load buffer conten
 ## 107: Make a justfile to do the .aar encoding of examples
 
 +++
-status: new
+status: closed
 priority: medium
 kind: none
 created: 2026-06-23T16:03:33Z
+updated: 2026-06-24T22:28:55Z
+closed: 2026-06-24T22:28:55Z
 +++
 
 Add a justfile recipe to encode the examples (Examples/Examples.phosphord) into a .aar (Apple Archive) bundle, replacing the manual/zip process.
+
+- `2026-06-24T22:28:55Z`: Added a justfile with an 'encode-examples' recipe that runs 'aa archive -d Examples/Examples.phosphord -o Phosphor/Examples.phosphord.aar' (LZFSE, root-relative — matches the SplashScene AppleArchive extractor). Regenerated the bundled .aar with the current shader set.
 
 ---
 
