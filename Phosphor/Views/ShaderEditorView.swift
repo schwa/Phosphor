@@ -91,6 +91,8 @@ struct ShaderEditorView: View {
             showUniformsPanel: $showUniformsPanel,
             showFrameTiming: $showFrameTiming,
             showInspector: $showInspector,
+            micEnabled: micToggleBinding,
+            micPermissionDenied: audioCapture?.isPermissionDenied ?? false,
             hasUniforms: hasUniforms,
             showGenerate: {
                 inspectorTab = .generate

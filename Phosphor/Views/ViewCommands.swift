@@ -10,6 +10,8 @@ struct EditorCommandState {
     var showUniformsPanel: Binding<Bool>
     var showFrameTiming: Binding<Bool>
     var showInspector: Binding<Bool>
+    var micEnabled: Binding<Bool>
+    var micPermissionDenied: Bool
     var hasUniforms: Bool
     var showGenerate: () -> Void
 }
@@ -87,5 +89,10 @@ private struct RenderMenu: View {
         }
         .keyboardShortcut("r", modifiers: [.command, .shift])
         .disabled(state == nil)
+
+        Divider()
+
+        Toggle("Microphone", isOn: state?.micEnabled ?? .constant(false))
+            .disabled(state == nil || state?.micPermissionDenied == true)
     }
 }
