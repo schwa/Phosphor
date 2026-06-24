@@ -1,0 +1,109 @@
+{
+  "configuration" : {
+    "output" : "image",
+    "passes" : [
+      {
+        "enabled" : true,
+        "id" : "image",
+        "textures" : [
+          {
+            "access" : "write",
+            "id" : "image"
+          }
+        ]
+      }
+    ],
+    "textures" : [
+      {
+        "format" : "rgba32Float",
+        "id" : "image",
+        "init" : {
+          "kind" : "zero"
+        },
+        "size" : "drawable",
+        "swap" : "none"
+      }
+    ],
+    "uniforms" : [
+      {
+        "default" : 0.5,
+        "kind" : "float",
+        "name" : "rotateSpeed",
+        "ui" : {
+          "slider" : {
+            "max" : 3,
+            "min" : 0
+          }
+        }
+      },
+      {
+        "default" : 0.78,
+        "kind" : "float",
+        "name" : "sphereRadius",
+        "ui" : {
+          "slider" : {
+            "max" : 1.2,
+            "min" : 0.3
+          }
+        }
+      },
+      {
+        "default" : 1,
+        "kind" : "float",
+        "name" : "dotSize",
+        "ui" : {
+          "slider" : {
+            "max" : 4,
+            "min" : 0.2
+          }
+        }
+      },
+      {
+        "default" : 1.5,
+        "kind" : "float",
+        "name" : "pulseSpeed",
+        "ui" : {
+          "slider" : {
+            "max" : 6,
+            "min" : 0
+          }
+        }
+      },
+      {
+        "default" : 0.9,
+        "kind" : "float",
+        "name" : "glowBoost",
+        "ui" : {
+          "slider" : {
+            "max" : 3,
+            "min" : 0.2
+          }
+        }
+      },
+      {
+        "default" : [
+          0.15,
+          1,
+          0.45,
+          1
+        ],
+        "kind" : "color",
+        "name" : "coreColor",
+        "ui" : "color"
+      },
+      {
+        "default" : [
+          0.2,
+          0.9,
+          1,
+          1
+        ],
+        "kind" : "color",
+        "name" : "pulseColor",
+        "ui" : "color"
+      }
+    ]
+  },
+  "source" : "\n\n\n\nuint2 gid [[thread_position_in_grid]];\n\n// Hash for stable per-point pseudo-random values.\nstatic float hash11(float n) { return fract(sin(n) * 43758.5453123); }\n\n/// Renders an animated, rotating sphere of glowing phosphor dots on a dark\n/// background. Each dot is placed on a Fibonacci sphere, lit from a moving\n/// light, and rendered as an additive green/cyan phosphor glow with a soft\n/// vignette and CRT-style center bloom. Writes to `image`.\nkernel void image(\n    device const Uniforms&     uniforms     [[buffer(0)]],\n    device const UserUniforms& userUniforms [[buffer(1)]])\n{\n    float2 res = uniforms.resolution;\n    float2 uv = (2.0 * float2(gid) - res) / min(res.x, res.y);\n    uv.y = -uv.y; // y-up\n\n    float t = uniforms.time;\n    float spin = userUniforms.rotateSpeed;\n\n    // Rotation of the whole sphere.\n    float ca = cos(t * spin), sa = sin(t * spin);\n    float cb = cos(t * spin * 0.62), sb = sin(t * spin * 0.62);\n\n    float3 acc = float3(0.0);\n\n    const int N = 320;\n    const float GA = 2.399963229728653; // golden angle\n    float radius = userUniforms.sphereRadius;\n\n    for (int i = 0; i < N; ++i) {\n        float fi = float(i);\n        // Fibonacci sphere distribution.\n        float y = 1.0 - 2.0 * (fi + 0.5) / float(N);\n        float r = sqrt(max(0.0, 1.0 - y * y));\n        float theta = GA * fi;\n        float3 p = float3(cos(theta) * r, y, sin(theta) * r);\n\n        // Subtle breathing/pulse along the surface.\n        float pulse = 0.5 + 0.5 * sin(t * userUniforms.pulseSpeed + fi * 0.20);\n\n        // Rotate around Y then X.\n        float3 q;\n        q.x = p.x * ca - p.z * sa;\n        q.z = p.x * sa + p.z * ca;\n        q.y = p.y;\n        float3 rp;\n        rp.y = q.y * cb - q.z * sb;\n        rp.z = q.y * sb + q.z * cb;\n        rp.x = q.x;\n\n        rp *= radius;\n\n        // Simple perspective.\n        float depth = rp.z * 0.5 + 1.5;\n        float2 sp = rp.xy / depth;\n\n        // Backface dimming: points facing away are fainter.\n        float facing = smoothstep(-0.9, 0.6, rp.z);\n\n        float2 d = uv - sp;\n        float dist2 = dot(d, d);\n\n        // Dot glow size varies slightly per point.\n        float sz = 0.00018 * userUniforms.dotSize * (0.7 + 0.6 * hash11(fi));\n        float glow = sz / (dist2 + sz);\n\n        // Phosphor color: core shifting toward pulse color.\n        float3 col = mix(userUniforms.coreColor.rgb,\n                         userUniforms.pulseColor.rgb,\n                         0.4 + 0.4 * pulse);\n\n        acc += col * glow * (0.25 + 0.9 * facing) * (0.5 + 0.7 * pulse);\n    }\n\n    // Tone map the additive accumulation.\n    float3 color = 1.0 - exp(-acc * userUniforms.glowBoost);\n\n    // Center bloom / phosphor screen tint.\n    float vign = smoothstep(1.5, 0.2, length(uv));\n    color += float3(0.01, 0.05, 0.03) * vign;\n    color *= vign * 1.1;\n\n    color = clamp(color, 0.0, 1.0);\n    uniforms.textures.image.write(float4(color, 1.0), gid);\n}\n",
+  "version" : 1
+}

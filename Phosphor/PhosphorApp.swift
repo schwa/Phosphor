@@ -19,6 +19,7 @@ struct PhosphorApp: App {
     var body: some Scene {
         #if os(macOS)
         SplashScene()
+        AboutScene()
         #endif
 
         DocumentGroup { document in
@@ -30,6 +31,9 @@ struct PhosphorApp: App {
         }
         .commands {
             #if os(macOS)
+            CommandGroup(replacing: .appInfo) {
+                AboutCommandButton()
+            }
             CommandGroup(replacing: .newItem) {
                 MyNewDocumentButton(title: "New Phosphor Shader", contentType: .phosphorSource)
                     .keyboardShortcut("n", modifiers: .command)
