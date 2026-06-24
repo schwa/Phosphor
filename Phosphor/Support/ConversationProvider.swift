@@ -46,10 +46,12 @@ enum ConversationProvider {
     /// over a billed API key.
     static func make() throws -> AnthropicProvider {
         if AnthropicOAuthStore.isLoggedIn {
-            // `tokenProvider()` returns a `@concurrent` closure so it matches the
-            // executor expectations of CollaborationKit's `AnthropicAuth.oauth`,
-            // whose module treats a bare `@Sendable` async closure as `@concurrent`.
-            let auth = AnthropicAuth.oauth(AnthropicOAuthStore.tokenProvider())
+            // CollaborationKit's `AnthropicAuth.oauth` invokes its token closure on
+            // the concurrent executor. This target defaults async closures to
+            // `nonisolated(nonsending)`, so wrap the provider in an explicit
+            // `@concurrent` closure to match and avoid a data-race warning.
+            let provider = AnthropicOAuthStore.tokenProvider()
+            let auth = AnthropicAuth.oauth { @concurrent in try await provider() }
             return AnthropicProvider(config: AnthropicConfig(auth: auth, model: model.id, maxTokens: 8_192))
         }
         let apiKey = try readAnthropicKey()

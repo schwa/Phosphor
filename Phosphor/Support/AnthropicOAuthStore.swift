@@ -41,9 +41,9 @@ enum AnthropicOAuthStore {
 
     /// A `@Sendable` access-token provider: returns a valid token, refreshing
     /// via the refresh token when expired and re-persisting to the Keychain.
-    static func tokenProvider() -> @concurrent @Sendable () async throws -> String {
+    static func tokenProvider() -> @Sendable () async throws -> String {
         let oauth = AnthropicOAuth()
-        return { @concurrent in
+        return {
             guard let credentials = load() else {
                 throw ConversationProvider.Failure.missingAPIKey
             }
