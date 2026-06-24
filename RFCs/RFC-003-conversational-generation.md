@@ -1,6 +1,6 @@
 # RFC-003: Conversational Generation via CollaborationKit
 
-Status: Draft
+Status: Implemented (library + streaming UI; persistence pending)
 Date: 2026-06-23
 Updated: 2026-06-23 (concrete tool set; streaming-first UI; full conversation-model refactor)
 Related: RFC-002 (AI generation), ISSUES #82, #83, #93, #94
@@ -255,6 +255,26 @@ was sent and received, including the model's prose between tool calls. The
     change.
 
 Build and run unit tests after each phase (per AGENTS.md).
+
+### Status
+
+**Done (1–8):**
+- CollaborationKit dependency, `MetalSourceDocument`, all four tools
+  (`editMetal`, `readConfiguration`, `writeConfiguration`, `compileShader`),
+  `ConfigurationDTO` + JSON Schema, and `ConversationalGenerator` — in
+  `PhosphorGeneration/Collaboration/`, with 12 unit tests.
+- Streaming Generate tab: `ConversationStore` (`@Observable @MainActor`) pumps
+  `SessionEvent`s into a live transcript; `GeneratePanel` renders streamed
+  prose, inline tool-call rows (with spinners + results), live token usage, and
+  drives edits through the undoable `TextMutator`. Claude-only, with an
+  API-key-missing affordance.
+- Old conversation model deleted: `GenerationTurn.swift` and
+  `GenerationLog.swift` removed; the UI no longer uses `ShaderGenerator`,
+  `FoundationModelAdapter`, or `PromptHistory`.
+
+**Pending (9–10):** bundle persistence of `messages` + rollback; vision/plan
+tools. The one-shot `ShaderGenerator` / FoundationModels path still exists in
+`PhosphorGeneration` but is no longer wired into the app UI.
 
 ## Non-goals
 
