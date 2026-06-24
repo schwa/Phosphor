@@ -23,7 +23,8 @@ let package = Package(
         .package(url: "https://github.com/tree-sitter/swift-tree-sitter", from: "0.25.0"),
         .package(url: "https://github.com/tree-sitter/tree-sitter-cpp", branch: "master"),
         .package(url: "https://github.com/tree-sitter-grammars/tree-sitter-toml", branch: "master"),
-        .package(url: "https://github.com/schwa/FoundationModelBackends.git", branch: "main")
+        .package(url: "https://github.com/schwa/FoundationModelBackends.git", branch: "main"),
+        .package(path: "../../../CollaborationKit")
     ],
     targets: [
         // Leaf: core data model. No Metal, no external generation deps.
@@ -67,7 +68,8 @@ let package = Package(
             dependencies: [
                 "PhosphorModel",
                 "PhosphorCompile",
-                .product(name: "FoundationModelBackends", package: "FoundationModelBackends")
+                .product(name: "FoundationModelBackends", package: "FoundationModelBackends"),
+                .product(name: "CollaborationKit", package: "CollaborationKit")
             ],
             resources: [
                 .copy("Prompts")
@@ -90,7 +92,10 @@ let package = Package(
         ),
         .testTarget(
             name: "PhosphorGenerationTests",
-            dependencies: ["PhosphorModel", "PhosphorCompile", "PhosphorGeneration"]
+            dependencies: [
+                "PhosphorModel", "PhosphorCompile", "PhosphorGeneration",
+                .product(name: "CollaborationKit", package: "CollaborationKit")
+            ]
         )
     ],
     swiftLanguageModes: [.v6]
