@@ -3027,13 +3027,16 @@ Set the detail pane toolbar (NavigationSplitView detail in Phosphor/Views/Phosph
 ## 86: Dark mode support
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: effort:m
 created: 2026-06-22T17:04:47Z
-updated: 2026-06-23T06:05:14Z
+updated: 2026-06-24T22:41:46Z
+closed: 2026-06-24T22:41:46Z
 +++
+
+- `2026-06-24T22:41:46Z`: App already works well in dark mode.
 
 ---
 
