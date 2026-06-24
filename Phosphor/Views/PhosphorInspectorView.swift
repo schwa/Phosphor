@@ -27,18 +27,18 @@ struct PhosphorInspectorView: View {
 
     var body: some View {
         TabView(selection: $selection) {
-            Tab("Output", systemImage: "rectangle.dashed", value: InspectorTab.output) {
-                OutputTab(parsed: parsed)
-            }
-            Tab("Configuration", systemImage: "slider.horizontal.below.rectangle", value: InspectorTab.configuration) {
-                PhosphorConfigurationEditorView(parsed: parsed, text: $text)
-            }
             Tab("Generate", systemImage: "sparkles", value: InspectorTab.generate) {
                 GeneratePanel(
                     parsed: parsed,
                     store: conversation,
                     onGeneratingChange: onGeneratingChange
                 )
+            }
+            Tab("Configuration", systemImage: "slider.horizontal.below.rectangle", value: InspectorTab.configuration) {
+                PhosphorConfigurationEditorView(parsed: parsed, text: $text)
+            }
+            Tab("Output", systemImage: "rectangle.dashed", value: InspectorTab.output) {
+                OutputTab(parsed: parsed)
             }
         }
     }

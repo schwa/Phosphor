@@ -3836,11 +3836,13 @@ Relates to #110 (which introduced .phosphor as a byte-identical alias of .metal)
 ## 112: Reorder inspector tabs: Generate first, Output last
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 labels: effort:xs
 created: 2026-06-24T22:46:24Z
+updated: 2026-06-24T22:49:47Z
+closed: 2026-06-24T22:49:47Z
 +++
 
 In the editor inspector (Phosphor/Views/PhosphorInspectorView.swift), the tabs are currently ordered Output (1), Configuration (2), Generate (3). Reorder so the Generate/chat tab is tab #1 and the Output ('info') tab is tab #3.
@@ -3848,5 +3850,7 @@ In the editor inspector (Phosphor/Views/PhosphorInspectorView.swift), the tabs a
 Target order: Generate (1), Configuration (2), Output (3).
 
 Just reorder the Tab() entries in the TabView; the InspectorTab enum cases and selection logic don't need to change.
+
+- `2026-06-24T22:49:47Z`: Reordered the inspector tabs to Generate (1), Configuration (2), Output (3).
 
 ---

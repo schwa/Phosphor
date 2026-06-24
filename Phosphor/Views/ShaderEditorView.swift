@@ -24,11 +24,11 @@ struct ShaderEditorView: View {
     /// which tear down the non-selected tab's view tree.
     @State private var conversation: ConversationStore?
     @State private var showHeader: Bool = false
-    @SceneStorage("phosphor.ui.inspectorTab") private var inspectorTab: InspectorTab = .output
+    @SceneStorage("phosphor.ui.inspectorTab") private var inspectorTab: InspectorTab = .generate
     @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
     @SceneStorage("phosphor.ui.showFrameTiming") private var showFrameTiming: Bool = true
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
-    @SceneStorage("phosphor.ui.showInspector") private var showInspector: Bool = false
+    @SceneStorage("phosphor.ui.showInspector") private var showInspector: Bool = true
     @SceneStorage("phosphor.ui.layoutMode") private var layoutMode: LayoutMode = .horizontal
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
     @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
