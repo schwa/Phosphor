@@ -165,20 +165,21 @@ struct GeneratePanel: View {
                 }
                 .labelStyle(.iconOnly)
                 .help("Export the full session (raw transcript, system prompt, tool calls/results, usage, current source) as JSON for debugging.")
-                .disabled(isGenerating)
 
                 Spacer()
-                Button {
-                    submit()
-                } label: {
-                    if isGenerating {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Label("Send", systemImage: "paperplane")
+                if isGenerating {
+                    Button("Stop", systemImage: "stop.fill") {
+                        store?.stop()
                     }
+                    .labelStyle(.iconOnly)
+                    .help("Stop the current generation.")
+                } else {
+                    Button("Send", systemImage: "paperplane") {
+                        submit()
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!canSubmit)
                 }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!canSubmit)
             }
         }
         .padding(12)
@@ -216,7 +217,7 @@ struct GeneratePanel: View {
         ensureStore()
         let submitted = prompt
         prompt = ""
-        Task { await store?.send(submitted) }
+        store?.send(submitted)
     }
 }
 

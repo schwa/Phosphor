@@ -70,16 +70,39 @@ final class ConversationStore {
 
     var isEmpty: Bool { items.isEmpty }
 
-    /// Sends a user message and runs the agentic tool loop. Streams events into
-    /// ``items`` as they arrive; the live document updates during the turn.
-    func send(_ prompt: String) async {
+    /// The in-flight generation task, if any. Tracked so ``stop()`` can cancel
+    /// it.
+    private var sendTask: Task<Void, Never>?
+
+    /// Starts a turn: appends the user message and runs the agentic tool loop
+    /// in a cancellable task. Streams events into ``items`` as they arrive; the
+    /// live document updates during the turn.
+    func send(_ prompt: String) {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isGenerating else { return }
 
         lastError = nil
         items.append(ConversationItem(kind: .user(trimmed)))
         isGenerating = true
-        defer { isGenerating = false }
+
+        sendTask = Task { [weak self] in
+            await self?.run(trimmed)
+        }
+    }
+
+    /// Cancels the in-flight turn, if any. The tool loop stops at its next
+    /// cooperative cancellation point and the document keeps whatever edits the
+    /// model already applied.
+    func stop() {
+        guard isGenerating else { return }
+        sendTask?.cancel()
+    }
+
+    private func run(_ trimmed: String) async {
+        defer {
+            isGenerating = false
+            sendTask = nil
+        }
 
         let generator: ConversationalGenerator
         do {
@@ -96,9 +119,15 @@ final class ConversationStore {
 
         do {
             _ = try await generator.send(trimmed)
+        } catch is CancellationError {
+            items.append(ConversationItem(kind: .error("Stopped.")))
         } catch {
-            items.append(ConversationItem(kind: .error("\(error)")))
-            lastError = "\(error)"
+            if Task.isCancelled {
+                items.append(ConversationItem(kind: .error("Stopped.")))
+            } else {
+                items.append(ConversationItem(kind: .error("\(error)")))
+                lastError = "\(error)"
+            }
         }
         streamingAssistantIndex = nil
         usage = await generator.totalUsage
