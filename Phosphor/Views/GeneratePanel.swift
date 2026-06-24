@@ -24,32 +24,49 @@ struct GeneratePanel: View {
     let store: ConversationStore?
     var onGeneratingChange: (Bool) -> Void = { _ in }
 
+    @Environment(CredentialsModel.self) private var credentials
     @State private var prompt: String = ""
     @State private var exportItem: ConversationExport?
     @State private var showExporter = false
-    /// Cached credential check (OAuth subscription or API key). The Keychain
-    /// read is expensive and was being run on every body pass; refresh it on
-    /// appear.
-    @State private var hasCredentials: Bool = false
     @FocusState private var promptFocused: Bool
 
-    private func refreshCredentialStatus() {
-        hasCredentials = ConversationProvider.hasCredentials
-    }
+    private var hasCredentials: Bool { credentials.hasCredentials }
 
     var body: some View {
         VStack(spacing: 0) {
-            transcript
-            Divider()
-            composer
+            if hasCredentials {
+                transcript
+                Divider()
+                composer
+            } else {
+                missingCredentials
+            }
         }
         .onAppear {
-            refreshCredentialStatus()
             promptFocused = true
         }
         .onChange(of: store?.isGenerating ?? false) { _, generating in
             onGeneratingChange(generating)
         }
+    }
+
+    // MARK: - Missing credentials
+
+    /// Shown in place of the whole panel when there's neither an Anthropic API
+    /// key nor a logged-in Claude subscription.
+    private var missingCredentials: some View {
+        ContentUnavailableView {
+            Label("Sign in to Generate", systemImage: "key.horizontal")
+        } description: {
+            Text("Conversational shader generation needs an Anthropic API key or a Claude subscription. Add one in Settings → Models.")
+        } actions: {
+            #if os(macOS)
+            SettingsLink {
+                Text("Open Settings…")
+            }
+            #endif
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Transcript
@@ -123,11 +140,6 @@ struct GeneratePanel: View {
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if !hasCredentials {
-                Label("Add an Anthropic API key or log in with a Claude subscription in Settings → Models.", systemImage: "key")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
             promptField
         }
         .padding(12)

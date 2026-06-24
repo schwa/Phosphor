@@ -14,6 +14,7 @@ struct PhosphorApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     #endif
     @State private var audioCapture = AudioCaptureEngine()
+    @State private var credentials = CredentialsModel()
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
 
     var body: some Scene {
@@ -25,6 +26,7 @@ struct PhosphorApp: App {
         DocumentGroup { document in
             PhosphorDocumentView(document: document)
                 .environment(audioCapture)
+                .environment(credentials)
                 .onAppear { syncMicState() }
         } makeDocument: { configuration, _ in
             PhosphorMetalDocument(configuration: configuration)
@@ -53,6 +55,7 @@ struct PhosphorApp: App {
         DocumentGroup { document in
             PhosphorBundleDocumentView(document: document)
                 .environment(audioCapture)
+                .environment(credentials)
                 .onAppear { syncMicState() }
         } makeDocument: { configuration, _ in
             PhosphorBundleDocument(configuration: configuration)
@@ -61,6 +64,7 @@ struct PhosphorApp: App {
         #if os(macOS)
         Settings {
             SettingsView()
+                .environment(credentials)
         }
         #endif
     }

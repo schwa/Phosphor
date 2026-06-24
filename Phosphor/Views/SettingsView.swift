@@ -21,6 +21,7 @@ struct SettingsView: View {
 /// A Claude subscription (OAuth) login section: log in via the browser paste
 /// flow, or log out. Used in preference to the API key when present.
 private struct AnthropicSubscriptionSection: View {
+    @Environment(CredentialsModel.self) private var credentials
     @State private var isLoggedIn = AnthropicOAuthStore.isLoggedIn
     @State private var loginRequest: AnthropicOAuth.LoginRequest?
     @State private var pastedCode = ""
@@ -39,6 +40,7 @@ private struct AnthropicSubscriptionSection: View {
                     Button("Log Out", role: .destructive) {
                         AnthropicOAuthStore.clear()
                         isLoggedIn = false
+                        credentials.refresh()
                     }
                 }
             } else if let loginRequest {
@@ -95,10 +97,11 @@ private struct AnthropicSubscriptionSection: View {
         error = nil
         Task {
             do {
-                let credentials = try await oauth.completeLogin(input: input, request: request)
-                AnthropicOAuthStore.save(credentials)
+                let newCredentials = try await oauth.completeLogin(input: input, request: request)
+                AnthropicOAuthStore.save(newCredentials)
                 await MainActor.run {
                     isLoggedIn = true
+                    credentials.refresh()
                     loginRequest = nil
                     pastedCode = ""
                     isCompleting = false
@@ -115,6 +118,7 @@ private struct AnthropicSubscriptionSection: View {
 
 /// Lets the user enter API keys for external Foundation Model backends.
 struct ModelsSettingsView: View {
+    @Environment(CredentialsModel.self) private var credentials
     @State private var anthropicKey: String = ""
     @State private var savedFlash: Bool = false
     @State private var readError: String?
@@ -174,6 +178,7 @@ struct ModelsSettingsView: View {
 
     private func save() {
         KeychainStore.write(anthropicKey, account: KeychainAccount.anthropicAPIKey)
+        credentials.refresh()
         savedFlash = true
         Task {
             try? await Task.sleep(for: .seconds(2))
