@@ -3904,3 +3904,16 @@ Open questions:
 - Per-message web views vs one web view for the whole transcript.
 
 ---
+
+## 115: Chat tab does not scroll to bottom when new content arrives
+
++++
+status: new
+priority: medium
+kind: bug
+created: 2026-06-24T23:21:22Z
++++
+
+The Generate chat transcript (GeneratePanel.swift) still fails to scroll to the bottom when new content streams in. Existing onChange hooks on items.count, isGenerating, and lastItemContentLength call scrollToEnd, but the view stays pinned above the newest content. Likely the proxy.scrollTo fires before the freshly-appended/grown row is laid out in the List.
+
+---
