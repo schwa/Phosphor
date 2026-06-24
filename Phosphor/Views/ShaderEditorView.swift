@@ -85,6 +85,18 @@ struct ShaderEditorView: View {
         }
         .focusedSceneValue(\.shaderText, $text)
         .focusedSceneValue(\.shaderTextMutator, textMutator)
+        .focusedSceneValue(\.editorCommandState, EditorCommandState(
+            model: model,
+            layoutMode: $layoutMode,
+            showUniformsPanel: $showUniformsPanel,
+            showFrameTiming: $showFrameTiming,
+            showInspector: $showInspector,
+            hasUniforms: hasUniforms,
+            showGenerate: {
+                inspectorTab = .generate
+                showInspector = true
+            }
+        ))
         .toolbarRole(.editor)
         .toolbar { toolbarContent }
         .inspector(isPresented: $showInspector) {
@@ -204,7 +216,6 @@ struct ShaderEditorView: View {
             } label: {
                 Label("Generate", systemImage: "sparkles")
             }
-            .keyboardShortcut("p", modifiers: [.command, .shift])
             .help("Open the AI generation panel in the inspector")
         }
         ToolbarItem(placement: .primaryAction) {
@@ -213,7 +224,6 @@ struct ShaderEditorView: View {
             } label: {
                 Label("Inspector", systemImage: "sidebar.right")
             }
-            .keyboardShortcut("i", modifiers: [.command, .option])
             .help("Toggle inspector panel")
         }
     }

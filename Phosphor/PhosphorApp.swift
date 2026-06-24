@@ -47,6 +47,7 @@ struct PhosphorApp: App {
             CommandGroup(after: .pasteboard) {
                 ReformatFrontMatterButton()
             }
+            ViewCommands()
             #if DEBUG
             DebugCommands()
             #endif
