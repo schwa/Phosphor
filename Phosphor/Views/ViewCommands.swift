@@ -81,7 +81,7 @@ private struct RenderMenu: View {
         Button(state?.model.isPaused == true ? "Resume" : "Pause Time") {
             state?.model.isPaused.toggle()
         }
-        .keyboardShortcut(.space, modifiers: [])
+        .keyboardShortcut("\\", modifiers: [.command])
         .disabled(state == nil)
 
         Button("Reset Time") {
