@@ -3832,3 +3832,21 @@ Relates to #110 (which introduced .phosphor as a byte-identical alias of .metal)
 - `2026-06-24T22:15:42Z`: Implemented. .phosphor is now a versioned JSON document (PhosphorDocument: version/configuration/source) in PhosphorKit. PhosphorMetalDocument reads/writes JSON for the .phosphor UTType (reassembling to embedded-front-matter text internally); .metal format unchanged. Bundled GenerationProgress.phosphor migrated to JSON. PhosphorView loader decodes .phosphor JSON, keeps .metal raw. Tests added in PhosphorKit.
 
 ---
+
+## 112: Reorder inspector tabs: Generate first, Output last
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: effort:xs
+created: 2026-06-24T22:46:24Z
++++
+
+In the editor inspector (Phosphor/Views/PhosphorInspectorView.swift), the tabs are currently ordered Output (1), Configuration (2), Generate (3). Reorder so the Generate/chat tab is tab #1 and the Output ('info') tab is tab #3.
+
+Target order: Generate (1), Configuration (2), Output (3).
+
+Just reorder the Tab() entries in the TabView; the InspectorTab enum cases and selection logic don't need to change.
+
+---
