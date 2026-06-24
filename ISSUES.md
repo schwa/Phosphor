@@ -770,7 +770,7 @@ priority: medium
 kind: documentation
 labels: effort:l
 created: 2026-06-18T22:05:52Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-06-24T22:45:32Z
 +++
 
 Phosphor 2 has effectively no docs right now. Address three layers:
@@ -796,9 +796,10 @@ Use the swift-documentation skill.
 +++
 status: open
 priority: medium
-kind: none
+kind: task
+labels: effort:m
 created: 2026-06-18T22:08:22Z
-updated: 2026-06-19T16:16:03Z
+updated: 2026-06-24T22:45:39Z
 +++
 
 Survey Shadertoy's API surface against what Phosphor 2 currently supports. Goal: a written gap analysis so we know what to add next to maximise the fraction of Shadertoy shaders that port over with mechanical changes.
@@ -863,9 +864,10 @@ Outcome: a markdown table (or a doc section under DocC) summarising what 'a Shad
 +++
 status: open
 priority: medium
-kind: none
+kind: feature
+labels: effort:l
 created: 2026-06-18T22:08:49Z
-updated: 2026-06-19T16:16:03Z
+updated: 2026-06-24T22:45:39Z
 +++
 
 Make Phosphor accept Shadertoy source verbatim and translate it to a Phosphor kernel at runtime, so users can paste Shadertoy URLs/snippets directly without manual rewriting.
@@ -1333,12 +1335,13 @@ Add support for using a webcam as a live video input source.
 ## 40: Architecture: deepen render orchestrator (Runtime + Pipeline)
 
 +++
-status: open
+status: closed
 priority: medium
 kind: enhancement
 labels: architecture, effort:l
 created: 2026-06-19T02:15:39Z
-updated: 2026-06-22T15:40:24Z
+updated: 2026-06-24T22:45:05Z
+closed: 2026-06-24T22:45:05Z
 +++
 
 ## Problem
@@ -1375,6 +1378,7 @@ In-process. `MTLDevice` and the user's `AudioCaptureEngine` are the only externa
 - `2026-06-19T02:15:39Z`: `Packages/PhosphorSupport/Sources/PhosphorSupport/Runtime/PingPongTexture.swift`
 - `2026-06-19T02:15:39Z`: Parts of `Packages/PhosphorSupport/Sources/PhosphorSupport/UI/PhosphorView.swift` (playback wiring)
 - `2026-06-22T15:40:24Z`: Related to #54 (inter-pass parity flips): #54 builds on this runtime; deepening Runtime+Pipeline here should keep #54's same-frame swap use case in mind.
+- `2026-06-24T22:45:05Z`: Out of date. The render orchestration has since moved into PhosphorKit (PhosphorRuntime + PhosphorPipeline in the PhosphorKit package), and the playback-clock/pause-reset concerns referenced here were already extracted (#43). The specific coupling described no longer reflects the current architecture.
 
 ---
 
@@ -3645,12 +3649,13 @@ Open questions:
 ## 105: Anthropic-level diagnostic logging of all model data
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: effort:m
 created: 2026-06-23T03:32:38Z
-updated: 2026-06-23T06:05:14Z
+updated: 2026-06-24T22:43:36Z
+closed: 2026-06-24T22:43:36Z
 +++
 
 Add an opt-in, verbose diagnostic log that captures EVERYTHING exchanged with the language model, beyond the curated GenerationExchange/GenerationLog transcript. The goal is full transparency/debuggability of what the app sends and receives — the kind of complete request/response logging you'd want when filing a model-quality bug.
@@ -3712,24 +3717,30 @@ Add a justfile recipe to encode the examples (Examples/Examples.phosphord) into 
 ## 108: Use a real AI tool instead of faking it with Apple Intelligence
 
 +++
-status: new
+status: closed
 priority: medium
 kind: none
 created: 2026-06-23T16:03:48Z
+updated: 2026-06-24T22:42:55Z
+closed: 2026-06-24T22:42:55Z
 +++
 
 Shader generation currently goes through FoundationModelAdapter (Apple Intelligence) behind the LanguageModelPort protocol. Replace this with a real AI backend/tool rather than relying on the on-device Apple Intelligence model, which fakes/approximates the generation. Implement a LanguageModelPort conformance backed by a real model API.
+
+- `2026-06-24T22:42:55Z`: Done. Conversational shader generation now runs through a real Anthropic/Claude backend (AnthropicProvider, Claude Opus) via API key or Claude-subscription OAuth — see ConversationProvider.make(). FoundationModels (Apple Intelligence) is no longer the conversational path; it's retained only as a one-shot fallback adapter.
 
 ---
 
 ## 109: Create PhosphorKit package with a reusable PhosphorView
 
 +++
-status: new
+status: closed
 priority: medium
 kind: feature
 labels: phosphorkit
 created: 2026-06-23T20:01:21Z
+updated: 2026-06-24T22:42:43Z
+closed: 2026-06-24T22:42:43Z
 +++
 
 Extract a standalone `PhosphorKit` package exposing a high-level `PhosphorView` so other apps can drop phosphor shaders in with minimal effort.
@@ -3737,11 +3748,13 @@ Extract a standalone `PhosphorKit` package exposing a high-level `PhosphorView` 
 Goal: a third-party app should be able to add a phosphor/CRT-style shader effect by adding the package and embedding `PhosphorView` (or applying it as a view modifier), without pulling in the full Phosphor editor app.
 
 Open questions / scope:
-- API surface: `PhosphorView` as a standalone view vs. a `.phosphor()` SwiftUI modifier wrapping arbitrary content.
-- What's configurable (shader selection, uniforms/parameters, intensity) and sensible defaults.
-- Reuse the existing rendering core (MetalSprockets) from PhosphorSupport vs. a new lean dependency.
-- Package layout: new `Packages/PhosphorKit` alongside `PhosphorSupport`, or fold into it.
-- Example/demo target showing minimal integration.
+
+- `2026-06-23T20:01:21Z`: API surface: `PhosphorView` as a standalone view vs. a `.phosphor()` SwiftUI modifier wrapping arbitrary content.
+- `2026-06-23T20:01:21Z`: What's configurable (shader selection, uniforms/parameters, intensity) and sensible defaults.
+- `2026-06-23T20:01:21Z`: Reuse the existing rendering core (MetalSprockets) from PhosphorSupport vs. a new lean dependency.
+- `2026-06-23T20:01:21Z`: Package layout: new `Packages/PhosphorKit` alongside `PhosphorSupport`, or fold into it.
+- `2026-06-23T20:01:21Z`: Example/demo target showing minimal integration.
+- `2026-06-24T22:42:43Z`: Done. PhosphorKit now exists as a standalone Swift package (~/Projects/Current/PhosphorKit) vending PhosphorModel/PhosphorCompile/PhosphorRuntime, and exposes a high-level reusable PhosphorView (load a shader by name from a bundle, or render an in-memory source/parsed document). Reuses the existing MetalSprockets rendering core. The Phosphor app already consumes it (splash + About screens embed PhosphorView).
 
 ---
 
