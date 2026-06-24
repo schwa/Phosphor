@@ -12,11 +12,15 @@ import PhosphorGeneration
 enum ConversationProvider {
     /// Errors surfaced to the user when a provider can't be built.
     enum Failure: LocalizedError {
+        case noCredentials
         case missingAPIKey
         case keychainReadFailed(OSStatus)
 
         var errorDescription: String? {
             switch self {
+            case .noCredentials:
+                return "No Anthropic credentials. Add an API key or log in with a Claude subscription in Settings → Models."
+
             case .missingAPIKey:
                 return "No Anthropic API key. Add one in Settings → Models to use conversational generation."
 
@@ -29,8 +33,22 @@ enum ConversationProvider {
     /// The Claude model conversational mode talks to.
     static let model = AnthropicModel.opus
 
-    /// Builds an ``AnthropicProvider`` from the stored API key.
+    /// Whether any usable credential (OAuth subscription or API key) is stored.
+    static var hasCredentials: Bool {
+        if AnthropicOAuthStore.isLoggedIn { return true }
+        if case .found(let value) = KeychainStore.readResult(account: KeychainAccount.anthropicAPIKey), !value.isEmpty {
+            return true
+        }
+        return false
+    }
+
+    /// Builds an ``AnthropicProvider``, preferring a Claude subscription (OAuth)
+    /// over a billed API key.
     static func make() throws -> AnthropicProvider {
+        if AnthropicOAuthStore.isLoggedIn {
+            let auth = AnthropicAuth.oauth(AnthropicOAuthStore.tokenProvider())
+            return AnthropicProvider(config: AnthropicConfig(auth: auth, model: model.id, maxTokens: 8_192))
+        }
         let apiKey = try readAnthropicKey()
         return AnthropicProvider(config: AnthropicConfig(apiKey: apiKey, model: model.id, maxTokens: 8_192))
     }

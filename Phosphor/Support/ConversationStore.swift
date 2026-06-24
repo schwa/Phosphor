@@ -24,6 +24,9 @@ struct ConversationItem: Identifiable {
 
     let id = UUID()
     var kind: Kind
+    /// When this item was first created (the user sent it, the assistant
+    /// started replying, or a tool was invoked).
+    let timestamp = Date()
 }
 
 /// Owns a conversational shader-generation session and projects its live event

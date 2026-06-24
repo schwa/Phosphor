@@ -32,17 +32,14 @@ struct GeneratePanel: View {
     @State private var prompt: String = ""
     @State private var exportItem: ConversationExport?
     @State private var showExporter = false
-    /// Cached Keychain check. The Keychain read is expensive and was being run
-    /// on every body pass; refresh it on appear and after a Settings change.
-    @State private var hasAPIKey: Bool = false
+    /// Cached credential check (OAuth subscription or API key). The Keychain
+    /// read is expensive and was being run on every body pass; refresh it on
+    /// appear.
+    @State private var hasCredentials: Bool = false
     @FocusState private var promptFocused: Bool
 
-    private func refreshAPIKeyStatus() {
-        if case .found(let value) = KeychainStore.readResult(account: KeychainAccount.anthropicAPIKey), !value.isEmpty {
-            hasAPIKey = true
-        } else {
-            hasAPIKey = false
-        }
+    private func refreshCredentialStatus() {
+        hasCredentials = ConversationProvider.hasCredentials
     }
 
     var body: some View {
@@ -52,7 +49,7 @@ struct GeneratePanel: View {
             composer
         }
         .onAppear {
-            refreshAPIKeyStatus()
+            refreshCredentialStatus()
             ensureStore()
             promptFocused = true
         }
@@ -101,6 +98,22 @@ struct GeneratePanel: View {
             .overlay { emptyState }
             .onChange(of: store?.items.count ?? 0) { _, _ in scrollToEnd(proxy) }
             .onChange(of: store?.isGenerating ?? false) { _, _ in scrollToEnd(proxy) }
+            // Streamed prose grows the last item without changing the count;
+            // track its content length so we keep pinned to the bottom.
+            .onChange(of: lastItemContentLength) { _, _ in scrollToEnd(proxy) }
+        }
+    }
+
+    /// A signal that grows as the last transcript item's content streams in,
+    /// used to keep the view scrolled to the bottom during a turn.
+    private var lastItemContentLength: Int {
+        guard let last = store?.items.last else { return 0 }
+        switch last.kind {
+        case .user(let text), .assistant(let text), .error(let text):
+            return text.count
+
+        case .tool(_, _, let result, _):
+            return result?.count ?? 0
         }
     }
 
@@ -136,8 +149,8 @@ struct GeneratePanel: View {
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if !hasAPIKey {
-                Label("Add an Anthropic API key in Settings → Models to generate.", systemImage: "key")
+            if !hasCredentials {
+                Label("Add an Anthropic API key or log in with a Claude subscription in Settings → Models.", systemImage: "key")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -209,7 +222,7 @@ struct GeneratePanel: View {
     private var isGenerating: Bool { store?.isGenerating ?? false }
 
     private var canSubmit: Bool {
-        !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isGenerating && hasAPIKey
+        !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isGenerating && hasCredentials
     }
 
     private func submit() {
@@ -229,18 +242,30 @@ private struct ConversationRow: View {
         content.textSelection(.enabled)
     }
 
+    private var timestampLabel: some View {
+        Text(item.timestamp, format: .dateTime.hour().minute())
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+    }
+
     @ViewBuilder
     private var content: some View {
         switch item.kind {
         case .user(let text):
             bubble(alignment: .trailing, background: Color.accentColor.opacity(0.18)) {
-                Text(text).fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(text).fixedSize(horizontal: false, vertical: true)
+                    timestampLabel
+                }
             }
 
         case .assistant(let text):
             bubble(alignment: .leading, background: Color.secondary.opacity(0.10)) {
-                Text(text.isEmpty ? "…" : text)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(text.isEmpty ? "…" : text)
+                        .fixedSize(horizontal: false, vertical: true)
+                    timestampLabel
+                }
             }
 
         case .tool(let name, let summary, let result, let isError):

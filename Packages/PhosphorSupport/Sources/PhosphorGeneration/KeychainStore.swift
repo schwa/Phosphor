@@ -122,4 +122,6 @@ public enum KeychainStore {
 /// Account names Phosphor uses inside the Keychain.
 public enum KeychainAccount {
     public static let anthropicAPIKey = "anthropic.apiKey"
+    /// JSON-encoded `OAuthCredentials` for a Claude subscription login.
+    public static let anthropicOAuth = "anthropic.oauth"
 }
