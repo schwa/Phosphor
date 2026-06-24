@@ -48,6 +48,7 @@ final class ConversationStore {
     private let readSource: @MainActor () -> String
     private let writeSource: @MainActor (String, String) -> Void
 
+    private var document: MetalSourceDocument?
     private var generator: ConversationalGenerator?
     private var eventTask: Task<Void, Never>?
     /// Index of the assistant item currently receiving streamed deltas, if any.
@@ -89,6 +90,10 @@ final class ConversationStore {
             return
         }
 
+        // Seed the document buffer with the editor's current text so the tools
+        // operate on the latest source (the user may have hand-edited it).
+        document?.setSource(readSource())
+
         do {
             _ = try await generator.send(trimmed)
         } catch {
@@ -109,17 +114,19 @@ final class ConversationStore {
     private func ensureGenerator() throws -> ConversationalGenerator {
         if let generator { return generator }
 
-        let read = readSource
-        let document = MetalSourceDocument(
-            read: { MainActor.assumeIsolated { read() } },
-            write: { [weak self] newText in
-                MainActor.assumeIsolated {
-                    self?.writeSource(newText, "Generate Shader")
-                }
+        // The write observer fires on a background tool-loop thread; hop to the
+        // main actor to push the edit into the SwiftUI editor (undoably).
+        // Capture only the @Sendable write closure, never `self`, so the
+        // observer body stays Sendable.
+        let apply = writeSource
+        let document = MetalSourceDocument(source: readSource()) { newText in
+            Task { @MainActor in
+                apply(newText, "Generate Shader")
             }
-        )
+        }
         let provider = try ConversationProvider.make()
         let generator = ConversationalGenerator(provider: provider, document: document, device: device)
+        self.document = document
         self.generator = generator
         startPump(generator)
         return generator

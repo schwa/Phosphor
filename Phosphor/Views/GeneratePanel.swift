@@ -29,13 +29,17 @@ struct GeneratePanel: View {
 
     @State private var store: ConversationStore?
     @State private var prompt: String = ""
+    /// Cached Keychain check. The Keychain read is expensive and was being run
+    /// on every body pass; refresh it on appear and after a Settings change.
+    @State private var hasAPIKey: Bool = false
     @FocusState private var promptFocused: Bool
 
-    private var hasAPIKey: Bool {
+    private func refreshAPIKeyStatus() {
         if case .found(let value) = KeychainStore.readResult(account: KeychainAccount.anthropicAPIKey), !value.isEmpty {
-            return true
+            hasAPIKey = true
+        } else {
+            hasAPIKey = false
         }
-        return false
     }
 
     var body: some View {
@@ -45,6 +49,7 @@ struct GeneratePanel: View {
             composer
         }
         .onAppear {
+            refreshAPIKeyStatus()
             ensureStore()
             promptFocused = true
         }

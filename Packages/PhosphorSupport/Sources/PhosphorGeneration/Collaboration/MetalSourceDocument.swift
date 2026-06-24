@@ -10,41 +10,51 @@ import Foundation
 /// A ``CollaborationKit/TextDocument`` over a single live `.metal` source
 /// string, used as the shared backing for the conversational shader tools.
 ///
-/// The host owns the actual editor buffer; this adapter bridges reads and
-/// writes through two closures so a model edit lands wherever the host wants
-/// (e.g. an undoable `TextMutator.apply`). The whole `.metal` source — body
-/// *and* front-matter — is the single source of truth; all four shader tools
-/// operate on this one document so they can't drift from each other.
+/// The whole `.metal` source — body *and* front-matter — is the single source
+/// of truth; all four shader tools operate on this one document so they can't
+/// drift from each other.
 ///
-/// Both closures are `@Sendable`; the host is responsible for hopping to the
-/// main actor if its buffer requires it.
+/// The document owns a thread-safe internal buffer so the tools (which run on
+/// CollaborationKit's cooperative tool-loop threads, **not** the main actor)
+/// can read and write synchronously without any actor hop. The host:
+///
+/// - seeds the buffer before a turn with ``setSource(_:)``, and
+/// - observes model edits via the ``onWrite`` callback (delivered on the
+///   tool-loop thread; the host is responsible for hopping to the main actor
+///   to push the new text into its editor).
 public final class MetalSourceDocument: TextDocument, @unchecked Sendable {
-    private let reader: @Sendable () -> String
-    private let writer: @Sendable (String) -> Void
+    private let storage: Storage
+    private let writeObserver: (@Sendable (String) -> Void)?
 
-    /// Creates a document backed by host-supplied read/write closures.
+    /// Creates a document seeded with `source`.
     ///
     /// - Parameters:
-    ///   - read: Returns the current full `.metal` source.
-    ///   - write: Replaces the full `.metal` source (e.g. via `TextMutator`).
-    public init(read: @escaping @Sendable () -> String, write: @escaping @Sendable (String) -> Void) {
-        self.reader = read
-        self.writer = write
+    ///   - source: The initial full `.metal` source.
+    ///   - onWrite: Called after every model write with the new full source.
+    ///     Delivered off the main actor; hop yourself to update UI.
+    public init(source: String = "", onWrite: (@Sendable (String) -> Void)? = nil) {
+        self.storage = Storage(source)
+        self.writeObserver = onWrite
     }
 
-    /// Creates an in-memory document seeded with `source`, for tests and
-    /// previews. Mutations are kept in a thread-safe local buffer.
+    /// Creates an in-memory document for tests and previews.
     public convenience init(inMemory source: String = "") {
-        let storage = Storage(source)
-        self.init(read: { storage.value }, write: { storage.value = $0 })
+        self.init(source: source, onWrite: nil)
+    }
+
+    /// Replaces the buffer contents from the host (e.g. to seed the live editor
+    /// text before a turn). Does **not** fire ``onWrite``.
+    public func setSource(_ text: String) {
+        storage.value = text
     }
 
     public func read() throws -> String {
-        reader()
+        storage.value
     }
 
     public func write(_ text: String) throws {
-        writer(text)
+        storage.value = text
+        writeObserver?(text)
     }
 }
 
