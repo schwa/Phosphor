@@ -3482,12 +3482,13 @@ Touch points: new GenerationLog store (app-side), GeneratePanel (write turns as 
 ## 100: Add a Stop button to cancel an in-flight generation
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: generation, effort:s
 created: 2026-06-22T22:45:51Z
-updated: 2026-06-23T06:05:03Z
+updated: 2026-06-24T22:26:53Z
+closed: 2026-06-24T22:26:53Z
 +++
 
 Add a way to cancel an in-flight generation. Today once you hit Generate/Modify there's no stop — you wait out the model turn(s), which can be 10-40s (worse with planning mode's two turns). The Generate button shows a spinner but isn't actionable.
@@ -3507,6 +3508,8 @@ Open questions:
 - If we cancelled after text was already applied (shouldn't happen — we apply only after the full result), ensure no partial writes.
 
 Touch points: GeneratePanel (Stop button + Task handle + cancel + CancellationError handling), possibly ShaderGenerator (cancellation checks between turns), LanguageModelPort/FoundationModelAdapter (confirm respond honors cancellation).
+
+- `2026-06-24T22:26:53Z`: Already implemented. ConversationStore.send runs in a cancellable sendTask; stop() calls sendTask?.cancel(), sets isGenerating=false and clears the task. CancellationError is caught and unwound quietly (not surfaced as an .error turn). GeneratePanel shows a Stop button (stop.fill) while generating, wired to store.stop().
 
 ---
 
