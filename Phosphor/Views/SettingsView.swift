@@ -9,12 +9,8 @@ import SwiftUI
 /// for external model backends.
 struct SettingsView: View {
     var body: some View {
-        TabView {
-            Tab("Models", systemImage: "brain") {
-                ModelsSettingsView()
-            }
-        }
-        .frame(width: 480, height: 440)
+        ModelsSettingsView()
+            .frame(width: 480, height: 440)
     }
 }
 
@@ -77,7 +73,7 @@ private struct AnthropicSubscriptionSection: View {
         } header: {
             Text("Anthropic Subscription")
         } footer: {
-            Text("Log in with a Claude subscription instead of a billed API key. Unofficial (uses the Claude Code OAuth client) and may break without notice. Tokens are stored in the Keychain and refreshed automatically.")
+            Text("Log in with a Claude subscription instead of a billed API key. Unofficial (uses the Claude Code OAuth client) and may break without notice. Tokens are refreshed automatically.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -125,8 +121,6 @@ struct ModelsSettingsView: View {
 
     var body: some View {
         Form {
-            AnthropicSubscriptionSection()
-
             Section {
                 SecureField("Anthropic API key", text: $anthropicKey)
                     .textFieldStyle(.roundedBorder)
@@ -154,10 +148,15 @@ struct ModelsSettingsView: View {
             } header: {
                 Text("Anthropic API Key")
             } footer: {
-                Text("Stored in the macOS Keychain under service \"\(KeychainStore.service)\". A subscription login (above) is used in preference to this key when present.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Link("Get an API key from the Claude Console", destination: URL(string: "https://platform.claude.com/settings/workspaces/default/keys")!)
+                    Text("A subscription login (below) is used in preference to this key when present.")
+                        .foregroundStyle(.secondary)
+                }
+                .font(.callout)
             }
+
+            AnthropicSubscriptionSection()
         }
         .formStyle(.grouped)
         .onAppear {
