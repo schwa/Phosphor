@@ -3765,10 +3765,12 @@ Open questions:
 ## 111: Make .phosphor files JSON with front-matter and source as separate keys
 
 +++
-status: new
+status: closed
 priority: medium
 kind: none
 created: 2026-06-24T21:45:40Z
+updated: 2026-06-24T22:15:42Z
+closed: 2026-06-24T22:15:42Z
 +++
 
 Change the on-disk '.phosphor' format from a Metal source file with an embedded TOML front-matter comment (/* phosphor:environment ... */) to a JSON blob that breaks the configuration out from the shader source.
@@ -3800,5 +3802,7 @@ Open questions:
 - Where does the canonical PhosphorDocument codable type live — PhosphorModel or PhosphorCompile?
 
 Relates to #110 (which introduced .phosphor as a byte-identical alias of .metal).
+
+- `2026-06-24T22:15:42Z`: Implemented. .phosphor is now a versioned JSON document (PhosphorDocument: version/configuration/source) in PhosphorKit. PhosphorMetalDocument reads/writes JSON for the .phosphor UTType (reassembling to embedded-front-matter text internally); .metal format unchanged. Bundled GenerationProgress.phosphor migrated to JSON. PhosphorView loader decodes .phosphor JSON, keeps .metal raw. Tests added in PhosphorKit.
 
 ---

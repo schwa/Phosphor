@@ -1,109 +1,65 @@
-/* phosphor:environment
-output = "image"
-
-[[passes]]
-enabled = true
-id = "image"
-textures = [ { access = "write", id = "image" } ]
-
-[[textures]]
-format = "rgba32Float"
-id = "image"
-init = { kind = "zero" }
-size = "drawable"
-swap = "none"
-
-[[uniforms]]
-default = 1.0
-kind = "float"
-name = "phase"
-ui = { slider = { max = 1.0, min = 0.0 } }
-
-[[uniforms]]
-default = 1.0
-kind = "float"
-name = "intensity"
-ui = { slider = { max = 3.0, min = 0.0 } }
-
-[[uniforms]]
-default = 0.0
-kind = "float"
-name = "hueShift"
-ui = { slider = { max = 0.5, min = -0.5 } }
-*/
-
-uint2 gid [[thread_position_in_grid]];
-
-/// Siri-style 3D ball: a shaded sphere with a swirling, animated
-/// plasma surface, soft rim light and an outer glow on a dark backdrop.
-/// Writes the final color to `image`. Reads no input textures.
-kernel void image(
-    device const Uniforms&     uniforms     [[buffer(0)]],
-    device const UserUniforms& userUniforms [[buffer(1)]])
 {
-    float2 res = uniforms.resolution;
-    float2 uv = (float2(gid) * 2.0 - res) / min(res.x, res.y);
-
-    // phase 0..1 animates the effect in/out. IMPORTANT: phase must NOT warp
-    // time (that would reset/jump the animation when dragged). It only scales
-    // the ball's size and the animation *amplitude*, so the underlying motion
-    // keeps running continuously and just fades in/out smoothly.
-    float phase = clamp(userUniforms.phase, 0.0, 1.0);
-    // Smooth ease so the entrance/exit feels organic.
-    float ease = phase * phase * (3.0 - 2.0 * phase);
-
-    // Real, continuous time — never scaled by phase.
-    float t = uniforms.time;
-
-    // Continuous breathing of the ball and surface (no audio).
-    // Amplitude of all motion fades with ease (not the time itself).
-    float pulse = 0.5 + 0.5 * sin(t * 1.6);
-    float energy = (0.15 + pulse * 0.4 + 0.03 * sin(t * 1.6)) * userUniforms.intensity * ease;
-
-    // Size scales with ease; the wobble amplitude does too, but its phase
-    // (the sin/cos arguments) uses continuous t so nothing snaps.
-    float R = (0.62 + (0.04 * sin(t * 1.1) + energy * 0.06) * ease) * ease;
-    float r = length(uv);
-
-    float3 col = float3(0.0);
-
-    if (r < R && R > 0.001) {
-        // Reconstruct a sphere normal from the 2D disc -> fake 3D shading.
-        float z = sqrt(max(R * R - r * r, 0.0));
-        float3 n = normalize(float3(uv, z));
-
-        // Swirling plasma over the surface (animated 3D noise).
-        float3 sp = n * 2.2 + float3(0.0, 0.0, t * 0.3);
-        float swirl = fbm3D(sp + float3(sin(t * 0.4), cos(t * 0.3), 0.0));
-        swirl = 0.5 + 0.5 * sin(swirl * 6.28 + t * 0.8);
-
-        // Diffuse lighting from upper-left.
-        float3 L = normalize(float3(-0.5, 0.6, 0.8));
-        float diff = clamp(dot(n, L), 0.0, 1.0);
-
-        // Specular highlight.
-        float3 V = float3(0.0, 0.0, 1.0);
-        float3 H = normalize(L + V);
-        float spec = pow(clamp(dot(n, H), 0.0, 1.0), 32.0);
-
-        // Flowing Siri color shifting with the swirl.
-        float hue = 0.55 + userUniforms.hueShift + 0.12 * swirl + 0.05 * sin(t * 0.4) - n.y * 0.08;
-        float3 base = hsv(hue, 0.75, 1.0);
-
-        col = base * (0.25 + 0.85 * diff) * (0.6 + 0.7 * swirl * energy + 0.4 * swirl);
-        col += float3(1.0) * spec * (0.6 + energy);
-
-        // Inner rim brightening near the silhouette.
-        float fres = pow(1.0 - z / R, 2.5);
-        col += hsv(hue + 0.1, 0.9, 1.0) * fres * (0.8 + energy);
-    }
-
-    // Outer glow halo around the ball.
-    float halo = exp(-max(r - R, 0.0) * 6.0) * (0.6 + energy) * ease;
-    col += hsv(0.6 + userUniforms.hueShift + 0.05 * sin(t * 0.4), 0.8, 1.0) * halo * 0.5;
-
-    col = col / (1.0 + col);
-    col = pow(clamp(col, 0.0, 1.0), float3(0.85));
-
-    uniforms.textures.image.write(float4(col, 1.0), gid);
+  "configuration" : {
+    "output" : "image",
+    "passes" : [
+      {
+        "enabled" : true,
+        "id" : "image",
+        "textures" : [
+          {
+            "access" : "write",
+            "id" : "image"
+          }
+        ]
+      }
+    ],
+    "textures" : [
+      {
+        "format" : "rgba32Float",
+        "id" : "image",
+        "init" : {
+          "kind" : "zero"
+        },
+        "size" : "drawable",
+        "swap" : "none"
+      }
+    ],
+    "uniforms" : [
+      {
+        "default" : 1,
+        "kind" : "float",
+        "name" : "phase",
+        "ui" : {
+          "slider" : {
+            "max" : 1,
+            "min" : 0
+          }
+        }
+      },
+      {
+        "default" : 1,
+        "kind" : "float",
+        "name" : "intensity",
+        "ui" : {
+          "slider" : {
+            "max" : 3,
+            "min" : 0
+          }
+        }
+      },
+      {
+        "default" : 0,
+        "kind" : "float",
+        "name" : "hueShift",
+        "ui" : {
+          "slider" : {
+            "max" : 0.5,
+            "min" : -0.5
+          }
+        }
+      }
+    ]
+  },
+  "source" : "\n\nuint2 gid [[thread_position_in_grid]];\n\n/// Siri-style 3D ball: a shaded sphere with a swirling, animated\n/// plasma surface, soft rim light and an outer glow on a dark backdrop.\n/// Writes the final color to `image`. Reads no input textures.\nkernel void image(\n    device const Uniforms&     uniforms     [[buffer(0)]],\n    device const UserUniforms& userUniforms [[buffer(1)]])\n{\n    float2 res = uniforms.resolution;\n    float2 uv = (float2(gid) * 2.0 - res) / min(res.x, res.y);\n\n    // phase 0..1 animates the effect in/out. IMPORTANT: phase must NOT warp\n    // time (that would reset/jump the animation when dragged). It only scales\n    // the ball's size and the animation *amplitude*, so the underlying motion\n    // keeps running continuously and just fades in/out smoothly.\n    float phase = clamp(userUniforms.phase, 0.0, 1.0);\n    // Smooth ease so the entrance/exit feels organic.\n    float ease = phase * phase * (3.0 - 2.0 * phase);\n\n    // Real, continuous time — never scaled by phase.\n    float t = uniforms.time;\n\n    // Continuous breathing of the ball and surface (no audio).\n    // Amplitude of all motion fades with ease (not the time itself).\n    float pulse = 0.5 + 0.5 * sin(t * 1.6);\n    float energy = (0.15 + pulse * 0.4 + 0.03 * sin(t * 1.6)) * userUniforms.intensity * ease;\n\n    // Size scales with ease; the wobble amplitude does too, but its phase\n    // (the sin/cos arguments) uses continuous t so nothing snaps.\n    float R = (0.62 + (0.04 * sin(t * 1.1) + energy * 0.06) * ease) * ease;\n    float r = length(uv);\n\n    float3 col = float3(0.0);\n\n    if (r < R && R > 0.001) {\n        // Reconstruct a sphere normal from the 2D disc -> fake 3D shading.\n        float z = sqrt(max(R * R - r * r, 0.0));\n        float3 n = normalize(float3(uv, z));\n\n        // Swirling plasma over the surface (animated 3D noise).\n        float3 sp = n * 2.2 + float3(0.0, 0.0, t * 0.3);\n        float swirl = fbm3D(sp + float3(sin(t * 0.4), cos(t * 0.3), 0.0));\n        swirl = 0.5 + 0.5 * sin(swirl * 6.28 + t * 0.8);\n\n        // Diffuse lighting from upper-left.\n        float3 L = normalize(float3(-0.5, 0.6, 0.8));\n        float diff = clamp(dot(n, L), 0.0, 1.0);\n\n        // Specular highlight.\n        float3 V = float3(0.0, 0.0, 1.0);\n        float3 H = normalize(L + V);\n        float spec = pow(clamp(dot(n, H), 0.0, 1.0), 32.0);\n\n        // Flowing Siri color shifting with the swirl.\n        float hue = 0.55 + userUniforms.hueShift + 0.12 * swirl + 0.05 * sin(t * 0.4) - n.y * 0.08;\n        float3 base = hsv(hue, 0.75, 1.0);\n\n        col = base * (0.25 + 0.85 * diff) * (0.6 + 0.7 * swirl * energy + 0.4 * swirl);\n        col += float3(1.0) * spec * (0.6 + energy);\n\n        // Inner rim brightening near the silhouette.\n        float fres = pow(1.0 - z / R, 2.5);\n        col += hsv(hue + 0.1, 0.9, 1.0) * fres * (0.8 + energy);\n    }\n\n    // Outer glow halo around the ball.\n    float halo = exp(-max(r - R, 0.0) * 6.0) * (0.6 + energy) * ease;\n    col += hsv(0.6 + userUniforms.hueShift + 0.05 * sin(t * 0.4), 0.8, 1.0) * halo * 0.5;\n\n    col = col / (1.0 + col);\n    col = pow(clamp(col, 0.0, 1.0), float3(0.85));\n\n    uniforms.textures.image.write(float4(col, 1.0), gid);\n}\n",
+  "version" : 1
 }

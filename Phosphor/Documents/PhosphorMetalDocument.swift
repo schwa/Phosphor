@@ -87,12 +87,20 @@ final class PhosphorMetalDocument: Document {
     func reader(
         configuration: sending DocumentReadConfiguration
     ) -> sending FileWrapperDocumentReader<String> {
-        FileWrapperDocumentReader(configuration) { fileWrapper in
-            guard let data = fileWrapper.regularFileContents,
-                  let text = String(data: data, encoding: .utf8) else {
-                return ""
+        let contentType = configuration.contentType
+        return FileWrapperDocumentReader(configuration) { fileWrapper in
+            guard let data = fileWrapper.regularFileContents else { return "" }
+            // `.phosphor` is the JSON document format (config split from
+            // source); reassemble it into embedded-front-matter `.metal` text,
+            // which is what the editor and runtime operate on internally.
+            if contentType == .phosphorSource {
+                if let document = try? PhosphorDocument(jsonData: data) {
+                    return Self.metalText(from: document)
+                }
+                // Fall through: treat as plain text (e.g. a legacy/byte-identical
+                // `.phosphor` that predates the JSON format).
             }
-            return text
+            return String(data: data, encoding: .utf8) ?? ""
         }
     }
 
@@ -107,9 +115,33 @@ final class PhosphorMetalDocument: Document {
     func writer(
         configuration: sending DocumentWriteConfiguration
     ) -> sending FileWrapperDocumentWriter<String> {
-        FileWrapperDocumentWriter(configuration) { snapshot in
-            FileWrapper(regularFileWithContents: Data(snapshot.utf8))
+        let contentType = configuration.contentType
+        return FileWrapperDocumentWriter(configuration) { snapshot in
+            if contentType == .phosphorSource,
+               let data = try? Self.phosphorDocument(from: snapshot).jsonData() {
+                return FileWrapper(regularFileWithContents: data)
+            }
+            return FileWrapper(regularFileWithContents: Data(snapshot.utf8))
         }
+    }
+
+    // MARK: - `.phosphor` JSON conversion
+
+    /// Reassembles a JSON ``PhosphorDocument`` into the embedded-front-matter
+    /// `.metal` text the editor/runtime use internally.
+    private static func metalText(from document: PhosphorDocument) -> String {
+        guard let body = try? FrontMatterFormatter.encodeBody(document.configuration) else {
+            return document.source
+        }
+        let frontMatter = FrontMatterFormatter.wrapFrontMatter(body: body)
+        return "\(frontMatter)\n\n\(document.source)"
+    }
+
+    /// Splits embedded-front-matter `.metal` text into a JSON
+    /// ``PhosphorDocument`` (config separated from clean source).
+    private static func phosphorDocument(from text: String) -> PhosphorDocument {
+        let parsed = ParsedPhosphorSource(source: text)
+        return PhosphorDocument(configuration: parsed.configuration, source: parsed.body)
     }
 
     @MainActor
@@ -121,8 +153,9 @@ extension UTType {
     /// `public.source-code` since macOS already recognizes the extension.
     static let metalSource = UTType(importedAs: "com.apple.metal-shader-source", conformingTo: .sourceCode)
 
-    /// `.phosphor` single-file Phosphor shaders. Currently byte-identical to a
-    /// `.metal` file (front-matter comment + Metal body); declared as its own
-    /// UTType so Phosphor owns the extension and can diverge later.
+    /// `.phosphor` single-file Phosphor shaders. A JSON document that keeps the
+    /// shader configuration (front-matter) separate from the Metal source
+    /// (see `PhosphorDocument`). Distinct from the legacy `.metal` format,
+    /// which embeds the configuration as a `/* phosphor:environment */` comment.
     static let phosphorSource = UTType(exportedAs: "io.schwa.phosphor.source", conformingTo: .sourceCode)
 }
