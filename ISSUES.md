@@ -3731,3 +3731,29 @@ Open questions / scope:
 - Example/demo target showing minimal integration.
 
 ---
+
+## 110: Support standalone .phosphor shader files
+
++++
+status: new
+priority: low
+kind: none
+created: 2026-06-24T20:30:30Z
++++
+
+Introduce a single-file '.phosphor' document type for a Phosphor shader (front-matter + Metal body), distinct from the existing multi-file '.phosphord' bundle and plain '.metal' source.
+
+Motivation: PhosphorKit's PhosphorView(named:) currently guesses at a '.phosphor' extension when loading from a bundle, but no such file type actually exists. We want a real, first-class single-file format.
+
+Scope:
+- Define a 'io.schwa.phosphor' UTType (extension '.phosphor') in Info.plist, conforming to public.text / public.source-code as appropriate.
+- Add a FileDocument (or extend PhosphorMetalDocument) that reads/writes '.phosphor' files.
+- Register it in readableContentTypes and the New Document menu (PhosphorApp / SplashScene).
+- Decide relationship to '.metal': is '.phosphor' just a renamed '.metal' with front-matter required, or a superset? Document the decision.
+- Update PhosphorKit's PhosphorView loader once the canonical extension is settled.
+
+Open questions:
+- One UTType or keep '.metal' and add '.phosphor' as an alias?
+- Should existing '.metal' docs be migratable/openable as '.phosphor'?
+
+---
