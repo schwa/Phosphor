@@ -95,16 +95,15 @@ struct ShaderEditorView: View {
                 onTextChange: onTextChange,
                 logIdentity: logIdentity,
                 conversation: conversation,
-                selection: $inspectorTab,
-                onGeneratingChange: { generating in
-                    // Keep the inspector + Generate tab visible while a
-                    // generation is in flight so progress is obvious.
-                    if generating {
-                        inspectorTab = .generate
-                        showInspector = true
-                    }
+                selection: $inspectorTab
+            ) { generating in
+                // Keep the inspector + Generate tab visible while a
+                // generation is in flight so progress is obvious.
+                if generating {
+                    inspectorTab = .generate
+                    showInspector = true
                 }
-            )
+            }
             .inspectorColumnWidth(min: 360, ideal: 480, max: 900)
         }
     }

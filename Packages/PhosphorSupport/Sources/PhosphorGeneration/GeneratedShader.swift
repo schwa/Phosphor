@@ -1,7 +1,7 @@
 import Foundation
-import PhosphorModel
-import PhosphorCompile
 import FoundationModels
+import PhosphorCompile
+import PhosphorModel
 
 /// Schema the Foundation Model produces when the user asks for a generated
 /// shader. Flattened (no enums-with-payload) so `@Generable` can describe it

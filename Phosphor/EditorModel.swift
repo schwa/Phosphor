@@ -1,8 +1,8 @@
 import MetalSprocketsUI
 import Observation
-import PhosphorModel
 import PhosphorCompile
 import PhosphorGeneration
+import PhosphorModel
 import PhosphorRuntime
 
 /// Per-document editor session state.

@@ -1,7 +1,7 @@
 import Foundation
-import PhosphorModel
 import Metal
 @testable import PhosphorGeneration
+import PhosphorModel
 import Testing
 
 /// Scripted ``LanguageModelPort`` for testing the generator flow with no
@@ -18,7 +18,7 @@ private final class FakeLanguageModel: LanguageModelPort, @unchecked Sendable {
         self.replies = replies
     }
 
-    func respond(to prompt: String) async throws -> GeneratedShader {
+    func respond(to prompt: String) throws -> GeneratedShader {
         prompts.append(prompt)
         defer { index += 1 }
         guard index < replies.count else {
@@ -30,7 +30,7 @@ private final class FakeLanguageModel: LanguageModelPort, @unchecked Sendable {
     var plannedApproach: PlannedApproach?
     private(set) var planPrompts: [String] = []
 
-    func respondPlan(to prompt: String) async throws -> PlannedApproach {
+    func respondPlan(to prompt: String) throws -> PlannedApproach {
         planPrompts.append(prompt)
         guard let plannedApproach else {
             throw ShaderGeneratorError.malformedResponse(model: displayName, underlying: "no scripted plan")
@@ -54,7 +54,7 @@ private final class ThrowFirstLanguageModel: LanguageModelPort, @unchecked Senda
         self.replies = replies
     }
 
-    func respond(to prompt: String) async throws -> GeneratedShader {
+    func respond(to prompt: String) throws -> GeneratedShader {
         prompts.append(prompt)
         defer { index += 1 }
         if index == 0 { throw firstError }
@@ -64,7 +64,7 @@ private final class ThrowFirstLanguageModel: LanguageModelPort, @unchecked Senda
         return replies[index - 1]
     }
 
-    func respondPlan(to _: String) async throws -> PlannedApproach {
+    func respondPlan(to _: String) throws -> PlannedApproach {
         throw ShaderGeneratorError.malformedResponse(model: displayName, underlying: "no scripted plan")
     }
 }

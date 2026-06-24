@@ -1,8 +1,8 @@
 import Foundation
-import PhosphorModel
-import PhosphorCompile
 import Metal
 import os
+import PhosphorCompile
+import PhosphorModel
 
 /// Which language model backend to use for a generation request.
 ///

@@ -1,6 +1,6 @@
-import PhosphorModel
 import PhosphorCompile
 import PhosphorGeneration
+import PhosphorModel
 import PhosphorRuntime
 import SwiftUI
 
