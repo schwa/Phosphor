@@ -288,14 +288,16 @@ private struct ConversationRow: View {
         if isError { return true }
         switch name {
         case "compileShader": return result.contains("failed")
-        case "readConfiguration": return true
+        case "readConfiguration", "read": return true
         default: return false
         }
     }
 
     private func icon(for name: String) -> String {
         switch name {
-        case "editMetal": return "pencil"
+        case "read": return "doc.text"
+        case "write": return "square.and.pencil"
+        case "edit": return "pencil"
         case "writeConfiguration": return "slider.horizontal.3"
         case "readConfiguration": return "doc.text.magnifyingglass"
         case "compileShader": return "hammer"

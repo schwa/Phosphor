@@ -241,11 +241,15 @@ final class ConversationStore {
     /// A short, human-readable argument summary for a tool-call row.
     private static func summary(for use: ToolUse) -> String {
         switch use.name {
-        case "editMetal":
+        case "read": return "reading the source"
+
+        case "write": return "rewriting the source"
+
+        case "edit":
             if case .object(let fields) = use.input, case .string(let old)? = fields["oldText"] {
                 return "replacing “\(old.prefix(40))…”"
             }
-            return "editing body"
+            return "editing the source"
 
         case "writeConfiguration": return "updating configuration"
 

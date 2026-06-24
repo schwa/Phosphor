@@ -85,17 +85,26 @@ public final class ConversationalGenerator: Sendable {
     private static let toolLoopGuidance = """
     WORKING WITH TOOLS
 
-    You are collaborating on a single live `.metal` document. Use the tools:
-    - `readConfiguration` to inspect the structured front-matter (textures, \
-    passes, uniforms, output).
-    - `writeConfiguration` to replace that configuration when the structure \
-    changes (rare — usually it stays the same).
-    - `editMetal` to make exact, unique edits to the kernel body.
-    - `compileShader` to compile and read back any errors.
+    You are collaborating on a single live `.metal` document. It has a
+    `/* phosphor:environment ... */` front-matter comment followed by the kernel
+    body. There are two ways to edit it:
 
-    Loop: edit the body and/or configuration, then call `compileShader` and fix \
-    any reported errors before you finish. Do not claim success until \
-    `compileShader` reports it compiles cleanly. Output ONLY MSL in the body; \
-    never include TOML front-matter or `#include` directives in an `editMetal`.
+    1. Whole-file tools — your DEFAULT surface, just like editing a normal file:
+       - `read`  — read the ENTIRE current source (front-matter + body).
+       - `write` — overwrite the entire file (creating from scratch / big rewrites).
+       - `edit`  — replace an exact, unique span anywhere in the file.
+    2. Configuration tools — specialists for JUST the structured front-matter:
+       - `readConfiguration`  — read the config (textures, passes, uniforms, output).
+       - `writeConfiguration` — replace the config as a structured object.
+       Prefer these when changing the configuration; you MAY instead edit the
+       front-matter text directly with `edit`, but the structured tools are safer.
+
+    Plus `compileShader` to compile and read back errors.
+
+    ALWAYS call `read` before your first `edit` so you know the exact current
+    text — never guess at `oldText`. Loop: read, edit (or write), then
+    `compileShader` and fix any reported errors. Do not claim success until
+    `compileShader` reports it compiles cleanly. Never write `#include`
+    directives.
     """
 }

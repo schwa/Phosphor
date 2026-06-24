@@ -8,18 +8,92 @@ import Metal
 import PhosphorCompile
 import PhosphorModel
 
-// The conversational shader tools. Each is a small ``CollaborationKit/Tool``
-// over the shared ``MetalSourceDocument``. Together they give the model the
-// same primitives a human editor has: edit the Metal body, read/write the
-// structured front-matter configuration, and compile to check its work. The
-// model converges by editing and compiling, not by re-emitting the whole file.
+// The conversational shader tools, in two distinct surfaces:
+//
+// 1. Whole-file `read` / `write` / `edit` over the entire `.metal` source —
+//    front-matter comment included — exactly as a human edits the file. This
+//    is the default surface for most work.
+// 2. `readConfiguration` / `writeConfiguration` — specialist tools that view
+//    JUST the front-matter as a structured object. Preferred when changing
+//    config, but the model CAN also touch config via the whole-file tools.
+//
+// Plus `compileShader` to check the result. The model converges by editing and
+// compiling, not by re-emitting the whole file.
 
-// MARK: - editMetal
+// MARK: - read (whole file)
 
-/// Replaces an exact, unique span of text in the Metal **body** (the source
-/// with the front-matter block stripped). A near-verbatim port of
-/// CollaborationKit's `EditTool`, scoped to the body so edits never corrupt the
-/// structured front-matter — that's what ``WriteConfigurationTool`` is for.
+/// Returns the entire current `.metal` source — front-matter comment and kernel
+/// body — so the model can see exactly what it's editing. Call this before
+/// editing if the current contents are unknown.
+public struct ReadMetalTool: Tool {
+    public struct Input: Decodable, Sendable {
+        public init() {}
+    }
+
+    private let document: TextDocument
+
+    public init(document: TextDocument) {
+        self.document = document
+    }
+
+    public var name: String { "read" }
+    public var description: String {
+        "Read the entire current .metal source (front-matter comment and kernel body). Call this before editing if you don't know the current contents."
+    }
+    public var inputSchema: JSONValue {
+        .object(["type": "object", "properties": .object([:])])
+    }
+
+    public func call(_ input: Input) async throws -> String {
+        try readSource(document)
+    }
+}
+
+// MARK: - write (whole file)
+
+/// Overwrites the entire `.metal` source with new content. Use for creating
+/// content from scratch or a wholesale rewrite; prefer `edit` for surgical
+/// changes.
+public struct WriteMetalTool: Tool {
+    public struct Input: Decodable, Sendable {
+        public let content: String
+    }
+
+    private let document: TextDocument
+
+    public init(document: TextDocument) {
+        self.document = document
+    }
+
+    public var name: String { "write" }
+    public var description: String {
+        "Overwrite the entire .metal source with new content. Provide the complete file, including the /* phosphor:environment ... */ front-matter and the kernel body. Prefer `edit` for small changes."
+    }
+    public var inputSchema: JSONValue {
+        .object([
+            "type": "object",
+            "properties": .object([
+                "content": .object([
+                    "type": "string",
+                    "description": "The complete new .metal source."
+                ])
+            ]),
+            "required": .array(["content"])
+        ])
+    }
+
+    public func call(_ input: Input) async throws -> String {
+        try writeSource(document, input.content)
+        return "Wrote \(input.content.count) characters."
+    }
+}
+
+// MARK: - edit (whole file)
+
+/// Replaces an exact, unique span of text anywhere in the `.metal` source
+/// (front-matter or body). A near-verbatim port of CollaborationKit's
+/// `EditTool` — the model's main surgical-edit surface, just like editing a
+/// normal file.
 public struct EditMetalTool: Tool {
     public struct Input: Decodable, Sendable {
         public let oldText: String
@@ -32,14 +106,15 @@ public struct EditMetalTool: Tool {
         self.document = document
     }
 
-    public var name: String { "editMetal" }
+    public var name: String { "edit" }
     public var description: String {
         """
-        Replace an exact, unique span of text in the Metal shader body (the \
-        kernel source below the front-matter). `oldText` must match exactly \
-        once; include enough surrounding context to make it unique. Do NOT edit \
-        the `/* phosphor:environment ... */` front-matter with this tool — use \
-        writeConfiguration for that.
+        Replace an exact, unique span of text anywhere in the .metal source \
+        (front-matter comment or kernel body). `oldText` must match exactly \
+        once; include enough surrounding context to make it unique. Use `read` \
+        first if you don't know the current contents, or `write` to create \
+        content in an empty file. To change the structured configuration you \
+        may also use writeConfiguration.
         """
     }
     public var inputSchema: JSONValue {
@@ -48,7 +123,7 @@ public struct EditMetalTool: Tool {
             "properties": .object([
                 "oldText": .object([
                     "type": "string",
-                    "description": "The exact body text to replace. Must be unique in the body."
+                    "description": "The exact text to replace. Must be unique in the file."
                 ]),
                 "newText": .object([
                     "type": "string",
@@ -61,22 +136,19 @@ public struct EditMetalTool: Tool {
 
     public func call(_ input: Input) async throws -> String {
         let source = try readSource(document)
-        let parsed = ParsedPhosphorSource(source: source)
-        let body = parsed.body
 
-        let occurrences = body.components(separatedBy: input.oldText).count - 1
+        let occurrences = source.components(separatedBy: input.oldText).count - 1
         switch occurrences {
         case 0:
-            throw ToolError("`oldText` was not found in the shader body.")
+            throw ToolError("`oldText` was not found in the source. Call `read` to see the current contents.")
 
         case 1:
-            let updatedBody = body.replacingOccurrences(of: input.oldText, with: input.newText)
-            let updatedSource = source.replacingOccurrences(of: body, with: updatedBody)
-            try writeSource(document, updatedSource)
+            let updated = source.replacingOccurrences(of: input.oldText, with: input.newText)
+            try writeSource(document, updated)
             return "Edit applied."
 
         default:
-            throw ToolError("`oldText` matched \(occurrences) times in the body; it must be unique. Add surrounding context.")
+            throw ToolError("`oldText` matched \(occurrences) times; it must be unique. Add surrounding context.")
         }
     }
 }
@@ -242,11 +314,11 @@ public struct CompileShaderTool: Tool {
 // MARK: - Tool set
 
 extension Array where Element == AnyTool {
-    /// The conversational shader tool set over one document: edit the body,
-    /// read/write the configuration, and compile to check.
+    /// The conversational shader tool set over one document: whole-file
+    /// read/write/edit, the specialist read/write configuration tools, and
+    /// compile to check.
     public static func shaderTools(for document: TextDocument, device: MTLDevice) -> [AnyTool] {
-        [
-            EditMetalTool(document: document).eraseToAnyTool(),
+        fileTools(for: document) + [
             ReadConfigurationTool(document: document).eraseToAnyTool(),
             WriteConfigurationTool(document: document).eraseToAnyTool(),
             CompileShaderTool(document: document, device: device).eraseToAnyTool()
@@ -255,11 +327,19 @@ extension Array where Element == AnyTool {
 
     /// Tool set with an injected compile check, for tests without a device.
     public static func shaderTools(for document: TextDocument, compileCheck: @escaping CompileShaderTool.CompileCheck) -> [AnyTool] {
-        [
-            EditMetalTool(document: document).eraseToAnyTool(),
+        fileTools(for: document) + [
             ReadConfigurationTool(document: document).eraseToAnyTool(),
             WriteConfigurationTool(document: document).eraseToAnyTool(),
             CompileShaderTool(document: document, compileCheck: compileCheck).eraseToAnyTool()
+        ]
+    }
+
+    /// The whole-file read/write/edit tools — the default editing surface.
+    private static func fileTools(for document: TextDocument) -> [AnyTool] {
+        [
+            ReadMetalTool(document: document).eraseToAnyTool(),
+            WriteMetalTool(document: document).eraseToAnyTool(),
+            EditMetalTool(document: document).eraseToAnyTool()
         ]
     }
 }

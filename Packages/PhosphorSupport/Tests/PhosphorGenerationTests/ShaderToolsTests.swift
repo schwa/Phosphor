@@ -25,7 +25,30 @@ private func makeDocument(_ source: String = sampleSource) -> MetalSourceDocumen
     MetalSourceDocument(inMemory: source)
 }
 
-// MARK: - editMetal
+// MARK: - read / write / edit (whole file)
+
+@Suite("ReadMetalTool")
+struct ReadMetalToolTests {
+    @Test("returns the entire source, front-matter included")
+    func returnsWholeFile() async throws {
+        let doc = makeDocument()
+        let result = try await ReadMetalTool(document: doc).call(.init())
+        #expect(result == sampleSource)
+        #expect(result.contains("/* phosphor:environment"))
+        #expect(result.contains("kernel void image()"))
+    }
+}
+
+@Suite("WriteMetalTool")
+struct WriteMetalToolTests {
+    @Test("overwrites the entire file")
+    func overwrites() async throws {
+        let doc = makeDocument()
+        let result = try await WriteMetalTool(document: doc).call(.init(content: "new contents"))
+        #expect(result.hasPrefix("Wrote"))
+        #expect(try doc.read() == "new contents")
+    }
+}
 
 @Suite("EditMetalTool")
 struct EditMetalToolTests {
@@ -37,12 +60,19 @@ struct EditMetalToolTests {
         #expect(result == "Edit applied.")
         let updated = try doc.read()
         #expect(updated.contains("float4(0.0, 1.0, 0.0, 1.0)"))
-        // Front-matter is untouched.
         #expect(updated.contains("/* phosphor:environment"))
-        #expect(updated.contains("output = \"image\""))
     }
 
-    @Test("rejects text not found in the body")
+    @Test("can edit the front-matter too (whole-file)")
+    func editsFrontMatter() async throws {
+        let doc = makeDocument()
+        let tool = EditMetalTool(document: doc)
+        let result = try await tool.call(.init(oldText: "output = \"image\"", newText: "output = \"image\"\nflipY = true"))
+        #expect(result == "Edit applied.")
+        #expect(try doc.read().contains("flipY = true"))
+    }
+
+    @Test("rejects text not found anywhere in the file")
     func rejectsNotFound() async throws {
         let doc = makeDocument()
         let tool = EditMetalTool(document: doc)
@@ -57,16 +87,6 @@ struct EditMetalToolTests {
         let tool = EditMetalTool(document: doc)
         await #expect(throws: ToolError.self) {
             try await tool.call(.init(oldText: "float ", newText: "half "))
-        }
-    }
-
-    @Test("does not match text inside the front-matter")
-    func ignoresFrontMatter() async throws {
-        let doc = makeDocument()
-        let tool = EditMetalTool(document: doc)
-        // "output" only appears in the front-matter; editing the body must not find it.
-        await #expect(throws: ToolError.self) {
-            try await tool.call(.init(oldText: "output = \"image\"", newText: "output = \"other\""))
         }
     }
 }

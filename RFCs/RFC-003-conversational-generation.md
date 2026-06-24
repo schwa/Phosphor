@@ -100,21 +100,32 @@ every model edit is a single undo step, exactly like a one-shot generation.
 All four tools below operate on this one document; there is no separate copy
 for the model to drift from.
 
-### The four tools
+### Two editing surfaces
+
+The tools split into two distinct surfaces, matching how a human works:
 
 | Tool | Mirrors | Operates on | Result to model |
 |---|---|---|---|
-| `editMetal` | CollaborationKit `EditTool` | Metal body | "Edit applied" / not-found / not-unique |
-| `readConfiguration` | — | front-matter | structured config (TOML/JSON) |
-| `writeConfiguration` | — | front-matter | re-emitted front-matter + diagnostics |
+| `read` | CollaborationKit `ReadTool` | whole `.metal` file | full source text |
+| `write` | CollaborationKit `WriteTool` | whole `.metal` file | "Wrote N characters." |
+| `edit` | CollaborationKit `EditTool` | whole `.metal` file | "Edit applied" / not-found / not-unique |
+| `readConfiguration` | — | front-matter only | structured config (JSON) |
+| `writeConfiguration` | — | front-matter only | re-emitted front-matter + diagnostics |
 | `compileShader` | — | whole source | compile diagnostics / "compiles cleanly" |
 
-**`editMetal`** — a near-verbatim port of CollaborationKit's `EditTool`: exact,
-unique `oldText` → `newText` replacement, rejected if `oldText` is missing or
-non-unique so the model adds context. Scoped to the Metal **body** (the source
-with front-matter stripped, per `ParsedPhosphorSource.body`), so edits never
-corrupt the structured block. This is the "edit the file like the sample file
-tool" primitive — the model's main lever for iterating on kernel logic.
+**Whole-file `read` / `write` / `edit`** — the default surface, a near-verbatim
+port of CollaborationKit's file tools, operating on the **entire** `.metal`
+source (front-matter comment *and* body) exactly as the user edits the file.
+`edit` is exact-unique `oldText` → `newText`, rejected if missing or non-unique.
+The model must `read` before editing so it never guesses at `oldText` — this was
+a real bug when there was no read tool: the model edited blind and corrupted the
+source.
+
+**Configuration specialists** — `readConfiguration` / `writeConfiguration` view
+*just* the front-matter as a structured object. Preferred when changing the
+configuration (they re-emit valid TOML), but the model *may* also edit the
+front-matter text directly with the whole-file `edit`. Two ways; config-specific
+work should use the specialist but isn't forced to.
 
 **`readConfiguration` / `writeConfiguration`** — the front-matter is
 *structured*, not free text, so it gets typed tools instead of `editMetal`.
