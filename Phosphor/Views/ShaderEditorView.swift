@@ -125,6 +125,21 @@ struct ShaderEditorView: View {
             .help("Choose editor layout")
         }
         ToolbarItem(placement: .navigation) {
+            Button {
+                showHeader.toggle()
+            } label: {
+                Label("Phosphor.h", systemImage: "doc.text.magnifyingglass")
+            }
+            .help("View the generated Phosphor.h prelude")
+            .popover(isPresented: $showHeader, arrowEdge: .top) {
+                ScrollView([.horizontal, .vertical]) {
+                    MetalSourceView(text: PhosphorHeader.source(for: parsed.configuration))
+                        .padding(12)
+                }
+                .frame(minWidth: 480, minHeight: 360)
+            }
+        }
+        ToolbarItem(placement: .navigation) {
             ResourcePickerView(
                 configuration: parsed.configuration,
                 displayedResource: $model.displayedResource
@@ -179,21 +194,6 @@ struct ShaderEditorView: View {
             .help(audioCapture?.isPermissionDenied == true
                     ? "Microphone access was denied. Enable it in System Settings → Privacy & Security."
                     : "Enable microphone input for audio-reactive shaders")
-        }
-        ToolbarItem(placement: .automatic) {
-            Button {
-                showHeader.toggle()
-            } label: {
-                Label("Phosphor.h", systemImage: "doc.text.magnifyingglass")
-            }
-            .help("View the generated Phosphor.h prelude")
-            .popover(isPresented: $showHeader, arrowEdge: .top) {
-                ScrollView([.horizontal, .vertical]) {
-                    MetalSourceView(text: PhosphorHeader.source(for: parsed.configuration))
-                        .padding(12)
-                }
-                .frame(minWidth: 480, minHeight: 360)
-            }
         }
 
         // Primary actions, trailing.
