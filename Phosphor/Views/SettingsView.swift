@@ -5,12 +5,36 @@ import PhosphorModel
 import PhosphorRuntime
 import SwiftUI
 
-/// Top-level Settings scene content. Currently just one section: API keys
-/// for external model backends.
+/// Top-level Settings scene content. Currently just one pane: model provider
+/// configuration.
 struct SettingsView: View {
     var body: some View {
         ModelsSettingsView()
             .frame(width: 480, height: 440)
+    }
+}
+
+/// Supported model providers for shader generation. Only Anthropic is wired up
+/// today; OpenAI is a placeholder for an upcoming backend.
+enum ModelProvider: String, CaseIterable, Identifiable {
+    case anthropic
+    case openAI
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .anthropic: "Anthropic"
+        case .openAI: "OpenAI"
+        }
+    }
+
+    /// Whether the provider is implemented and selectable.
+    var isAvailable: Bool {
+        switch self {
+        case .anthropic: true
+        case .openAI: false
+        }
     }
 }
 
@@ -114,64 +138,99 @@ private struct AnthropicSubscriptionSection: View {
 
 /// Lets the user enter API keys for external Foundation Model backends.
 struct ModelsSettingsView: View {
+    @AppStorage("phosphor.modelProvider") private var provider: ModelProvider = .anthropic
+
+    var body: some View {
+        Form {
+            Section {
+                Picker("Provider", selection: $provider) {
+                    ForEach(ModelProvider.allCases) { provider in
+                        Text(provider.isAvailable ? provider.displayName : "\(provider.displayName) (coming soon)")
+                            .tag(provider)
+                            .disabled(!provider.isAvailable)
+                    }
+                }
+            } footer: {
+                Text("Choose which provider powers shader generation.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            switch provider {
+            case .anthropic:
+                AnthropicProviderSection()
+
+            case .openAI:
+                OpenAIProviderSection()
+            }
+        }
+        .formStyle(.grouped)
+        .onChange(of: provider) { _, newValue in
+            // Don't let the user land on an unimplemented provider.
+            if !newValue.isAvailable { provider = .anthropic }
+        }
+    }
+}
+
+/// Anthropic credentials: an API key and/or a Claude subscription login.
+private struct AnthropicProviderSection: View {
     @Environment(CredentialsModel.self) private var credentials
     @State private var anthropicKey: String = ""
     @State private var savedFlash: Bool = false
     @State private var readError: String?
 
     var body: some View {
-        Form {
-            Section {
-                SecureField("Anthropic API key", text: $anthropicKey)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit(save)
+        Section {
+            SecureField("Anthropic API key", text: $anthropicKey)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit(save)
+                .onAppear(perform: loadKey)
 
-                HStack {
-                    Button("Save", action: save)
-                        .keyboardShortcut(.defaultAction)
-                    Button("Clear") {
-                        anthropicKey = ""
-                        save()
-                    }
-                    if savedFlash {
-                        Text("Saved")
-                            .foregroundStyle(.secondary)
-                            .font(.callout)
-                    }
-                    if let readError {
-                        Text(readError)
-                            .foregroundStyle(.red)
-                            .font(.callout)
-                    }
-                    Spacer()
+            HStack {
+                Button("Save", action: save)
+                    .keyboardShortcut(.defaultAction)
+                Button("Clear") {
+                    anthropicKey = ""
+                    save()
                 }
-            } header: {
-                Text("Anthropic API Key")
-            } footer: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Link("Get an API key from the Claude Console", destination: URL(string: "https://platform.claude.com/settings/workspaces/default/keys")!)
-                    Text("A subscription login (below) is used in preference to this key when present.")
+                if savedFlash {
+                    Text("Saved")
                         .foregroundStyle(.secondary)
+                        .font(.callout)
                 }
-                .font(.callout)
+                if let readError {
+                    Text(readError)
+                        .foregroundStyle(.red)
+                        .font(.callout)
+                }
+                Spacer()
             }
-
-            AnthropicSubscriptionSection()
+        } header: {
+            Text("Anthropic API Key")
+        } footer: {
+            VStack(alignment: .leading, spacing: 4) {
+                Link("Get an API key from the Claude Console", destination: URL(string: "https://platform.claude.com/settings/workspaces/default/keys")!)
+                Text("A subscription login (below) is used in preference to this key when present.")
+                    .foregroundStyle(.secondary)
+            }
+            .font(.callout)
         }
-        .formStyle(.grouped)
-        .onAppear {
-            switch KeychainStore.readResult(account: KeychainAccount.anthropicAPIKey) {
-            case .found(let value):
-                anthropicKey = value
 
-            case .notFound:
-                anthropicKey = ""
+        AnthropicSubscriptionSection()
+    }
 
-            case .failed(let status):
-                // Don't clobber the field (or let the user think the key is
-                // gone) on a transient keychain read failure.
-                readError = "Couldn't read the saved key (status \(status)). Try reopening Settings."
-            }
+    private func loadKey() {
+        switch KeychainStore.readResult(account: KeychainAccount.anthropicAPIKey) {
+        case .found(let value):
+            anthropicKey = value
+
+        case .notFound:
+            anthropicKey = ""
+
+        case .failed(let status):
+            // Don't clobber the field (or let the user think the key is gone)
+            // on a transient keychain read failure.
+            readError = "Couldn't read the saved key (status \(status)). Try reopening Settings."
         }
     }
 
@@ -182,6 +241,16 @@ struct ModelsSettingsView: View {
         Task {
             try? await Task.sleep(for: .seconds(2))
             await MainActor.run { savedFlash = false }
+        }
+    }
+}
+
+/// Placeholder for the upcoming OpenAI backend.
+private struct OpenAIProviderSection: View {
+    var body: some View {
+        Section("OpenAI") {
+            Label("OpenAI support is coming soon.", systemImage: "clock")
+                .foregroundStyle(.secondary)
         }
     }
 }
