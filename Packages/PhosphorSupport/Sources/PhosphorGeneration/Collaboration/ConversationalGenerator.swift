@@ -17,6 +17,10 @@ import Metal
 public final class ConversationalGenerator: Sendable {
     private let session: LLMSession
 
+    /// The system prompt the session was configured with, for diagnostics /
+    /// export.
+    public let instructions: String
+
     /// A stream of session events: streamed assistant text, tool calls, tool
     /// results, token usage, and turn completion.
     public var events: AsyncStream<SessionEvent> { session.events }
@@ -31,6 +35,7 @@ public final class ConversationalGenerator: Sendable {
     ///   - instructions: System prompt (defaults to the full generator
     ///     instructions plus the helper interface).
     public init(provider: ModelProvider, document: TextDocument, device: MTLDevice, instructions: String = ConversationalGenerator.defaultInstructions) {
+        self.instructions = instructions
         self.session = LLMSession(
             provider: provider,
             system: instructions,
@@ -41,6 +46,7 @@ public final class ConversationalGenerator: Sendable {
     /// Creates a generator with an injected compile check, for tests without a
     /// Metal device.
     public init(provider: ModelProvider, document: TextDocument, compileCheck: @escaping CompileShaderTool.CompileCheck, instructions: String = ConversationalGenerator.defaultInstructions) {
+        self.instructions = instructions
         self.session = LLMSession(
             provider: provider,
             system: instructions,

@@ -109,6 +109,24 @@ final class ConversationStore {
         await generator?.messages ?? []
     }
 
+    /// Builds a complete, debuggable snapshot of the session: the full raw
+    /// transcript, system prompt, model, usage, current source, and the live UI
+    /// transcript. Safe to call with no session yet (exports what's available).
+    func buildExport() async -> ConversationExport {
+        let messages = await generator?.messages ?? []
+        let liveUsage = await generator?.totalUsage ?? usage
+        return ConversationExport(
+            exportedAt: Date(),
+            model: ConversationProvider.model.id,
+            instructions: generator?.instructions ?? ConversationalGenerator.defaultInstructions,
+            usage: .init(liveUsage),
+            lastError: lastError,
+            currentSource: readSource(),
+            messages: messages.map(ConversationExport.MessageDTO.init),
+            uiTranscript: items.map(ConversationExport.UIItemDTO.init)
+        )
+    }
+
     // MARK: - Generator + event pump
 
     private func ensureGenerator() throws -> ConversationalGenerator {

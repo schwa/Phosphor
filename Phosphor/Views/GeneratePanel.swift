@@ -4,6 +4,7 @@ import PhosphorGeneration
 import PhosphorModel
 import PhosphorRuntime
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Streaming, conversational generation panel hosted in the inspector's
 /// "Generate" tab.
@@ -29,6 +30,8 @@ struct GeneratePanel: View {
 
     @State private var store: ConversationStore?
     @State private var prompt: String = ""
+    @State private var exportItem: ConversationExport?
+    @State private var showExporter = false
     /// Cached Keychain check. The Keychain read is expensive and was being run
     /// on every body pass; refresh it on appear and after a Settings change.
     @State private var hasAPIKey: Bool = false
@@ -156,6 +159,14 @@ struct GeneratePanel: View {
                         .foregroundStyle(.tertiary)
                         .labelStyle(.titleAndIcon)
                 }
+
+                Button("Export Debug Info", systemImage: "ladybug") {
+                    exportDebugInfo()
+                }
+                .labelStyle(.iconOnly)
+                .help("Export the full session (raw transcript, system prompt, tool calls/results, usage, current source) as JSON for debugging.")
+                .disabled(isGenerating)
+
                 Spacer()
                 Button {
                     submit()
@@ -172,6 +183,26 @@ struct GeneratePanel: View {
         }
         .padding(12)
         .background(.background.secondary)
+        .fileExporter(
+            isPresented: $showExporter,
+            item: exportItem,
+            defaultFilename: "Phosphor-Session-\(Self.timestamp())"
+        ) { _ in }
+    }
+
+    private func exportDebugInfo() {
+        ensureStore()
+        Task {
+            guard let store else { return }
+            exportItem = await store.buildExport()
+            showExporter = true
+        }
+    }
+
+    private static func timestamp() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
+        return formatter.string(from: Date())
     }
 
     private var isGenerating: Bool { store?.isGenerating ?? false }
