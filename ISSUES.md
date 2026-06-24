@@ -3917,3 +3917,32 @@ created: 2026-06-24T23:21:22Z
 The Generate chat transcript (GeneratePanel.swift) still fails to scroll to the bottom when new content streams in. Existing onChange hooks on items.count, isGenerating, and lastItemContentLength call scrollToEnd, but the view stays pinned above the newest content. Likely the proxy.scrollTo fires before the freshly-appended/grown row is laid out in the List.
 
 ---
+
+## 116: Add OpenAI as a model provider for shader generation
+
++++
+status: new
+priority: medium
+kind: feature
+labels: effort:l, generation
+created: 2026-06-24T23:41:37Z
++++
+
+Implement OpenAI as a selectable generation backend alongside Anthropic. The Settings UI already has a Provider picker (ModelProvider enum in Phosphor/Views/SettingsView.swift) with OpenAI present but disabled ('coming soon'); make it real.
+
+Scope:
+- ModelProvider.openAI.isAvailable -> true once wired up.
+- Add an OpenAI credentials section (API key field -> Keychain, with a link to the OpenAI API keys page). Mirror the Anthropic API-key section.
+- Implement a LanguageModelPort/provider conformance backed by OpenAI (chat completions / responses API) with reliable tool calling for the agentic edit loop (see ConversationProvider / CollaborationKit's AnthropicProvider for the pattern).
+- Route generation through the selected provider (phosphor.modelProvider AppStorage) instead of hardcoding Anthropic in ConversationProvider.make().
+- Extend CredentialsModel.hasCredentials to consider the active provider's credentials.
+- Model selection: which OpenAI model(s) to expose, default, max tokens.
+
+Open questions:
+- Does the conversational/agentic tool loop need a specific OpenAI model tier for reliable tool calls?
+- Per-provider model picker, or just a sensible default per provider?
+- OAuth/subscription equivalent, or API key only for OpenAI?
+
+Relates to the provider-picker work and #108 (real AI backend).
+
+---
