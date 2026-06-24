@@ -128,15 +128,24 @@ struct GeneratePanel: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            promptField
+        }
+        .padding(12)
+        .background(.background.secondary)
+        .fileExporter(
+            isPresented: $showExporter,
+            item: exportItem,
+            defaultFilename: "Phosphor-Session-\(Self.timestamp())"
+        ) { _ in }
+    }
+
+    /// The prompt input and its inline action buttons, wrapped in an
+    /// Xcode-style glowing multicolor border that brightens on focus.
+    private var promptField: some View {
+        VStack(alignment: .leading, spacing: 6) {
             TextField("Describe a shader or a change…", text: $prompt, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(5...10)
-                .padding(8)
-                .background(.background, in: .rect(cornerRadius: 8))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(.separator, lineWidth: 1)
-                }
                 .foregroundStyle(.primary)
                 .disabled(isGenerating)
                 .focused($promptFocused)
@@ -164,6 +173,7 @@ struct GeneratePanel: View {
                     exportDebugInfo()
                 }
                 .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
                 .help("Export the full session (raw transcript, system prompt, tool calls/results, usage, current source) as JSON for debugging.")
 
                 Spacer()
@@ -172,23 +182,22 @@ struct GeneratePanel: View {
                         store?.stop()
                     }
                     .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
                     .help("Stop the current generation.")
                 } else {
-                    Button("Send", systemImage: "paperplane") {
+                    Button("Send", systemImage: "arrow.up") {
                         submit()
                     }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderedProminent)
+                    .clipShape(.circle)
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canSubmit)
                 }
             }
         }
         .padding(12)
-        .background(.background.secondary)
-        .fileExporter(
-            isPresented: $showExporter,
-            item: exportItem,
-            defaultFilename: "Phosphor-Session-\(Self.timestamp())"
-        ) { _ in }
+        .glowingPromptBorder(cornerRadius: 16, active: promptFocused)
     }
 
     private func exportDebugInfo() {
