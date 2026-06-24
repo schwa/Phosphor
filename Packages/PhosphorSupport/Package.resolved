@@ -1,6 +1,15 @@
 {
-  "originHash" : "f64a9ab62fcc7eb3f4418c72f4a456bef6e7c2cdc9ac0d667d1d84c925d8fe57",
+  "originHash" : "245c47ba11240abfe0cb6195b5938037752738775a31f0df7982e4c29e095018",
   "pins" : [
+    {
+      "identity" : "collaborationkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/schwa/CollaborationKit.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "72b8cd575cf32105be5c60a86092d7d545fdf6cf"
+      }
+    },
     {
       "identity" : "foundationmodelbackends",
       "kind" : "remoteSourceControl",
@@ -62,6 +71,15 @@
       "state" : {
         "revision" : "4546c33a93435d7fce1f172fcc77fd1371a6a927",
         "version" : "1.0.3"
+      }
+    },
+    {
+      "identity" : "phosphorkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/schwa/PhosphorKit",
+      "state" : {
+        "branch" : "main",
+        "revision" : "005adb1fccb93558eb59702d48df8e9778934ce3"
       }
     },
     {

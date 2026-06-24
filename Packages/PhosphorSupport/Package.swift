@@ -10,64 +10,22 @@ let package = Package(
         .visionOS(.v27)
     ],
     products: [
-        .library(name: "PhosphorModel", targets: ["PhosphorModel"]),
-        .library(name: "PhosphorCompile", targets: ["PhosphorCompile"]),
-        .library(name: "PhosphorRuntime", targets: ["PhosphorRuntime"]),
         .library(name: "PhosphorGeneration", targets: ["PhosphorGeneration"])
     ],
     dependencies: [
-        .package(url: "https://github.com/schwa/MetalSprockets", from: "0.1.10"),
-        .package(url: "https://github.com/schwa/MetalSprocketsAddOns", from: "0.1.11"),
-        .package(url: "https://github.com/schwa/SwiftMesh", from: "0.0.3"),
-        .package(url: "https://github.com/LebJe/TOMLKit", from: "0.6.0"),
-        .package(url: "https://github.com/tree-sitter/swift-tree-sitter", from: "0.25.0"),
-        .package(url: "https://github.com/tree-sitter/tree-sitter-cpp", branch: "master"),
-        .package(url: "https://github.com/tree-sitter-grammars/tree-sitter-toml", branch: "master"),
+        // PhosphorKit owns the parse/compile/render targets (the single source
+        // of truth). PhosphorSupport now only adds AI generation on top.
+        .package(url: "https://github.com/schwa/PhosphorKit", branch: "main"),
         .package(url: "https://github.com/schwa/FoundationModelBackends.git", branch: "main"),
-        .package(path: "../../../CollaborationKit")
+        .package(url: "https://github.com/schwa/CollaborationKit.git", branch: "main")
     ],
     targets: [
-        // Leaf: core data model. No Metal, no external generation deps.
-        .target(
-            name: "PhosphorModel",
-            resources: [
-                .copy("Resources/BuiltinTextures"),
-                .copy("Resources/StarterTemplate.metal")
-            ]
-        ),
-        // Parsing, source assembly, and Metal compilation. Owns Phosphor.h.
-        .target(
-            name: "PhosphorCompile",
-            dependencies: [
-                "PhosphorModel",
-                .product(name: "TOMLKit", package: "TOMLKit"),
-                .product(name: "SwiftTreeSitter", package: "swift-tree-sitter"),
-                .product(name: "SwiftTreeSitterLayer", package: "swift-tree-sitter"),
-                .product(name: "TreeSitterCPP", package: "tree-sitter-cpp"),
-                .product(name: "TreeSitterTOML", package: "tree-sitter-toml")
-            ],
-            resources: [
-                .copy("Resources/Phosphor.h")
-            ]
-        ),
-        // Live rendering pipeline + audio capture.
-        .target(
-            name: "PhosphorRuntime",
-            dependencies: [
-                "PhosphorModel",
-                "PhosphorCompile",
-                .product(name: "MetalSprockets", package: "MetalSprockets"),
-                .product(name: "MetalSprocketsUI", package: "MetalSprockets"),
-                .product(name: "MetalSprocketsSupport", package: "MetalSprockets"),
-                .product(name: "MetalSprocketsAddOns", package: "MetalSprocketsAddOns")
-            ]
-        ),
-        // AI shader generation.
+        // AI shader generation, layered on top of PhosphorKit.
         .target(
             name: "PhosphorGeneration",
             dependencies: [
-                "PhosphorModel",
-                "PhosphorCompile",
+                .product(name: "PhosphorModel", package: "PhosphorKit"),
+                .product(name: "PhosphorCompile", package: "PhosphorKit"),
                 .product(name: "FoundationModelBackends", package: "FoundationModelBackends"),
                 .product(name: "CollaborationKit", package: "CollaborationKit")
             ],
@@ -76,24 +34,11 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "PhosphorModelTests",
-            dependencies: ["PhosphorModel"]
-        ),
-        .testTarget(
-            name: "PhosphorCompileTests",
-            dependencies: ["PhosphorModel", "PhosphorCompile"]
-        ),
-        .testTarget(
-            name: "PhosphorRuntimeTests",
-            dependencies: ["PhosphorModel", "PhosphorCompile", "PhosphorRuntime"],
-            resources: [
-                .copy("Resources")
-            ]
-        ),
-        .testTarget(
             name: "PhosphorGenerationTests",
             dependencies: [
-                "PhosphorModel", "PhosphorCompile", "PhosphorGeneration",
+                .product(name: "PhosphorModel", package: "PhosphorKit"),
+                .product(name: "PhosphorCompile", package: "PhosphorKit"),
+                "PhosphorGeneration",
                 .product(name: "CollaborationKit", package: "CollaborationKit")
             ]
         )

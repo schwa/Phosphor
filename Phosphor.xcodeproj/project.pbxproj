@@ -172,6 +172,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				4569B9FB2F6CC65200A54965 /* XCRemoteSwiftPackageReference "MetalSprockets" */,
+				45D0A1112F80000000000011 /* XCRemoteSwiftPackageReference "PhosphorKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 45C80D322E84475800136D6D /* Products */;
@@ -298,6 +299,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		45D0A1112F80000000000011 /* XCRemoteSwiftPackageReference "PhosphorKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/schwa/PhosphorKit";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 		4569B9FB2F6CC65200A54965 /* XCRemoteSwiftPackageReference "MetalSprockets" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/schwa/MetalSprockets";
@@ -326,14 +335,17 @@
 		};
 		45D0A1022F80000000000001 /* PhosphorModel */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 45D0A1112F80000000000011 /* XCRemoteSwiftPackageReference "PhosphorKit" */;
 			productName = PhosphorModel;
 		};
 		45D0A1052F80000000000002 /* PhosphorCompile */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 45D0A1112F80000000000011 /* XCRemoteSwiftPackageReference "PhosphorKit" */;
 			productName = PhosphorCompile;
 		};
 		45D0A1072F80000000000003 /* PhosphorRuntime */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 45D0A1112F80000000000011 /* XCRemoteSwiftPackageReference "PhosphorKit" */;
 			productName = PhosphorRuntime;
 		};
 		45D0A1092F80000000000004 /* PhosphorGeneration */ = {
