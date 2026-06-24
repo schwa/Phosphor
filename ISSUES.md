@@ -2529,15 +2529,18 @@ PhosphorPixelFormat currently only exposes rgba8Unorm, bgra8Unorm, rgba16Float, 
 ## 69: Rename files in the UI
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: effort:m
 created: 2026-06-21T05:12:29Z
-updated: 2026-06-22T15:40:16Z
+updated: 2026-06-24T22:32:48Z
+closed: 2026-06-24T22:32:48Z
 +++
 
 Add the ability to rename files (not directories) from the UI.
+
+- `2026-06-24T22:32:48Z`: Added inline rename for shaders and assets in the bundle sidebar. PhosphorBundleDocument gains renameShader/renameAsset (undoable, preserve content + selection, reject empty/duplicate/unchanged names). Sidebar rows become an editable TextField via context-menu 'Rename' or swipe action; Return/focus-loss commits, Escape cancels.
 
 ---
 

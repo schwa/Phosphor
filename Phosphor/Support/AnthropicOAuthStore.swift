@@ -15,7 +15,7 @@ enum AnthropicOAuthStore {
     }
 
     /// Loads the stored credentials, or `nil` if none / unreadable.
-    static func load() -> OAuthCredentials? {
+    nonisolated static func load() -> OAuthCredentials? {
         guard case .found(let json) = KeychainStore.readResult(account: KeychainAccount.anthropicOAuth),
               let data = json.data(using: .utf8),
               let credentials = try? JSONDecoder().decode(OAuthCredentials.self, from: data) else {
@@ -26,7 +26,7 @@ enum AnthropicOAuthStore {
 
     /// Saves credentials to the Keychain.
     @discardableResult
-    static func save(_ credentials: OAuthCredentials) -> Bool {
+    nonisolated static func save(_ credentials: OAuthCredentials) -> Bool {
         guard let data = try? JSONEncoder().encode(credentials),
               let json = String(data: data, encoding: .utf8) else {
             return false
@@ -41,9 +41,9 @@ enum AnthropicOAuthStore {
 
     /// A `@Sendable` access-token provider: returns a valid token, refreshing
     /// via the refresh token when expired and re-persisting to the Keychain.
-    static func tokenProvider() -> @Sendable () async throws -> String {
+    static func tokenProvider() -> @concurrent @Sendable () async throws -> String {
         let oauth = AnthropicOAuth()
-        return {
+        return { @concurrent in
             guard let credentials = load() else {
                 throw ConversationProvider.Failure.missingAPIKey
             }
