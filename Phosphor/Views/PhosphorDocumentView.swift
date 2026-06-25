@@ -39,5 +39,11 @@ struct PhosphorDocumentView: View {
         .environment(runtime)
         .onAppear { document.fileURL = fileURL }
         .onChange(of: fileURL) { _, newValue in document.fileURL = newValue }
+        #if os(macOS)
+        .focusedSceneValue(\.exportSwiftPackage, ExportSwiftPackageAction {
+            guard let json = try? SwiftPackageExporter.phosphorJSON(fromMetalText: document.text) else { return }
+            SwiftPackageExporter.export(phosphorJSON: json)
+        })
+        #endif
     }
 }

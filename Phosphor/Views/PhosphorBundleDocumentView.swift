@@ -80,6 +80,12 @@ struct PhosphorBundleDocumentView: View {
         .environment(runtime)
         .onAppear { document.fileURL = fileURL }
         .onChange(of: fileURL) { _, newValue in document.fileURL = newValue }
+        #if os(macOS)
+        .focusedSceneValue(\.exportSwiftPackage, ExportSwiftPackageAction {
+            guard let json = try? SwiftPackageExporter.phosphorJSON(fromMetalText: document.activeText) else { return }
+            SwiftPackageExporter.export(phosphorJSON: json)
+        })
+        #endif
     }
 
     /// Routes a dropped or imported file URL into either the shaders or

@@ -1,0 +1,33 @@
+{
+  "configuration" : {
+    "output" : "image",
+    "passes" : [
+      {
+        "enabled" : true,
+        "id" : "image",
+        "textures" : [
+          {
+            "access" : "write",
+            "id" : "image"
+          }
+        ]
+      }
+    ],
+    "textures" : [
+      {
+        "format" : "rgba32Float",
+        "id" : "image",
+        "init" : {
+          "kind" : "zero"
+        },
+        "size" : "drawable",
+        "swap" : "none"
+      }
+    ],
+    "uniforms" : [
+
+    ]
+  },
+  "source" : "\n\nuint2 gid [[thread_position_in_grid]];\n\nkernel void image(\n    device const Uniforms&     uniforms     [[buffer(0)]],\n    device const UserUniforms& userUniforms [[buffer(1)]])\n{\n    float2 res = uniforms.resolution;\n    float2 uv = float2(gid) / res;\n    float t = uniforms.time;\n    float3 col = 0.5 + 0.5 * cos(t + uv.xyx * 6.2831853 + float3(0.0, 2.0, 4.0));\n    uniforms.textures.image.write(float4(col, 1.0), gid);\n}",
+  "version" : 1
+}

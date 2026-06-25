@@ -4239,10 +4239,12 @@ Open question: is this worth doing at all? Park as a maybe. It does NOT block th
 ## 128: Export as Swift Package (template archive + file swap)
 
 +++
-status: new
+status: closed
 priority: medium
 kind: none
 created: 2026-06-25T19:32:41Z
+updated: 2026-06-25T20:01:58Z
+closed: 2026-06-25T20:01:58Z
 +++
 
 Add an "Export as Swift Package" action that emits a standalone, buildable Swift package wrapping the current shader — dogfooding the real integration contract (embed .phosphor + link PhosphorKit + PhosphorView(named:)), unlike the lossy SwiftUI Shader transpile (#127).
@@ -4268,5 +4270,7 @@ Scope decisions (this pass):
 Follow-ups (separate): rename package + preview + named: to the document's name;
 offer export-as-Xcode-project / Playground variants; build-time .metallib
 precompile so the exported package doesn't compile the shader at runtime.
+
+- `2026-06-25T20:01:58Z`: Implemented: template package (Templates/PhosphorShaderPackage) + just encode-template archives a clean copy to Phosphor/Resources/PhosphorShaderPackage.aar; File > Export as Swift Package expands it and swaps in the current document's .phosphor.
 
 ---
