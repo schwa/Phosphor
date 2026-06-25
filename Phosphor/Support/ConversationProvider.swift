@@ -89,7 +89,10 @@ enum ConversationProvider {
 
         case .openAI:
             let apiKey = try readKey(KeychainAccount.openAIAPIKey)
-            return OpenAIProvider(config: OpenAIConfig(apiKey: apiKey, model: openAIModel, maxTokens: 8_192))
+            // Disable parallel tool calls: gpt-4o otherwise issues multiple
+            // tool calls per turn, which breaks the read -> edit -> compile
+            // agentic loop (it would emit a blind edit alongside a config write).
+            return OpenAIProvider(config: OpenAIConfig(apiKey: apiKey, model: openAIModel, maxTokens: 8_192, parallelToolCalls: false))
         }
     }
 
