@@ -14,6 +14,7 @@
 		45D0A1042F80000000000002 /* PhosphorCompile in Frameworks */ = {isa = PBXBuildFile; productRef = 45D0A1052F80000000000002 /* PhosphorCompile */; };
 		45D0A1062F80000000000003 /* PhosphorRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 45D0A1072F80000000000003 /* PhosphorRuntime */; };
 		45D0A1082F80000000000004 /* PhosphorGeneration in Frameworks */ = {isa = PBXBuildFile; productRef = 45D0A1092F80000000000004 /* PhosphorGeneration */; };
+		45D0A10A2F80000000000005 /* PhosphorMetalSprockets in Frameworks */ = {isa = PBXBuildFile; productRef = 45D0A10B2F80000000000005 /* PhosphorMetalSprockets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -88,6 +89,7 @@
 				45D0A1042F80000000000002 /* PhosphorCompile in Frameworks */,
 				45D0A1062F80000000000003 /* PhosphorRuntime in Frameworks */,
 				45D0A1082F80000000000004 /* PhosphorGeneration in Frameworks */,
+				45D0A10A2F80000000000005 /* PhosphorMetalSprockets in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -141,6 +143,7 @@
 				45D0A1052F80000000000002 /* PhosphorCompile */,
 				45D0A1072F80000000000003 /* PhosphorRuntime */,
 				45D0A1092F80000000000004 /* PhosphorGeneration */,
+				45D0A10B2F80000000000005 /* PhosphorMetalSprockets */,
 			);
 			productName = Phosphor;
 			productReference = 45C80D312E84475800136D6D /* Phosphor.app */;
@@ -351,6 +354,10 @@
 		45D0A1092F80000000000004 /* PhosphorGeneration */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PhosphorGeneration;
+		};
+		45D0A10B2F80000000000005 /* PhosphorMetalSprockets */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PhosphorMetalSprockets;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -10,13 +10,16 @@ let package = Package(
         .visionOS(.v26)
     ],
     products: [
-        .library(name: "PhosphorGeneration", targets: ["PhosphorGeneration"])
+        .library(name: "PhosphorGeneration", targets: ["PhosphorGeneration"]),
+        .library(name: "PhosphorMetalSprockets", targets: ["PhosphorMetalSprockets"])
     ],
     dependencies: [
         // PhosphorKit owns the parse/compile/render targets (the single source
-        // of truth). PhosphorSupport now only adds AI generation on top.
+        // of truth). PhosphorSupport adds AI generation and the MetalSprockets
+        // render host on top. PhosphorKit itself is MetalSprockets-free.
         .package(url: "https://github.com/schwa/PhosphorKit", branch: "main"),
-        .package(url: "https://github.com/schwa/CollaborationKit.git", branch: "main")
+        .package(url: "https://github.com/schwa/CollaborationKit.git", branch: "main"),
+        .package(url: "https://github.com/schwa/MetalSprockets", from: "0.1.10")
     ],
     targets: [
         // AI shader generation, layered on top of PhosphorKit.
@@ -29,6 +32,20 @@ let package = Package(
             ],
             resources: [
                 .copy("Prompts")
+            ]
+        ),
+        // MetalSprockets render host: wraps PhosphorKit's raw-Metal
+        // PhosphorRenderer inside a MetalSprockets RenderView, so the app keeps
+        // frame timing (and, later, video import/export) while PhosphorKit
+        // stays MetalSprockets-free.
+        .target(
+            name: "PhosphorMetalSprockets",
+            dependencies: [
+                .product(name: "PhosphorModel", package: "PhosphorKit"),
+                .product(name: "PhosphorCompile", package: "PhosphorKit"),
+                .product(name: "PhosphorRuntime", package: "PhosphorKit"),
+                .product(name: "MetalSprockets", package: "MetalSprockets"),
+                .product(name: "MetalSprocketsUI", package: "MetalSprockets")
             ]
         ),
         .testTarget(

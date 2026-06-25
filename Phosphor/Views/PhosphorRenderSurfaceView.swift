@@ -2,7 +2,7 @@ import Foundation
 import MetalSprockets
 import MetalSprocketsUI
 import PhosphorCompile
-import PhosphorGeneration
+import PhosphorMetalSprockets
 import PhosphorModel
 import PhosphorRuntime
 import SwiftUI
@@ -12,6 +12,10 @@ import SwiftUI
 /// Kept as its own view (rather than a computed property of
 /// ``PhosphorRunningView``) so its greedy `DragGesture(minimumDistance: 0)`
 /// is scoped to the surface and does not cover the panels layered above it.
+///
+/// Renders through ``PhosphorMetalSprockets/PhosphorMetalSprocketsView``, which
+/// wraps PhosphorKit's raw-Metal `PhosphorRenderer` inside a MetalSprockets
+/// `RenderView` (PhosphorKit itself is MetalSprockets-free).
 struct PhosphorRenderSurfaceView: View {
     let configuration: PhosphorConfiguration
     let viewSize: CGSize
@@ -29,19 +33,18 @@ struct PhosphorRenderSurfaceView: View {
     @State private var playbackClock = PlaybackClock()
 
     var body: some View {
-        RenderView { context, drawableSize in
-            PhosphorPipeline(
-                runtime: runtime,
-                uniforms: buildUniforms(context: context, drawableSize: drawableSize),
-                userUniformValues: model.uniformValues,
-                drawableSize: drawableSize,
-                displayedResource: model.displayedResource
-            )
-            .onWorkloadEnter { _ in
+        PhosphorMetalSprocketsView(
+            runtime: runtime,
+            userUniformValues: model.uniformValues,
+            displayedResource: model.displayedResource,
+            makeUniforms: { context, drawableSize in
+                buildUniforms(context: context, drawableSize: drawableSize)
+            },
+            onFrameTiming: { model.frameTimingStatistics = $0 },
+            onFrameTick: { context in
                 applyPlaybackSideEffects(context: context)
             }
-        }
-        .onFrameTimingChange { model.frameTimingStatistics = $0 }
+        )
         .onChange(of: model.isPaused) { _, newValue in
             if newValue {
                 playbackClock.pause()
@@ -92,7 +95,7 @@ struct PhosphorRenderSurfaceView: View {
         )
     }
 
-    /// Per-frame state mutation triggered from `.onWorkloadEnter`.
+    /// Per-frame state mutation triggered once per frame from the host.
     private func applyPlaybackSideEffects(context: RenderViewContext) {
         playbackClock.commit(wallClock: wallClock(from: context))
     }
