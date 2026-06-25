@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import PhosphorCompile
 import PhosphorGeneration
@@ -21,7 +22,10 @@ import UniformTypeIdentifiers
 /// time to edit; the document keeps every shader's text in memory and
 /// writes the whole tree back on save.
 @Observable
-final class PhosphorBundleDocument: Document {
+final class PhosphorBundleDocument: ReferenceFileDocument, ObservableObject {
+    /// See `PhosphorMetalDocument.objectWillChange`.
+    @ObservationIgnored let objectWillChange = ObservableObjectPublisher()
+
     static let readableContentTypes: [UTType] = [.phosphorBundle]
     static let writableContentTypes: [UTType] = [.phosphorBundle]
 
@@ -41,7 +45,8 @@ final class PhosphorBundleDocument: Document {
     /// extension). Shared across all shaders in the bundle.
     var assets: [String: PhosphorAsset]
 
-    /// Backing file URL when opened from / saved to disk.
+    /// Backing file URL when opened from / saved to disk. Set by the document
+    /// view from `DocumentGroup`'s configuration.
     var fileURL: URL?
 
     /// Key for the active shader's on-disk generation transcript log (#99):
@@ -58,20 +63,12 @@ final class PhosphorBundleDocument: Document {
     @ObservationIgnored
     private var previousFileWrapper: FileWrapper?
 
-    init(configuration: URLDocumentConfiguration) {
-        if configuration.fileURL == nil {
-            // Brand-new bundle: seed with one starter shader.
-            self.shaders = [Self.defaultShaderFilename: Self.template]
-            self.activeShader = Self.defaultShaderFilename
-            self.parsed = ParsedPhosphorSource(source: Self.template)
-        } else {
-            // Read populates these in `apply(snapshot:previous:)`.
-            self.shaders = [:]
-            self.activeShader = nil
-            self.parsed = ParsedPhosphorSource(source: "")
-        }
+    /// Creates a brand-new bundle seeded with one starter shader.
+    init() {
+        self.shaders = [Self.defaultShaderFilename: Self.template]
+        self.activeShader = Self.defaultShaderFilename
+        self.parsed = ParsedPhosphorSource(source: Self.template)
         self.assets = [:]
-        self.fileURL = configuration.fileURL
     }
 
     /// Text of the active shader. Returns "" when no shader is active.
@@ -260,7 +257,7 @@ final class PhosphorBundleDocument: Document {
         assets.removeValue(forKey: name)
     }
 
-    // MARK: - ReadableDocument
+    // MARK: - Reading
 
     /// Snapshot type for the bundle: every shader's text + assets + the
     /// prior directory `FileWrapper` so the writer can reuse unchanged
@@ -272,12 +269,13 @@ final class PhosphorBundleDocument: Document {
         var previousFileWrapper: FileWrapper?
     }
 
-    func reader(
-        configuration: sending DocumentReadConfiguration
-    ) -> sending FileWrapperDocumentReader<Snapshot> {
-        FileWrapperDocumentReader(configuration) { directory in
-            Self.decode(directory: directory)
-        }
+    init(configuration: ReadConfiguration) throws {
+        let snapshot = Self.decode(directory: configuration.file)
+        self.shaders = snapshot.shaders
+        self.activeShader = snapshot.activeShader
+        self.assets = snapshot.assets
+        self.previousFileWrapper = snapshot.previousFileWrapper
+        self.parsed = ParsedPhosphorSource(source: snapshot.shaders[snapshot.activeShader ?? ""] ?? "")
     }
 
     /// Pure decode step; exposed so tests can exercise it without going
@@ -321,23 +319,10 @@ final class PhosphorBundleDocument: Document {
         )
     }
 
-    @MainActor
-    func apply(snapshot: Snapshot, previous _: Snapshot?) {
-        self.shaders = snapshot.shaders
-        self.activeShader = snapshot.activeShader
-        self.assets = snapshot.assets
-        self.previousFileWrapper = snapshot.previousFileWrapper
-        refreshParsed()
-    }
+    // MARK: - Writing
 
-    // MARK: - WritableDocument
-
-    func writer(
-        configuration: sending DocumentWriteConfiguration
-    ) -> sending FileWrapperDocumentWriter<Snapshot> {
-        FileWrapperDocumentWriter(configuration) { snapshot in
-            Self.encode(snapshot: snapshot)
-        }
+    func fileWrapper(snapshot: Snapshot, configuration: WriteConfiguration) throws -> FileWrapper {
+        Self.encode(snapshot: snapshot)
     }
 
     /// Pure encode step; exposed so tests can exercise it without going
@@ -398,8 +383,7 @@ final class PhosphorBundleDocument: Document {
         return asset.name
     }
 
-    @MainActor
-    func snapshot(contentType _: UTType) -> Snapshot {
+    func snapshot(contentType _: UTType) throws -> Snapshot {
         Snapshot(
             shaders: shaders,
             activeShader: activeShader,

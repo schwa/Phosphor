@@ -24,13 +24,11 @@ struct PhosphorApp: App {
         HelpScene()
         #endif
 
-        DocumentGroup { document in
-            PhosphorDocumentView(document: document)
+        DocumentGroup(newDocument: { PhosphorMetalDocument() }) { configuration in
+            PhosphorDocumentView(document: configuration.document, fileURL: configuration.fileURL)
                 .environment(audioCapture)
                 .environment(credentials)
                 .onAppear { syncMicState() }
-        } makeDocument: { configuration, _ in
-            PhosphorMetalDocument(configuration: configuration)
         }
         .commands {
             #if os(macOS)
@@ -60,13 +58,11 @@ struct PhosphorApp: App {
             #endif
         }
 
-        DocumentGroup { document in
-            PhosphorBundleDocumentView(document: document)
+        DocumentGroup(newDocument: { PhosphorBundleDocument() }) { configuration in
+            PhosphorBundleDocumentView(document: configuration.document, fileURL: configuration.fileURL)
                 .environment(audioCapture)
                 .environment(credentials)
                 .onAppear { syncMicState() }
-        } makeDocument: { configuration, _ in
-            PhosphorBundleDocument(configuration: configuration)
         }
 
         #if os(macOS)

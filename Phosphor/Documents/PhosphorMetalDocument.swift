@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import PhosphorCompile
 import PhosphorGeneration
@@ -8,18 +9,27 @@ import UniformTypeIdentifiers
 
 /// Document model for a Phosphor `.metal` source file.
 ///
-/// Reads and writes UTF-8 text via the SDK 27 `ReadableDocument` /
-/// `WritableDocument` protocols. The body is a single `text` property; the
-/// parsed view (front-matter + body split) is recomputed on demand.
+/// Reads and writes UTF-8 text via `ReferenceFileDocument`. The body is a
+/// single `text` property; the parsed view (front-matter + body split) is
+/// recomputed on demand.
 @Observable
-final class PhosphorMetalDocument: Document {
+final class PhosphorMetalDocument: ReferenceFileDocument, ObservableObject {
+    typealias Snapshot = String
+
+    /// `ReferenceFileDocument` refines `ObservableObject`; provide the publisher
+    /// explicitly since the `@Observable` macro drives change tracking and the
+    /// default synthesis doesn't fire. SwiftUI observes the document via
+    /// `@Bindable`/Observation, not this publisher.
+    @ObservationIgnored let objectWillChange = ObservableObjectPublisher()
+
     static let readableContentTypes: [UTType] = [.phosphorSource, .metalSource]
     static let writableContentTypes: [UTType] = [.phosphorSource, .metalSource]
 
     var text: String
 
     /// Backing file URL when the document is opened from / saved to disk.
-    /// Brand-new documents and preview instances have `nil`.
+    /// Set by the document view from `DocumentGroup`'s configuration; brand-new
+    /// documents and preview instances have `nil`.
     var fileURL: URL?
 
     /// Key for the on-disk generation transcript log (#99): the file URL when
@@ -35,14 +45,11 @@ final class PhosphorMetalDocument: Document {
     @ObservationIgnored
     private(set) var parsed: ParsedPhosphorSource
 
-    init(configuration: URLDocumentConfiguration) {
-        // For brand-new documents (no backing file yet), seed with a minimal
-        // working shader so the user has somewhere to start. Documents being
-        // read from disk get their text replaced by `apply(snapshot:previous:)`
-        // before the view ever sees it.
-        let initialText = configuration.fileURL == nil ? Self.template : ""
+    /// Creates a brand-new document seeded with a minimal working shader so the
+    /// user has somewhere to start.
+    init() {
+        let initialText = Self.template
         self.text = initialText
-        self.fileURL = configuration.fileURL
         self.parsed = ParsedPhosphorSource(source: initialText)
     }
 
@@ -82,47 +89,39 @@ final class PhosphorMetalDocument: Document {
         undoManager?.setActionName(actionName)
     }
 
-    // MARK: - ReadableDocument
+    // MARK: - Reading
 
-    func reader(
-        configuration: sending DocumentReadConfiguration
-    ) -> sending FileWrapperDocumentReader<String> {
-        let contentType = configuration.contentType
-        return FileWrapperDocumentReader(configuration) { fileWrapper in
-            guard let data = fileWrapper.regularFileContents else { return "" }
-            // `.phosphor` is the JSON document format (config split from
-            // source); reassemble it into embedded-front-matter `.metal` text,
-            // which is what the editor and runtime operate on internally.
-            if contentType == .phosphorSource {
-                if let document = try? PhosphorDocument(jsonData: data) {
-                    return Self.metalText(from: document)
-                }
-                // Fall through: treat as plain text (e.g. a legacy/byte-identical
-                // `.phosphor` that predates the JSON format).
-            }
-            return String(data: data, encoding: .utf8) ?? ""
-        }
+    init(configuration: ReadConfiguration) throws {
+        let text = Self.decode(configuration: configuration)
+        self.text = text
+        self.parsed = ParsedPhosphorSource(source: text)
     }
 
-    @MainActor
-    func apply(snapshot: String, previous _: String?) {
-        self.text = snapshot
-        refreshParsed()
+    /// Pure decode step; exposed so tests can exercise it without going through
+    /// the document system.
+    static func decode(configuration: ReadConfiguration) -> String {
+        guard let data = configuration.file.regularFileContents else { return "" }
+        // `.phosphor` is the JSON document format (config split from source);
+        // reassemble it into embedded-front-matter `.metal` text, which is what
+        // the editor and runtime operate on internally.
+        if configuration.contentType == .phosphorSource {
+            if let document = try? PhosphorDocument(jsonData: data) {
+                return Self.metalText(from: document)
+            }
+            // Fall through: treat as plain text (e.g. a legacy/byte-identical
+            // `.phosphor` that predates the JSON format).
+        }
+        return String(data: data, encoding: .utf8) ?? ""
     }
 
-    // MARK: - WritableDocument
+    // MARK: - Writing
 
-    func writer(
-        configuration: sending DocumentWriteConfiguration
-    ) -> sending FileWrapperDocumentWriter<String> {
-        let contentType = configuration.contentType
-        return FileWrapperDocumentWriter(configuration) { snapshot in
-            if contentType == .phosphorSource,
-               let data = try? Self.phosphorDocument(from: snapshot).jsonData() {
-                return FileWrapper(regularFileWithContents: data)
-            }
-            return FileWrapper(regularFileWithContents: Data(snapshot.utf8))
+    func fileWrapper(snapshot: String, configuration: WriteConfiguration) throws -> FileWrapper {
+        if configuration.contentType == .phosphorSource,
+           let data = try? Self.phosphorDocument(from: snapshot).jsonData() {
+            return FileWrapper(regularFileWithContents: data)
         }
+        return FileWrapper(regularFileWithContents: Data(snapshot.utf8))
     }
 
     // MARK: - `.phosphor` JSON conversion
@@ -144,8 +143,7 @@ final class PhosphorMetalDocument: Document {
         return PhosphorDocument(configuration: parsed.configuration, source: parsed.body)
     }
 
-    @MainActor
-    func snapshot(contentType _: UTType) -> String { text }
+    func snapshot(contentType _: UTType) throws -> String { text }
 }
 
 extension UTType {

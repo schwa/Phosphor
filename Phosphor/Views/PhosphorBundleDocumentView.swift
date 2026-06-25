@@ -9,6 +9,9 @@ import UniformTypeIdentifiers
 /// bundled shaders and assets; detail pane is the editor + preview.
 struct PhosphorBundleDocumentView: View {
     @Bindable var document: PhosphorBundleDocument
+    /// Backing file URL supplied by `DocumentGroup`; mirrored onto the document
+    /// so `logIdentity` can key the generation transcript.
+    let fileURL: URL?
     @State private var runtime = PhosphorRuntime()
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
     @Environment(\.undoManager) private var undoManager
@@ -75,6 +78,8 @@ struct PhosphorBundleDocumentView: View {
             )
         }
         .environment(runtime)
+        .onAppear { document.fileURL = fileURL }
+        .onChange(of: fileURL) { _, newValue in document.fileURL = newValue }
     }
 
     /// Routes a dropped or imported file URL into either the shaders or
