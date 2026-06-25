@@ -4210,3 +4210,28 @@ Finder/the OS isn't showing a custom document icon for .phosphor files. Likely c
 To fix: add a document icon asset (iconset / .icon) and wire it via CFBundleTypeIconFile (or UTTypeIconFile on the exported type), and double-check the UTI declaration so .phosphor maps unambiguously to io.schwa.phosphor.source rather than a built-in JSON/plain-text type. Verify .phosphord (bundle) icon too.
 
 ---
+
+## 127: Export: convert .phosphor shader to a SwiftUI Shader effect (zero-dep)
+
++++
+status: new
+priority: low
+kind: none
+created: 2026-06-25T17:25:00Z
++++
+
+A distinct, optional export path (separate from the PhosphorKit embed-and-link core): transpile a .phosphor shader into a SwiftUI Shader effect with ZERO dependencies — not even PhosphorKit.
+
+Shape:
+- Emit a .metal [[stitchable]] function plus a SwiftUI ShaderLibrary / colorEffect / layerEffect call site.
+- Consumer needs no PhosphorKit, no MetalSprockets — just the generated .metal + a few lines of SwiftUI.
+
+Cost / limitations (this is a lossy transpile, only viable for the subset of shaders that fit SwiftUI's Shader model):
+- Single-pass only (no multipass / ping-pong).
+- Kernel must be rewritten from a compute kernel to a stitchable function.
+- Much less control over textures and uniforms.
+- No audio buffers.
+
+Open question: is this worth doing at all? Park as a maybe. It does NOT block the core embed-and-link work (PhosphorKit / PhosphorKitLite) or RFC-004's successor.
+
+---
