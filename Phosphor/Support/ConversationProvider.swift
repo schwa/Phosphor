@@ -18,7 +18,7 @@ enum ConversationProvider {
         var errorDescription: String? {
             switch self {
             case .noCredentials:
-                return "No credentials. Add an API key (or log in with a Claude subscription) in Settings → Models."
+                return "No credentials for the selected provider. Add an API key (or sign in) in Settings → Models."
 
             case .missingAPIKey:
                 return "No API key for the selected provider. Add one in Settings → Models to use generation."

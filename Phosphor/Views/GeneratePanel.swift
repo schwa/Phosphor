@@ -9,14 +9,15 @@ import UniformTypeIdentifiers
 /// Streaming, conversational generation panel hosted in the inspector's
 /// "Generate" tab.
 ///
-/// A persistent ``ConversationStore`` drives an agentic Claude session: the
+/// A persistent ``ConversationStore`` drives an agentic model session: the
 /// model edits the live `.metal` source through tools (edit body, read/write
 /// configuration, compile) while assistant prose and tool calls stream into the
 /// transcript in real time. The editor and preview update *during* the turn as
 /// the model edits.
 ///
-/// Conversational mode is Claude-only (it needs reliable tool calling); the
-/// composer surfaces a clear message when no Anthropic API key is configured.
+/// Conversational mode needs a backend with reliable tool calling (Anthropic or
+/// OpenAI); the composer surfaces a clear message when no credentials are
+/// configured.
 struct GeneratePanel: View {
     let parsed: ParsedPhosphorSource
     /// The persistent conversation store, owned by the editor view so chat
@@ -56,13 +57,13 @@ struct GeneratePanel: View {
 
     // MARK: - Missing credentials
 
-    /// Shown in place of the whole panel when there's neither an Anthropic API
-    /// key nor a logged-in Claude subscription.
+    /// Shown in place of the whole panel when the selected provider has no
+    /// stored credentials.
     private var missingCredentials: some View {
         ContentUnavailableView {
             Label("Sign in to Generate", systemImage: "key.horizontal")
         } description: {
-            Text("Conversational shader generation needs an Anthropic API key or a Claude subscription. Add one in Settings → Models.")
+            Text("Shader generation needs credentials for the selected provider. Add an API key or sign in under Settings → Models.")
         } actions: {
             #if os(macOS)
             SettingsLink {
@@ -128,7 +129,7 @@ struct GeneratePanel: View {
             ContentUnavailableView {
                 Label("Generate a Shader", systemImage: "sparkles")
             } description: {
-                Text("Describe an effect, e.g. “a swirling galaxy”. Claude edits the shader and compiles it as you watch.")
+                Text("Describe an effect, e.g. “a swirling galaxy”. The model edits the shader and compiles it as you watch.")
             }
         }
     }
