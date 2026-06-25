@@ -3921,11 +3921,13 @@ The Generate chat transcript (GeneratePanel.swift) still fails to scroll to the 
 ## 116: Add OpenAI as a model provider for shader generation
 
 +++
-status: new
+status: closed
 priority: medium
 kind: feature
 labels: effort:l, generation
 created: 2026-06-24T23:41:37Z
+updated: 2026-06-25T00:09:28Z
+closed: 2026-06-25T00:09:28Z
 +++
 
 Implement OpenAI as a selectable generation backend alongside Anthropic. The Settings UI already has a Provider picker (ModelProvider enum in Phosphor/Views/SettingsView.swift) with OpenAI present but disabled ('coming soon'); make it real.
@@ -3944,5 +3946,7 @@ Open questions:
 - OAuth/subscription equivalent, or API key only for OpenAI?
 
 Relates to the provider-picker work and #108 (real AI backend).
+
+- `2026-06-25T00:09:28Z`: Implemented. OpenAI is a selectable provider: Settings picker (Claude Subscription / Anthropic API / OpenAI) with an OpenAI API-key section, ConversationProvider.make() dispatches to OpenAIProvider (gpt-4o), CredentialsModel/hasCredentials honor the active backend, and the Generate panel shows the active provider. Known follow-up: gpt-4o parallel tool calls can issue blind edits in the agentic loop — tracked upstream in CollaborationKit#12 (disable parallel_tool_calls).
 
 ---
