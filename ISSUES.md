@@ -4274,3 +4274,28 @@ precompile so the exported package doesn't compile the shader at runtime.
 - `2026-06-25T20:01:58Z`: Implemented: template package (Templates/PhosphorShaderPackage) + just encode-template archives a clean copy to Phosphor/Resources/PhosphorShaderPackage.aar; File > Export as Swift Package expands it and swaps in the current document's .phosphor.
 
 ---
+
+## 129: Export as Playground (.swiftpm App Playground)
+
++++
+status: new
+priority: low
+kind: none
+created: 2026-06-25T20:04:55Z
++++
+
+Add an "Export as Playground" action, mirroring Export as Swift Package (#128). Same mechanism: ship a template as a bundled .aar, expand into a chosen folder, swap in the current document's .phosphor.
+
+Format: a .swiftpm App Playground (Swift Playgrounds 4+ / Xcode), which is a Swift package with swift-tools-version + the App Playground product type and DOES support remote package dependencies. (A plain Xcode .playground can't carry its own package deps — deps come from the enclosing workspace — so it's a poor fit. Use .swiftpm.)
+
+Template:
+- Package.swift: App Playground product, depends on PhosphorKit exact 0.1.0.
+- App entry point showing PhosphorView(named: "Shader", bundle: .module).
+- Embeds Shader.phosphor (fixed name).
+- Opens/runs in Swift Playgrounds and Xcode.
+
+Plumbing: reuse SwiftPackageExporter (AppleArchive expand + single-file swap) and add a just encode-playground recipe that stages a clean copy (no .build/.swiftpm-cruft/Package.resolved/.DS_Store) and writes Phosphor/Resources/PhosphorPlayground.aar. Add an Export as Playground menu item + focused-scene action from both document views.
+
+Author the template by hand first and confirm it builds/runs, then fold it into the export flow. No renaming for now; swap the single .phosphor file only.
+
+---
