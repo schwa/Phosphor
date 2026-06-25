@@ -12,6 +12,7 @@ enum LayoutMode: String, CaseIterable, Identifiable {
     case horizontal
     case vertical
     case overlay
+    case previewOnly
 
     var id: Self { self }
 
@@ -21,6 +22,7 @@ enum LayoutMode: String, CaseIterable, Identifiable {
         case .horizontal: "rectangle.split.2x1"
         case .vertical: "rectangle.split.1x2"
         case .overlay: "rectangle.on.rectangle"
+        case .previewOnly: "rectangle"
         }
     }
 
@@ -30,6 +32,7 @@ enum LayoutMode: String, CaseIterable, Identifiable {
         case .horizontal: "Horizontal Split"
         case .vertical: "Vertical Split"
         case .overlay: "Overlay"
+        case .previewOnly: "Preview Only"
         }
     }
 }
@@ -70,11 +73,35 @@ struct ShaderEditorLayoutView: View {
 
         case .overlay:
             overlayLayout
+
+        case .previewOnly:
+            previewOnlyLayout
         }
         #else
-        // iOS has no split views; always use the overlaid (ZStack) layout.
-        overlayLayout
+        // iOS has no split views; use the overlaid (ZStack) layout, or a
+        // full-bleed preview for the preview-only mode.
+        switch layoutMode {
+        case .previewOnly:
+            previewOnlyLayout
+        default:
+            overlayLayout
+        }
         #endif
+    }
+
+    /// Full-bleed preview with the standard overlays, no code pane. Like the
+    /// overlay layout (extends under the toolbar / inspector) minus the editor.
+    private var previewOnlyLayout: some View {
+        @Bindable var model = model
+        return PreviewPaneView(parsed: parsed)
+            .ignoresSafeArea()
+            .modifier(PreviewOverlays(
+                diagnostics: parsed.diagnostics + runtime.diagnostics,
+                frameTiming: frameTiming,
+                uniforms: parsed.configuration.uniforms,
+                showUniformsPanel: showUniformsPanel,
+                uniformValues: $model.uniformValues
+            ))
     }
 
     /// Code overlaid on a full-bleed preview (ZStack). The only layout on iOS.
@@ -96,9 +123,8 @@ struct ShaderEditorLayoutView: View {
         ))
     }
 
-    #if os(macOS)
     /// Preview pane with the standard diagnostics / frame-timing / uniforms
-    /// overlays, shared by the split layouts.
+    /// overlays, shared by the split and preview-only layouts.
     private var preview: some View {
         @Bindable var model = model
         return PreviewPaneView(parsed: parsed)
@@ -110,7 +136,6 @@ struct ShaderEditorLayoutView: View {
                 uniformValues: $model.uniformValues
             ))
     }
-    #endif
 
     @ViewBuilder
     private var frameTiming: some View {

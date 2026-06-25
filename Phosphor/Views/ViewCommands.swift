@@ -50,6 +50,9 @@ private struct EditorViewMenu: View {
         Button("Overlay") { state?.layoutMode.wrappedValue = .overlay }
             .keyboardShortcut("3", modifiers: [.command, .option])
             .disabled(state == nil)
+        Button("Preview Only") { state?.layoutMode.wrappedValue = .previewOnly }
+            .keyboardShortcut("4", modifiers: [.command, .option])
+            .disabled(state == nil)
 
         Divider()
 
