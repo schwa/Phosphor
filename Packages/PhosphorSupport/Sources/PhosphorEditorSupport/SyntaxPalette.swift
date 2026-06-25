@@ -5,31 +5,31 @@ import SwiftUI
 /// Holds one ``Color`` per token category. Cover both Metal (C++) and
 /// the front-matter TOML; categories that don't apply on one side are
 /// simply ignored by that side's walker.
-struct SyntaxPalette: Hashable, Sendable {
+public struct SyntaxPalette: Hashable, Sendable {
     /// Foreground for any character not specifically recognized by the
     /// walker (punctuation, operators, raw whitespace, etc.).
-    var foreground: Color
-    var comment: Color
-    var identifier: Color
-    var number: Color
-    var type: Color
-    var keyword: Color
-    var callExpression: Color
+    public var foreground: Color
+    public var comment: Color
+    public var identifier: Color
+    public var number: Color
+    public var type: Color
+    public var keyword: Color
+    public var callExpression: Color
 
     // TOML-specific (front-matter)
-    var tomlKey: Color
-    var tomlString: Color
-    var tomlNumber: Color
-    var tomlBoolean: Color
-    var tomlTableHeader: Color
+    public var tomlKey: Color
+    public var tomlString: Color
+    public var tomlNumber: Color
+    public var tomlBoolean: Color
+    public var tomlTableHeader: Color
 
     /// Optional translucent backdrop drawn behind every colored token.
     /// `nil` means no per-token background (the natural editor
     /// background shows through). Used by the overlay layout to keep
     /// tokens legible against the live shader render.
-    var tokenBackground: Color?
+    public var tokenBackground: Color?
 
-    init(
+    public init(
         foreground: Color,
         comment: Color,
         identifier: Color,
@@ -61,7 +61,7 @@ struct SyntaxPalette: Hashable, Sendable {
 
     /// Default palette used on the side-by-side editor pane (text on a
     /// system text-background color).
-    static let `default` = Self(
+    public static let `default` = Self(
         foreground: .primary,
         comment: .green,
         identifier: .blue,
@@ -78,7 +78,7 @@ struct SyntaxPalette: Hashable, Sendable {
 
     /// Dark-mode palette: light, slightly desaturated colors that read
     /// well against a dark editor background.
-    static let dark = Self(
+    public static let dark = Self(
         foreground: Color(white: 0.85),
         comment: Color(red: 0.45, green: 0.7, blue: 0.45),
         identifier: Color(red: 0.55, green: 0.8, blue: 1.0),
@@ -96,7 +96,7 @@ struct SyntaxPalette: Hashable, Sendable {
     /// Same as ``dark`` but with a translucent dark backdrop behind every
     /// line of code. Used by the overlay layout so tokens stay legible
     /// against the live shader render.
-    static let darkWithBackdrop = Self(
+    public static let darkWithBackdrop = Self(
         foreground: Color(white: 0.85),
         comment: Color(red: 0.45, green: 0.7, blue: 0.45),
         identifier: Color(red: 0.55, green: 0.8, blue: 1.0),

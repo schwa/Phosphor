@@ -1,5 +1,5 @@
 {
-  "originHash" : "3138526e551b2a1984db8aba4b97accd7a1887ca18ea4efea57a76c986c364d4",
+  "originHash" : "e2c7c893003d2477be47bf9f4a95736e60bb6fed737e3980c1cdb18ef0827dfe",
   "pins" : [
     {
       "identity" : "collaborationkit",
@@ -43,7 +43,7 @@
       "location" : "https://github.com/schwa/PhosphorKit",
       "state" : {
         "branch" : "main",
-        "revision" : "89372c77d9f135d5a3fcdf7d3e8fc03c39315194"
+        "revision" : "fa11a71025eda489f4ca694ea8d450d1c2675538"
       }
     },
     {

@@ -1,7 +1,5 @@
 import PhosphorCompile
-import PhosphorGeneration
 import PhosphorModel
-import PhosphorRuntime
 import SwiftTreeSitter
 import SwiftTreeSitterLayer
 import SwiftUI
@@ -14,7 +12,7 @@ import TreeSitterTOML
 ///
 /// Highlighting is applied as `AttributedString` foreground colors; the
 /// editable mode uses `TextEditor(text: Binding<AttributedString>)`.
-struct MetalSourceView: View {
+public struct MetalSourceView: View {
     private enum Storage {
         case readOnly(String)
         case editable(Binding<String>)
@@ -26,18 +24,18 @@ struct MetalSourceView: View {
     @State private var attributedText: AttributedString = ""
 
     /// Read-only view of `text`.
-    init(text: String, palette: SyntaxPalette = .default) {
+    public init(text: String, palette: SyntaxPalette = .default) {
         self.storage = .readOnly(text)
         self.palette = palette
     }
 
     /// Editable view bound to `text`. Edits flow back through the binding.
-    init(text: Binding<String>, palette: SyntaxPalette = .default) {
+    public init(text: Binding<String>, palette: SyntaxPalette = .default) {
         self.storage = .editable(text)
         self.palette = palette
     }
 
-    var body: some View {
+    public var body: some View {
         content
             .font(.system(.body, design: .monospaced))
             .textSelection(.enabled)
