@@ -82,9 +82,19 @@ struct GeneratePanel: View {
                 }
                 if store?.isGenerating == true {
                     thinkingRow
-                        .id("thinking")
                         .listRowSeparator(.hidden)
                 }
+                // Stable sentinel at the very bottom; always the scroll target
+                // so streaming content (which changes row ids/heights) still
+                // pins to the end.
+                HStack {
+                    Spacer()
+                    Image(systemName: "sparkle")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .id(Self.bottomID)
+                .listRowSeparator(.hidden)
             }
             .listStyle(.plain)
             .overlay { emptyState }
@@ -131,10 +141,10 @@ struct GeneratePanel: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private static let bottomID = "phosphor.chat.bottom"
+
     private func scrollToEnd(_ proxy: ScrollViewProxy) {
-        let target: AnyHashable? = (store?.isGenerating == true) ? "thinking" : store?.items.last.map { AnyHashable($0.id) }
-        guard let target else { return }
-        withAnimation { proxy.scrollTo(target, anchor: .bottom) }
+        withAnimation { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
     }
 
     // MARK: - Composer
