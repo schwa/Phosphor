@@ -149,7 +149,7 @@ final class ConversationStore {
         let liveUsage = await generator?.totalUsage ?? usage
         return ConversationExport(
             exportedAt: Date(),
-            model: ConversationProvider.model.id,
+            model: ConversationProvider.exportModelLabel,
             instructions: generator?.instructions ?? ConversationalGenerator.defaultInstructions,
             usage: .init(liveUsage),
             lastError: lastError,

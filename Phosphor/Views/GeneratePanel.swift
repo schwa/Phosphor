@@ -25,6 +25,7 @@ struct GeneratePanel: View {
     var onGeneratingChange: (Bool) -> Void = { _ in }
 
     @Environment(CredentialsModel.self) private var credentials
+    @AppStorage("phosphor.modelProvider") private var backend: GenerationBackend = .claudeSubscription
     @State private var prompt: String = ""
     @State private var exportItem: ConversationExport?
     @State private var showExporter = false
@@ -140,6 +141,14 @@ struct GeneratePanel: View {
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                Image(systemName: "cpu")
+                Text(backend.displayName)
+                Spacer()
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+
             promptField
         }
         .padding(12)

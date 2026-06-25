@@ -14,26 +14,21 @@ struct SettingsView: View {
     }
 }
 
-/// Supported model providers for shader generation. Only Anthropic is wired up
-/// today; OpenAI is a placeholder for an upcoming backend.
-enum ModelProvider: String, CaseIterable, Identifiable {
-    case anthropic
+/// Supported model providers for shader generation. Anthropic is offered two
+/// ways (a Claude.ai subscription login, or a billed API key); OpenAI is a
+/// placeholder for an upcoming backend.
+enum GenerationBackend: String, CaseIterable, Identifiable {
+    case claudeSubscription
+    case anthropicAPI
     case openAI
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
-        case .anthropic: "Anthropic"
+        case .claudeSubscription: "Claude Subscription"
+        case .anthropicAPI: "Anthropic API"
         case .openAI: "OpenAI"
-        }
-    }
-
-    /// Whether the provider is implemented and selectable.
-    var isAvailable: Bool {
-        switch self {
-        case .anthropic: true
-        case .openAI: false
         }
     }
 }
@@ -138,16 +133,16 @@ private struct AnthropicSubscriptionSection: View {
 
 /// Lets the user enter API keys for external Foundation Model backends.
 struct ModelsSettingsView: View {
-    @AppStorage("phosphor.modelProvider") private var provider: ModelProvider = .anthropic
+    @AppStorage("phosphor.modelProvider") private var provider: GenerationBackend = .claudeSubscription
+    @Environment(CredentialsModel.self) private var credentials
 
     var body: some View {
         Form {
             Section {
                 Picker("Provider", selection: $provider) {
-                    ForEach(ModelProvider.allCases) { provider in
-                        Text(provider.isAvailable ? provider.displayName : "\(provider.displayName) (coming soon)")
+                    ForEach(GenerationBackend.allCases) { provider in
+                        Text(provider.displayName)
                             .tag(provider)
-                            .disabled(!provider.isAvailable)
                     }
                 }
             } footer: {
@@ -157,23 +152,25 @@ struct ModelsSettingsView: View {
             }
 
             switch provider {
-            case .anthropic:
-                AnthropicProviderSection()
+            case .claudeSubscription:
+                AnthropicSubscriptionSection()
+
+            case .anthropicAPI:
+                AnthropicAPIKeySection()
 
             case .openAI:
-                OpenAIProviderSection()
+                OpenAIAPIKeySection()
             }
         }
         .formStyle(.grouped)
-        .onChange(of: provider) { _, newValue in
-            // Don't let the user land on an unimplemented provider.
-            if !newValue.isAvailable { provider = .anthropic }
-        }
+        // The active backend determines whether credentials exist; refresh so
+        // the Generate panel reflects the switch.
+        .onChange(of: provider) { _, _ in credentials.refresh() }
     }
 }
 
-/// Anthropic credentials: an API key and/or a Claude subscription login.
-private struct AnthropicProviderSection: View {
+/// Anthropic billed API-key credentials.
+private struct AnthropicAPIKeySection: View {
     @Environment(CredentialsModel.self) private var credentials
     @State private var anthropicKey: String = ""
     @State private var savedFlash: Bool = false
@@ -208,15 +205,9 @@ private struct AnthropicProviderSection: View {
         } header: {
             Text("Anthropic API Key")
         } footer: {
-            VStack(alignment: .leading, spacing: 4) {
-                Link("Get an API key from the Claude Console", destination: URL(string: "https://platform.claude.com/settings/workspaces/default/keys")!)
-                Text("A subscription login (below) is used in preference to this key when present.")
-                    .foregroundStyle(.secondary)
-            }
-            .font(.callout)
+            Link("Get an API key from the Claude Console", destination: URL(string: "https://platform.claude.com/settings/workspaces/default/keys")!)
+                .font(.callout)
         }
-
-        AnthropicSubscriptionSection()
     }
 
     private func loadKey() {
@@ -245,12 +236,67 @@ private struct AnthropicProviderSection: View {
     }
 }
 
-/// Placeholder for the upcoming OpenAI backend.
-private struct OpenAIProviderSection: View {
+/// OpenAI billed API-key credentials.
+private struct OpenAIAPIKeySection: View {
+    @Environment(CredentialsModel.self) private var credentials
+    @State private var openAIKey: String = ""
+    @State private var savedFlash: Bool = false
+    @State private var readError: String?
+
     var body: some View {
-        Section("OpenAI") {
-            Label("OpenAI support is coming soon.", systemImage: "clock")
-                .foregroundStyle(.secondary)
+        Section {
+            SecureField("OpenAI API key", text: $openAIKey)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit(save)
+                .onAppear(perform: loadKey)
+
+            HStack {
+                Button("Save", action: save)
+                    .keyboardShortcut(.defaultAction)
+                Button("Clear") {
+                    openAIKey = ""
+                    save()
+                }
+                if savedFlash {
+                    Text("Saved")
+                        .foregroundStyle(.secondary)
+                        .font(.callout)
+                }
+                if let readError {
+                    Text(readError)
+                        .foregroundStyle(.red)
+                        .font(.callout)
+                }
+                Spacer()
+            }
+        } header: {
+            Text("OpenAI API Key")
+        } footer: {
+            Link("Get an API key from the OpenAI platform", destination: URL(string: "https://platform.openai.com/api-keys")!)
+                .font(.callout)
+        }
+    }
+
+    private func loadKey() {
+        switch KeychainStore.readResult(account: KeychainAccount.openAIAPIKey) {
+        case .found(let value):
+            openAIKey = value
+
+        case .notFound:
+            openAIKey = ""
+
+        case .failed(let status):
+            readError = "Couldn't read the saved key (status \(status)). Try reopening Settings."
+        }
+    }
+
+    private func save() {
+        KeychainStore.write(openAIKey, account: KeychainAccount.openAIAPIKey)
+        credentials.refresh()
+        savedFlash = true
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            await MainActor.run { savedFlash = false }
         }
     }
 }
