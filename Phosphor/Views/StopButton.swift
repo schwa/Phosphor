@@ -26,7 +26,7 @@ struct StopButton: View {
 
                 // Filled stop square (SF Symbol).
                 Image(systemName: "stop.fill")
-                    .font(.system(size: size * 0.42))
+                    .font(.system(size: size * 0.55))
                     .foregroundStyle(.primary)
             }
             .frame(width: size, height: size)
