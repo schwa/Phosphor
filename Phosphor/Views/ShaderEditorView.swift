@@ -94,10 +94,7 @@ struct ShaderEditorView: View {
             micEnabled: micToggleBinding,
             micPermissionDenied: audioCapture?.isPermissionDenied ?? false,
             hasUniforms: hasUniforms,
-            showGenerate: {
-                inspectorTab = .generate
-                showInspector = true
-            }
+            showGenerate: openGenerate
         ))
         .toolbarRole(.editor)
         .toolbar { toolbarContent }
@@ -120,6 +117,13 @@ struct ShaderEditorView: View {
             }
             .inspectorColumnWidth(min: 360, ideal: 480, max: 900)
         }
+    }
+
+    /// Reveals the Generate tab in the inspector (used by the View menu and the
+    /// toolbar's Generate button).
+    private func openGenerate() {
+        inspectorTab = .generate
+        showInspector = true
     }
 
     /// The editor toolbar. Grouped by purpose: view controls, transport,
@@ -212,10 +216,7 @@ struct ShaderEditorView: View {
 
         // Primary actions, trailing.
         ToolbarItem(placement: .primaryAction) {
-            Button {
-                inspectorTab = .generate
-                showInspector = true
-            } label: {
+            Button(action: openGenerate) {
                 Label("Generate", systemImage: "sparkles")
             }
             .help("Open the AI generation panel in the inspector")
