@@ -4235,3 +4235,38 @@ Cost / limitations (this is a lossy transpile, only viable for the subset of sha
 Open question: is this worth doing at all? Park as a maybe. It does NOT block the core embed-and-link work (PhosphorKit / PhosphorKitLite) or RFC-004's successor.
 
 ---
+
+## 128: Export as Swift Package (template archive + file swap)
+
++++
+status: new
+priority: medium
+kind: none
+created: 2026-06-25T19:32:41Z
++++
+
+Add an "Export as Swift Package" action that emits a standalone, buildable Swift package wrapping the current shader — dogfooding the real integration contract (embed .phosphor + link PhosphorKit + PhosphorView(named:)), unlike the lossy SwiftUI Shader transpile (#127).
+
+Mechanism:
+1. Template package (authored in-repo, verified to build + preview):
+   - Package.swift depends on PhosphorKit pinned to tag 0.1.0
+     (https://github.com/schwa/PhosphorKit).
+   - Embeds a .phosphor resource (fixed name, e.g. Shader.phosphor).
+   - A #Preview { PhosphorView(named: "Shader") }.
+2. Archive the template as an .aar (AppleArchive) and ship it as a bundled app
+   resource — reuse the existing archive expand plumbing (SplashView already
+   reads Examples.phosphord.aar via ArchiveByteStream).
+3. Export button in the app: pick a destination, expand the archive there, then
+   swap the single bundled .phosphor file for the current document's source.
+   No renaming for now (keep the resource name + PhosphorView(named:) fixed).
+
+Scope decisions (this pass):
+- Reuse the existing AppleArchive expand code.
+- Pin PhosphorKit to tag 0.1.0.
+- Swap the single .phosphor file only; no package/preview/name rewriting.
+
+Follow-ups (separate): rename package + preview + named: to the document's name;
+offer export-as-Xcode-project / Playground variants; build-time .metallib
+precompile so the exported package doesn't compile the shader at runtime.
+
+---
