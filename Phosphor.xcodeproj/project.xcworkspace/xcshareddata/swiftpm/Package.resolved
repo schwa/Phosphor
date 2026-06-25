@@ -1,5 +1,5 @@
 {
-  "originHash" : "ecddc1128b73effe0f8f3e92580d0acf2dfcf3310f7393bccd48c14b526fde68",
+  "originHash" : "ccdd5e5d1d96531919096c28415ab0c21be7bdb60a66b2f1d594d37788cc7a9e",
   "pins" : [
     {
       "identity" : "collaborationkit",
@@ -7,7 +7,7 @@
       "location" : "https://github.com/schwa/CollaborationKit.git",
       "state" : {
         "branch" : "main",
-        "revision" : "4ffffa9eb39df8171ef0dbd025086ccd4a9f74bd"
+        "revision" : "355a70826d1de81309cf3478dee4fd854739e939"
       }
     },
     {
