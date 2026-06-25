@@ -3950,3 +3950,29 @@ Relates to the provider-picker work and #108 (real AI backend).
 - `2026-06-25T00:09:28Z`: Implemented. OpenAI is a selectable provider: Settings picker (Claude Subscription / Anthropic API / OpenAI) with an OpenAI API-key section, ConversationProvider.make() dispatches to OpenAIProvider (gpt-4o), CredentialsModel/hasCredentials honor the active backend, and the Generate panel shows the active provider. Known follow-up: gpt-4o parallel tool calls can issue blind edits in the agentic loop — tracked upstream in CollaborationKit#12 (disable parallel_tool_calls).
 
 ---
+
+## 117: Flesh out in-app Help
+
++++
+status: new
+priority: low
+kind: documentation
+labels: effort:m
+created: 2026-06-25T00:52:46Z
++++
+
+The Help menu now opens a minimal Help window (Phosphor/Views/HelpScene.swift) with a one-line description and two links (Apple Metal site + MSL spec PDF). Replace this stub with real help content.
+
+Ideas:
+- Getting started: open/create a shader, the live preview, play/pause/reset.
+- The Phosphor kernel model: kernel signature, Uniforms/UserUniforms, writing to the output texture, the front-matter (textures/passes/uniforms).
+- Multi-pass + ping-pong feedback.
+- User uniforms and the live uniforms panel.
+- AI generation: providers (Claude subscription / Anthropic API / OpenAI), model picker, the chat/edit loop.
+- Bundles (.phosphord) vs single-file (.metal/.phosphor).
+- Keyboard shortcuts (View + Render menus).
+- Links: Apple Metal site, MSL spec PDF, the Phosphor.h prelude.
+
+Consider whether this should be DocC/HTML rendered in-app vs native SwiftUI pages, and whether it overlaps with #25 (DocC + README).
+
+---
