@@ -5,9 +5,9 @@ import PackageDescription
 let package = Package(
     name: "PhosphorSupport",
     platforms: [
-        .iOS(.v27),
-        .macOS(.v27),
-        .visionOS(.v27)
+        .iOS(.v26),
+        .macOS(.v26),
+        .visionOS(.v26)
     ],
     products: [
         .library(name: "PhosphorGeneration", targets: ["PhosphorGeneration"])
@@ -16,7 +16,6 @@ let package = Package(
         // PhosphorKit owns the parse/compile/render targets (the single source
         // of truth). PhosphorSupport now only adds AI generation on top.
         .package(url: "https://github.com/schwa/PhosphorKit", branch: "main"),
-        .package(url: "https://github.com/schwa/FoundationModelBackends.git", branch: "main"),
         .package(url: "https://github.com/schwa/CollaborationKit.git", branch: "main")
     ],
     targets: [
@@ -26,7 +25,6 @@ let package = Package(
             dependencies: [
                 .product(name: "PhosphorModel", package: "PhosphorKit"),
                 .product(name: "PhosphorCompile", package: "PhosphorKit"),
-                .product(name: "FoundationModelBackends", package: "FoundationModelBackends"),
                 .product(name: "CollaborationKit", package: "CollaborationKit")
             ],
             resources: [

@@ -7,9 +7,8 @@ import Foundation
 /// ``GeneratedShader`` from the reply." Conforming types keep a session across
 /// calls so the model retains conversation history (needed for the retry turn).
 ///
-/// Production conformance is ``FoundationModelAdapter`` (Apple Intelligence /
-/// Anthropic via FoundationModels). Tests use a fake that returns scripted
-/// replies, so the full generate flow runs with no network or device.
+/// Tests use a fake that returns scripted replies, so the full generate flow
+/// runs with no network or device.
 public protocol LanguageModelPort: Sendable {
     /// Human-readable backend name, used in error messages.
     var displayName: String { get }

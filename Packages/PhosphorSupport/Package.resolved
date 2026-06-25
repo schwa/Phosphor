@@ -1,5 +1,5 @@
 {
-  "originHash" : "245c47ba11240abfe0cb6195b5938037752738775a31f0df7982e4c29e095018",
+  "originHash" : "8855dd9d9b96609dc22f178f3f611ce5a9ee14ad2a3e4285fc20999f2729ee63",
   "pins" : [
     {
       "identity" : "collaborationkit",
@@ -7,16 +7,7 @@
       "location" : "https://github.com/schwa/CollaborationKit.git",
       "state" : {
         "branch" : "main",
-        "revision" : "72b8cd575cf32105be5c60a86092d7d545fdf6cf"
-      }
-    },
-    {
-      "identity" : "foundationmodelbackends",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/schwa/FoundationModelBackends.git",
-      "state" : {
-        "branch" : "main",
-        "revision" : "da94362a481bd8723eb6adb1cdb7706cc48d419f"
+        "revision" : "355a70826d1de81309cf3478dee4fd854739e939"
       }
     },
     {
@@ -79,7 +70,7 @@
       "location" : "https://github.com/schwa/PhosphorKit",
       "state" : {
         "branch" : "main",
-        "revision" : "005adb1fccb93558eb59702d48df8e9778934ce3"
+        "revision" : "c410544183b03997514f8dd17a36f4fecbe1c74f"
       }
     },
     {

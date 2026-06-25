@@ -86,8 +86,8 @@ public struct AnthropicModel: Hashable, Sendable {
 ///
 /// The generator owns the *flow* — prompt assembly, the compile-and-retry
 /// loop, empty-body checks — and depends only on a ``LanguageModelPort`` for
-/// the actual model turns. Construct the port with
-/// ``FoundationModelAdapter/make(model:)`` in production, or a fake in tests.
+/// the actual model turns. Construct the port with a real backend in
+/// production, or a fake in tests.
 public struct ShaderGenerator {
     private let model: LanguageModelPort
     private let device: MTLDevice?

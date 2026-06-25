@@ -1,5 +1,5 @@
 {
-  "originHash" : "d3597f0929107423a6cc5efc150ed0b4fdb971fc0053fd7a20dbf6b0cd53edfc",
+  "originHash" : "ecddc1128b73effe0f8f3e92580d0acf2dfcf3310f7393bccd48c14b526fde68",
   "pins" : [
     {
       "identity" : "collaborationkit",
@@ -8,15 +8,6 @@
       "state" : {
         "branch" : "main",
         "revision" : "4ffffa9eb39df8171ef0dbd025086ccd4a9f74bd"
-      }
-    },
-    {
-      "identity" : "foundationmodelbackends",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/schwa/FoundationModelBackends.git",
-      "state" : {
-        "branch" : "main",
-        "revision" : "da94362a481bd8723eb6adb1cdb7706cc48d419f"
       }
     },
     {
