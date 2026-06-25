@@ -3976,3 +3976,253 @@ Ideas:
 Consider whether this should be DocC/HTML rendered in-app vs native SwiftUI pages, and whether it overlaps with #25 (DocC + README).
 
 ---
+
+## 118: Video input: video file source
+
++++
+status: new
+priority: medium
+kind: feature
+labels: effort:l
+created: 2026-06-25T03:01:17Z
+updated: 2026-06-25T03:03:31Z
++++
+
+Allow a video file (mp4/mov/etc.) to be used as a texture input channel, sampled per-frame in sync with the shader timeline.
+
+## Motivation
+Complements the webcam source (#39). Many Shadertoy-style effects process video; a file source gives reproducible, scrubbable input.
+
+## Scope
+- Pick a video file as a channel input (drag & drop / file picker, mirroring image asset handling #65).
+- Decode frames (AVFoundation / AVPlayerItemVideoOutput) and upload to a Metal texture each render frame.
+- Map shader time to video playback time; loop when the clip ends.
+- Pixel format conversion to the channel's texture format (#68).
+
+## Open questions (needs-info)
+- Playback follows shader clock, or real-time + sample latest frame?
+- Audio track: ignore, or feed into the audio input path?
+- Persistence: embedded vs. referenced file in a bundle?
+
+Related: #39 (webcam), #65 (image assets), #68 (pixel formats).
+
+- `2026-06-25T03:03:35Z`: Effort: L. The main cost is introducing the first *live/streaming texture* pathway — image inputs today load once at materialization; video needs a per-frame upload hook in the runtime plus a model-level live-texture source case. This infra is shared with #39 (webcam); whoever does one should build the shared live-texture plumbing for both. If #39 lands first, this drops to Medium.
+
+---
+
+## 119: Export rendered frame as screenshot
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-06-25T03:01:23Z
++++
+
+Export the current rendered frame to an image file (PNG/JPEG/TIFF).
+
+## Scope
+- Capture the displayed output texture for the current frame.
+- Save to disk via a save panel; default to PNG.
+- Respect the configured output resolution / pixel format (#68).
+- Optional: copy-to-clipboard variant.
+
+## Open questions (needs-info)
+- Capture at drawable resolution or at a user-specified export resolution?
+- Include/exclude any UI overlay (assume just the shader output).
+
+Related: #68 (pixel formats).
+
+---
+
+## 120: Export rendered output as video
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-06-25T03:01:29Z
++++
+
+Render the shader over a time range and encode the frames to a video file (mp4/mov).
+
+## Scope
+- Offline/render-to-texture loop driven by a fixed timeline (start/end time, fps), independent of real-time display rate.
+- Encode frames via AVAssetWriter (H.264/HEVC), with configurable resolution and frame rate.
+- Progress UI + cancel.
+- Deterministic frame timing so exports are reproducible.
+
+## Open questions (needs-info)
+- Capture real-time playback, or render offline at a fixed fps for determinism (prefer offline)?
+- Include audio in the export (when audio input / file sources exist)?
+- Default resolution: drawable size vs. configured output vs. user choice?
+
+Related: #119 (screenshot export), #68 (pixel formats).
+
+---
+
+## 121: Remove MetalSprockets dependency from PhosphorKit
+
++++
+status: new
+priority: medium
+kind: task
+created: 2026-06-25T03:02:12Z
++++
+
+Make PhosphorKit dependency-free of MetalSprockets / MetalSprocketsAddOns by replacing the MetalSprockets-based render layer with raw Metal.
+
+## Motivation
+Reduce external dependencies — PhosphorKit should stand on its own with no MetalSprockets reliance.
+
+## Where MetalSprockets is used (all in PhosphorRuntime)
+- `PhosphorPipeline.swift` — entire render built on the MS DSL: `Element`, `Group`, `ForEach`, `ComputePass`, `ComputePipeline`, `ComputeKernel`, `ComputeDispatch`, `RenderPass`, `TextureBillboardPipeline`, `@MSEnvironment(\.device)`.
+- `PhosphorView.swift` — `RenderView` / `RenderViewContext` (MetalSprocketsUI) for the SwiftUI-hosted MTKView.
+- `PlaybackClock.swift` — MS usage.
+- `PhosphorCompiler.swift` — comment reference only (pipeline-state caching note).
+- `Package.swift` — dependencies: MetalSprockets, MetalSprocketsAddOns; products: MetalSprockets, MetalSprocketsUI, MetalSprocketsSupport, MetalSprocketsAddOns.
+- `Tests/PhosphorRuntimeTests/RenderSmokeTests.swift`, README.md.
+
+## Work to replace it with raw Metal
+- SwiftUI host view backed by MTKView (or custom CAMetalLayer view) replacing `RenderView`/`RenderViewContext`; provide device + per-frame drawable/size callback.
+- Command buffer + compute command encoder management per frame.
+- Compute pipeline state creation + caching (currently owned by MetalSprockets — see PhosphorCompiler note).
+- Per-pass dispatch (threadsPerGrid from write-target dimensions, 16x16 threadgroup) replacing `ComputePass`/`ComputePipeline`/`ComputeDispatch`.
+- Argument-buffer residency: replicate the `onWorkloadEnter` `useResource` calls for ping-pong textures + audio buffers.
+- Final billboard blit of the output texture to the drawable (with flipY texture-coordinate handling) replacing `TextureBillboardPipeline`.
+
+## Acceptance
+- `Package.swift` has no MetalSprockets* dependencies/products.
+- PhosphorRuntime renders identically (ping-pong parity, audio buffers, flipY).
+- Tests pass (excluding the known pre-existing Voxels failure).
+
+Effort: likely XL.
+
+---
+
+## 122: Make .phosphor documents self-contained: embed images and other assets
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-06-25T03:04:10Z
++++
+
+Today a `.phosphor` file is a single JSON blob (`PhosphorDocument`: version + configuration + source). Image inputs (`TextureInit.image(file:)`) are resolved through a *host-injected asset registry* — the asset bytes live outside the document. That means a `.phosphor` isn't portable: open it elsewhere and the referenced images are missing.
+
+## Goal
+Let a `.phosphor` document carry its own assets (images, and later video/audio/etc.) so a single file is self-contained and shareable.
+
+## Approaches (needs-info / decision)
+1. **Bundle the document** — make `.phosphor` (or lean on the existing `.phosphord` bundle) a FileWrapper directory: `document.json` + an `Assets/` folder. Cleanest for large binary assets; no base64 bloat.
+2. **Embed in JSON** — add an `assets` map to `PhosphorDocument` (filename → base64 data + UTType). Keeps single-file simplicity; bloats JSON and is wasteful for video.
+
+(Relationship between `.phosphor` flat file and `.phosphord` bundle is the subject of #78 — coordinate.)
+
+## Scope
+- Decide single-file-with-embedded vs. bundle (see #78).
+- Extend `PhosphorDocument` (or the bundle format) to store named assets + their type.
+- Replace/augment the host-injected asset registry so the document's own assets are the source of truth (host registry becomes a fallback / built-ins only).
+- Read/write path: encode assets on save, materialize them on load and feed the runtime's asset lookup.
+- Bump `PhosphorDocument.currentVersion` + migration for v1 docs.
+
+## Open questions (needs-info)
+- Embed-in-JSON vs. bundle directory? (ties into #78)
+- Which asset kinds beyond images now — just images, or also video (#118) / audio?
+- Dedup identical assets; cap embedded size?
+
+Related: #78 (flat vs. bundle decision), #65 (image assets), #118 (video file source).
+
+- `2026-06-25T03:04:40Z`: Third option: don't embed at all — **reference** external assets via persistent links.
+
+- Store a stable reference per asset instead of bytes: a file URL plus a **security-scoped bookmark** (sandbox-safe) so the app can re-resolve and `startAccessingSecurityScopedResource()` on load.
+- Pro: tiny documents; no base64 bloat; works for large video. Con: not portable/self-contained — moving/deleting the original breaks the doc (need stale-bookmark handling + a 'relink' UI).
+
+So the format should probably support a per-asset choice: **embedded** (portable) vs. **referenced** (bookmark). Could default to referenced for large/video assets and embedded for small images. Bookmarks must be created in the sandboxed app layer (PhosphorKit stays platform-y but bookmark creation/resolution lives app-side or behind an injected resolver).
+
+---
+
+## 123: Add more built-in textures, including 1D colour-palette LUTs
+
++++
+status: new
+priority: low
+kind: feature
+created: 2026-06-25T03:25:12Z
++++
+
+Expand `BuiltinTextures.all` beyond the current set (mandrill, testcard, several noise variants). In particular, ship 1D colour-palette / gradient LUTs that shaders can index by a scalar to colourise output — a very common shadertoy idiom.
+
+## Palette ideas
+- Classic scientific/perceptual maps: viridis, magma, inferno, plasma, turbo, cividis.
+- Classic/aesthetic: jet (for nostalgia), rainbow/hsv, grayscale, heat, cool/warm.
+- A few hand-tuned artistic gradients (sunset, neon, fire).
+
+## Dimensionality decision (needs-info)
+The runtime currently hard-codes `texture2d` for all bindings (`PhosphorHeader.swift`), and `TextureInit`/sizing has no 1D concept. Two ways to ship palettes:
+1. **Nx1 2D textures** — zero model/header changes; sample with `uv.x`, y=0.5. Easiest; ship as PNGs in `Resources/BuiltinTextures`. Recommended first cut.
+2. **True `texture1d`** — needs a binding/header dimensionality option and runtime support. More correct/ergonomic but larger change.
+
+## Scope (option 1, recommended)
+- Generate palette PNGs (e.g. 256x1) and add entries to `BuiltinTextures.all` with display names.
+- Maybe a `builtin:palette/...` sub-namespace, or just `builtin:viridis` etc.
+- Document usage (sample a builtin palette by a scalar) in README / starter content.
+
+## Open questions
+- Nx1 2D now vs. add true 1D texture support (separate issue)?
+- Which palettes to ship (avoid bloat — pick ~6–8)?
+- License: viridis/magma/etc. are CC0/MIT-friendly; jet/turbo from Google (Apache) — verify before bundling.
+
+Related: #65 (image assets).
+
+- `2026-06-25T03:27:30Z`: Decision: ship palettes as **Nx1 2D textures** (e.g. 256x1). No model/header changes needed — sample with uv.x at y=0.5. True `texture1d` support is out of scope here; can be a separate issue later if ergonomics warrant it.
+
+---
+
+## 124: Document objectWillChange shim for @Observable + ReferenceFileDocument
+
++++
+status: new
+priority: low
+kind: none
+created: 2026-06-25T16:50:10Z
++++
+
+On the OS 26 backport, PhosphorMetalDocument and PhosphorBundleDocument are @Observable classes that must also conform to ReferenceFileDocument, which refines ObservableObject. The @Observable macro does not synthesize objectWillChange, and the ObservableObject default synthesis does not fire, so both documents declare an explicit '@ObservationIgnored let objectWillChange = ObservableObjectPublisher()' purely to satisfy the protocol. SwiftUI observes via Observation/@Bindable, not this publisher.
+
+Risk: not yet runtime-tested on 26. Verify save / open / Save As / undo-redo behave correctly. If the dual ObservableObject + @Observable conformance causes change-tracking glitches, revisit (e.g. drop @Observable in favor of @Published, or wrap the document).
+
+---
+
+## 125: New document doesn't refresh Recent Documents in Splash
+
++++
+status: new
+priority: low
+kind: none
+created: 2026-06-25T16:51:21Z
++++
+
+Creating a new document (Cmd-N / Cmd-Shift-N, or via the splash) does not update the Recent Documents list shown in the Splash window. SplashScene reads NSDocumentController.shared.recentDocumentURLs as a plain computed property, so the view doesn't re-render when the recents list changes. Need to observe recent-document changes (e.g. NSDocumentController KVO on recentDocumentURLs, or a refresh trigger when the splash reappears) so the list stays current.
+
+---
+
+## 126: Custom document icons not showing for .phosphor files
+
++++
+status: new
+priority: low
+kind: none
+created: 2026-06-25T16:54:21Z
++++
+
+Finder/the OS isn't showing a custom document icon for .phosphor files. Likely causes:
+
+1. No icon is declared at all: neither the CFBundleDocumentTypes entry nor the UTExportedTypeDeclarations for io.schwa.phosphor.source specifies an icon (no CFBundleTypeIconFile / UTTypeIconFile / icon asset). There is no document-icon asset in the bundle.
+
+2. UTI resolution: io.schwa.phosphor.source conforms to public.source-code + public.utf8-plain-text, but .phosphor content is actually JSON. The OS may be resolving the extension/content to a generic JSON/text type and using that system icon instead of ours.
+
+To fix: add a document icon asset (iconset / .icon) and wire it via CFBundleTypeIconFile (or UTTypeIconFile on the exported type), and double-check the UTI declaration so .phosphor maps unambiguously to io.schwa.phosphor.source rather than a built-in JSON/plain-text type. Verify .phosphord (bundle) icon too.
+
+---
