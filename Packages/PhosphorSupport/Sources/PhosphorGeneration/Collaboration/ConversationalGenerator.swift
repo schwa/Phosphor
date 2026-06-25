@@ -92,6 +92,17 @@ public final class ConversationalGenerator: Sendable {
     changes the shader must end with `compileShader` reporting success. Keep any
     prose brief; the work is the tool calls, not the explanation.
 
+    READ BEFORE YOU EDIT — ALWAYS. Your VERY FIRST tool call in any turn that
+    changes the document MUST be `read`. Do not call `edit` (or
+    `writeConfiguration` followed by `edit`) until you have `read` the current
+    source this turn. `edit` matches `oldText` against the EXISTING text, so
+    guessing `oldText` will fail.
+
+    The starter document already declares the thread id at file scope:
+    `uint2 gid [[thread_position_in_grid]];`. It is shared by all kernels — do
+    NOT re-declare `gid` in your edits or you will get a "redefinition of 'gid'"
+    compile error. Edit the kernel body, leaving that line in place.
+
     You are collaborating on a single live `.metal` document. It has a
     `/* phosphor:environment ... */` front-matter comment followed by the kernel
     body. The document is NEVER empty: a fresh one already contains valid
@@ -118,8 +129,8 @@ public final class ConversationalGenerator: Sendable {
     Plus `compileShader` to compile and read back errors.
 
     ALWAYS call `read` before your first `edit` so you know the exact current
-    text — never guess at `oldText`. Typical flow: `read`, then `edit` the kernel
-    body (and `writeConfiguration` if the structure changed), then
+    text — never guess at `oldText`. Typical flow: `read` FIRST, then `edit` the
+    kernel body (and `writeConfiguration` if the structure changed), then
     `compileShader` and fix any reported errors. Do not claim success until
     `compileShader` reports it compiles cleanly. Never write `#include`
     directives.
