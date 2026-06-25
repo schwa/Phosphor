@@ -16,9 +16,11 @@ struct GlowingPromptBorder: ViewModifier {
         [.pink, .purple, .blue, .teal, .green, .orange, .pink]
     }
 
+    @Environment(\.colorScheme) private var colorScheme
+
     func body(content: Content) -> some View {
         content
-            .background(.background, in: .rect(cornerRadius: cornerRadius))
+            .background(fieldBackground, in: .rect(cornerRadius: cornerRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .strokeBorder(border, lineWidth: active ? 2 : 1)
@@ -41,6 +43,12 @@ struct GlowingPromptBorder: ViewModifier {
     }
 
     private var glowColor: Color { .purple }
+
+    /// A high-contrast text-entry background that stands out from the
+    /// surrounding composer material in both light and dark mode.
+    private var fieldBackground: Color {
+        colorScheme == .dark ? Color.black.opacity(0.55) : Color.white
+    }
 }
 
 extension View {
