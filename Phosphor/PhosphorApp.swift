@@ -21,6 +21,7 @@ struct PhosphorApp: App {
         #if os(macOS)
         SplashScene()
         AboutScene()
+        HelpScene()
         #endif
 
         DocumentGroup { document in
@@ -35,6 +36,9 @@ struct PhosphorApp: App {
             #if os(macOS)
             CommandGroup(replacing: .appInfo) {
                 AboutCommandButton()
+            }
+            CommandGroup(replacing: .help) {
+                HelpCommandButton()
             }
             CommandGroup(replacing: .newItem) {
                 MyNewDocumentButton(title: "New Phosphor Shader", contentType: .phosphorSource)
