@@ -266,10 +266,20 @@ private struct ConversationRow: View {
         content.textSelection(.enabled)
     }
 
-    private var timestampLabel: some View {
-        Text(item.timestamp, format: .dateTime.hour().minute())
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
+    /// How long this item took to produce, e.g. "1.2s". Empty when unknown
+    /// (still in flight, or a user prompt).
+    @ViewBuilder
+    private var durationLabel: some View {
+        if let duration = item.duration {
+            Text(Self.durationText(duration))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    private static func durationText(_ seconds: TimeInterval) -> String {
+        if seconds < 1 { return String(format: "%.0fms", seconds * 1000) }
+        return String(format: "%.1fs", seconds)
     }
 
     @ViewBuilder
@@ -277,10 +287,7 @@ private struct ConversationRow: View {
         switch item.kind {
         case .user(let text):
             bubble(alignment: .trailing, background: Color.accentColor.opacity(0.18)) {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(text).fixedSize(horizontal: false, vertical: true)
-                    timestampLabel
-                }
+                Text(text).fixedSize(horizontal: false, vertical: true)
             }
 
         case .assistant(let text):
@@ -288,7 +295,7 @@ private struct ConversationRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(text.isEmpty ? "…" : text)
                         .fixedSize(horizontal: false, vertical: true)
-                    timestampLabel
+                    durationLabel
                 }
             }
 
@@ -316,6 +323,8 @@ private struct ConversationRow: View {
                 Spacer(minLength: 4)
                 if result == nil {
                     ProgressView().controlSize(.mini)
+                } else {
+                    durationLabel
                 }
             }
             if let result, resultWorthShowing(name: name, result: result, isError: isError) {

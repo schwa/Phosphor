@@ -27,6 +27,10 @@ struct ConversationItem: Identifiable {
     /// When this item was first created (the user sent it, the assistant
     /// started replying, or a tool was invoked).
     let timestamp = Date()
+    /// How long this item took to complete: assistant prose from first delta to
+    /// the end of the block, a tool from invocation to result. `nil` until
+    /// complete (and always `nil` for user prompts).
+    var duration: TimeInterval?
 }
 
 /// Owns a conversational shader-generation session and projects its live event
@@ -200,9 +204,10 @@ final class ConversationStore {
         case .text:
             // The full block is already accumulated via deltas; close the
             // current streaming item so the next prose starts a fresh bubble.
-            streamingAssistantIndex = nil
+            finishStreamingAssistant()
 
         case .toolCall(let use):
+            finishStreamingAssistant()
             let index = items.count
             items.append(ConversationItem(kind: .tool(
                 name: use.name,
@@ -211,7 +216,6 @@ final class ConversationStore {
                 isError: false
             )))
             toolRowIndex[use.id] = index
-            streamingAssistantIndex = nil
 
         case .toolResult(let result):
             guard let index = toolRowIndex[result.toolUseID], items.indices.contains(index),
@@ -222,13 +226,22 @@ final class ConversationStore {
                 result: result.content,
                 isError: result.isError
             )
+            items[index].duration = Date().timeIntervalSince(items[index].timestamp)
 
         case .usage(let turnUsage):
             usage += turnUsage
 
         case .turnComplete:
-            streamingAssistantIndex = nil
+            finishStreamingAssistant()
         }
+    }
+
+    /// Closes the current streaming assistant bubble, recording how long it took.
+    private func finishStreamingAssistant() {
+        if let index = streamingAssistantIndex, items.indices.contains(index) {
+            items[index].duration = Date().timeIntervalSince(items[index].timestamp)
+        }
+        streamingAssistantIndex = nil
     }
 
     private func appendAssistantDelta(_ chunk: String) {
