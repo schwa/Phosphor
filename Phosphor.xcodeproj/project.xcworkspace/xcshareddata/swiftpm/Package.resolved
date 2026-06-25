@@ -7,7 +7,7 @@
       "location" : "https://github.com/schwa/CollaborationKit.git",
       "state" : {
         "branch" : "main",
-        "revision" : "72b8cd575cf32105be5c60a86092d7d545fdf6cf"
+        "revision" : "4ffffa9eb39df8171ef0dbd025086ccd4a9f74bd"
       }
     },
     {
@@ -79,7 +79,7 @@
       "location" : "https://github.com/schwa/PhosphorKit",
       "state" : {
         "branch" : "main",
-        "revision" : "005adb1fccb93558eb59702d48df8e9778934ce3"
+        "revision" : "9b20ab076125ea5593b251bd7338cdbfd8c01fa9"
       }
     },
     {

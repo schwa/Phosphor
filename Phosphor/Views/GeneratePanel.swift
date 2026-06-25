@@ -46,6 +46,9 @@ struct GeneratePanel: View {
         .onAppear {
             promptFocused = true
         }
+        // Publish the export action so the File menu can trigger it. nil when
+        // there's no conversation store yet (disables the menu item).
+        .focusedSceneValue(\.exportDebugLog, store == nil ? nil : ExportDebugLogAction(run: exportDebugInfo))
         .onChange(of: store?.isGenerating ?? false) { _, generating in
             onGeneratingChange(generating)
         }

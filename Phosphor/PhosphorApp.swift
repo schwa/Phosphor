@@ -51,6 +51,9 @@ struct PhosphorApp: App {
             CommandGroup(after: .pasteboard) {
                 ReformatFrontMatterButton()
             }
+            CommandGroup(after: .importExport) {
+                ExportDebugLogButton()
+            }
             ViewCommands()
             #if DEBUG
             DebugCommands()
