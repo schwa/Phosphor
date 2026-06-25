@@ -4068,35 +4068,19 @@ status: new
 priority: medium
 kind: task
 created: 2026-06-25T03:02:12Z
+updated: 2026-06-25T17:02:09Z
 +++
 
-Make PhosphorKit dependency-free of MetalSprockets / MetalSprocketsAddOns by replacing the MetalSprockets-based render layer with raw Metal.
+Make PhosphorKit dependency-free of MetalSprockets / MetalSprocketsAddOns by replacing the MetalSprockets-based render layer in PhosphorRuntime with raw Metal.
 
-## Motivation
-Reduce external dependencies — PhosphorKit should stand on its own with no MetalSprockets reliance.
+Design and full breakdown: see RFCs/RFC-004-remove-metalsprockets.md
 
-## Where MetalSprockets is used (all in PhosphorRuntime)
-- `PhosphorPipeline.swift` — entire render built on the MS DSL: `Element`, `Group`, `ForEach`, `ComputePass`, `ComputePipeline`, `ComputeKernel`, `ComputeDispatch`, `RenderPass`, `TextureBillboardPipeline`, `@MSEnvironment(\.device)`.
-- `PhosphorView.swift` — `RenderView` / `RenderViewContext` (MetalSprocketsUI) for the SwiftUI-hosted MTKView.
-- `PlaybackClock.swift` — MS usage.
-- `PhosphorCompiler.swift` — comment reference only (pipeline-state caching note).
-- `Package.swift` — dependencies: MetalSprockets, MetalSprocketsAddOns; products: MetalSprockets, MetalSprocketsUI, MetalSprocketsSupport, MetalSprocketsAddOns.
-- `Tests/PhosphorRuntimeTests/RenderSmokeTests.swift`, README.md.
-
-## Work to replace it with raw Metal
-- SwiftUI host view backed by MTKView (or custom CAMetalLayer view) replacing `RenderView`/`RenderViewContext`; provide device + per-frame drawable/size callback.
-- Command buffer + compute command encoder management per frame.
-- Compute pipeline state creation + caching (currently owned by MetalSprockets — see PhosphorCompiler note).
-- Per-pass dispatch (threadsPerGrid from write-target dimensions, 16x16 threadgroup) replacing `ComputePass`/`ComputePipeline`/`ComputeDispatch`.
-- Argument-buffer residency: replicate the `onWorkloadEnter` `useResource` calls for ping-pong textures + audio buffers.
-- Final billboard blit of the output texture to the drawable (with flipY texture-coordinate handling) replacing `TextureBillboardPipeline`.
-
-## Acceptance
-- `Package.swift` has no MetalSprockets* dependencies/products.
+Acceptance:
+- Package.swift has no MetalSprockets dependencies or products.
 - PhosphorRuntime renders identically (ping-pong parity, audio buffers, flipY).
 - Tests pass (excluding the known pre-existing Voxels failure).
 
-Effort: likely XL.
+Effort: XL.
 
 ---
 
