@@ -199,12 +199,8 @@ struct GeneratePanel: View {
 
                 Spacer()
                 if isGenerating {
-                    Button("Stop", systemImage: "stop.fill") {
-                        store?.stop()
-                    }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
-                    .help("Stop the current generation.")
+                    StopButton { store?.stop() }
+                        .help("Stop the current generation.")
                 } else {
                     Button("Send", systemImage: "arrow.up") {
                         submit()
