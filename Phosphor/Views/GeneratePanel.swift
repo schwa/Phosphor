@@ -156,7 +156,7 @@ struct GeneratePanel: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 4) {
                 Image(systemName: "cpu")
-                Text(backend.displayName)
+                Text("\(backend.displayName) · \(ConversationProvider.selectedModelID(for: backend))")
                 Spacer()
             }
             .font(.caption2)
