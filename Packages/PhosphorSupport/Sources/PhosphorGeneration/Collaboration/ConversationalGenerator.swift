@@ -85,6 +85,13 @@ public final class ConversationalGenerator: Sendable {
     private static let toolLoopGuidance = """
     WORKING WITH TOOLS
 
+    ACT IMMEDIATELY. When the user asks for a shader or a change, DO IT by
+    calling tools in the SAME turn — do not just describe your plan and wait for
+    confirmation. The user has already asked; treat that as approval. Never
+    reply with only a description of what you intend to do and stop. A turn that
+    changes the shader must end with `compileShader` reporting success. Keep any
+    prose brief; the work is the tool calls, not the explanation.
+
     You are collaborating on a single live `.metal` document. It has a
     `/* phosphor:environment ... */` front-matter comment followed by the kernel
     body. The document is NEVER empty: a fresh one already contains valid
