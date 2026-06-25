@@ -12,7 +12,8 @@ import SwiftUI
 /// tool call (which fills in its result when the tool returns).
 struct ConversationItem: Identifiable {
     enum Kind {
-        case user(String)
+        /// A user prompt, with any attached input images.
+        case user(String, images: [ImageContent] = [])
         /// Streamed assistant prose; `text` grows as deltas arrive.
         case assistant(String)
         /// A tool invocation: name + a short argument summary + a result that
@@ -84,16 +85,16 @@ final class ConversationStore {
     /// Starts a turn: appends the user message and runs the agentic tool loop
     /// in a cancellable task. Streams events into ``items`` as they arrive; the
     /// live document updates during the turn.
-    func send(_ prompt: String) {
+    func send(_ prompt: String, images: [ImageContent] = []) {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !isGenerating else { return }
+        guard !(trimmed.isEmpty && images.isEmpty), !isGenerating else { return }
 
         lastError = nil
-        items.append(ConversationItem(kind: .user(trimmed)))
+        items.append(ConversationItem(kind: .user(trimmed, images: images)))
         isGenerating = true
 
         sendTask = Task { [weak self] in
-            await self?.run(trimmed)
+            await self?.run(trimmed, images: images)
         }
     }
 
@@ -105,7 +106,7 @@ final class ConversationStore {
         sendTask?.cancel()
     }
 
-    private func run(_ trimmed: String) async {
+    private func run(_ trimmed: String, images: [ImageContent]) async {
         defer {
             isGenerating = false
             sendTask = nil
@@ -125,7 +126,7 @@ final class ConversationStore {
         document?.setSource(readSource())
 
         do {
-            _ = try await generator.send(trimmed)
+            _ = try await generator.send(trimmed, images: images)
         } catch is CancellationError {
             items.append(ConversationItem(kind: .error("Stopped.")))
         } catch {

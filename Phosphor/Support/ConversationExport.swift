@@ -68,6 +68,11 @@ nonisolated struct ConversationExport: Codable, Sendable {
             case .toolResult(let result):
                 self.type = "toolResult"
                 self.toolResult = ToolResultDTO(result)
+
+            case .image(let image):
+                self.type = "image"
+                // Record the media type and size, not the (large) base64 bytes.
+                self.text = "\(image.mediaType) (\(image.base64Data.count) base64 chars)"
             }
         }
     }
@@ -107,7 +112,7 @@ nonisolated struct ConversationExport: Codable, Sendable {
 
         init(_ item: ConversationItem) {
             switch item.kind {
-            case .user(let text):
+            case .user(let text, _):
                 self.kind = "user"
                 self.text = text
 

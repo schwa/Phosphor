@@ -54,14 +54,15 @@ public final class ConversationalGenerator: Sendable {
         )
     }
 
-    /// Sends a user message and runs the agentic tool loop until the model
-    /// stops. Returns the final assistant text. Tool failures are fed back to
-    /// the model, not thrown; harness/transport errors throw.
+    /// Sends a user message, optionally with image attachments, and runs the
+    /// agentic tool loop until the model stops. Returns the final assistant
+    /// text. Tool failures are fed back to the model, not thrown;
+    /// harness/transport errors throw.
     ///
     /// The live document is mutated by the model's tool calls during the turn.
     @discardableResult
-    public func send(_ prompt: String) async throws -> String {
-        try await session.send(prompt)
+    public func send(_ prompt: String, images: [ImageContent] = []) async throws -> String {
+        try await session.send(text: prompt, images: images)
     }
 
     /// The conversation so far, for persistence in a bundle document.

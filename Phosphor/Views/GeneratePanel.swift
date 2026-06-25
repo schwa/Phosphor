@@ -28,6 +28,8 @@ struct GeneratePanel: View {
     @Environment(CredentialsModel.self) private var credentials
     @AppStorage("phosphor.modelProvider") private var backend: GenerationBackend = .claudeSubscription
     @State private var prompt: String = ""
+    @State private var attachments: [Attachment] = []
+    @State private var showImporter = false
     @State private var exportItem: ConversationExport?
     @State private var showExporter = false
     @FocusState private var promptFocused: Bool
@@ -102,6 +104,10 @@ struct GeneratePanel: View {
             }
             .listStyle(.plain)
             .overlay { emptyState }
+            .dropDestination(for: URL.self) { urls, _ in
+                addAttachments(from: urls)
+                return true
+            }
             .onChange(of: store?.items.count ?? 0) { _, _ in scrollToEnd(proxy) }
             .onChange(of: store?.isGenerating ?? false) { _, _ in scrollToEnd(proxy) }
             // Streamed prose grows the last item without changing the count;
@@ -115,7 +121,9 @@ struct GeneratePanel: View {
     private var lastItemContentLength: Int {
         guard let last = store?.items.last else { return 0 }
         switch last.kind {
-        case .user(let text), .assistant(let text), .error(let text):
+        case .user(let text, _):
+            return text.count
+        case .assistant(let text), .error(let text):
             return text.count
 
         case .tool(_, _, let result, _):
@@ -172,12 +180,37 @@ struct GeneratePanel: View {
             item: exportItem,
             defaultFilename: "Phosphor-Session-\(Self.timestamp())"
         ) { _ in }
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: [.image],
+            allowsMultipleSelection: true
+        ) { result in
+            if case .success(let urls) = result {
+                addAttachments(from: urls)
+            }
+        }
+    }
+
+    /// Loads image attachments from file URLs (file importer or drag-and-drop),
+    /// reading each into a provider-agnostic ``ImageContent`` plus a thumbnail.
+    private func addAttachments(from urls: [URL]) {
+        for url in urls {
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            guard let attachment = Attachment(url: url) else { continue }
+            attachments.append(attachment)
+        }
     }
 
     /// The prompt input and its inline action buttons, wrapped in an
     /// Xcode-style glowing multicolor border that brightens on focus.
     private var promptField: some View {
         VStack(alignment: .leading, spacing: 6) {
+            if !attachments.isEmpty {
+                ComposerAttachments(attachments: attachments) { id in
+                    attachments.removeAll { $0.id == id }
+                }
+            }
             TextField("Describe a shader or a change…", text: $prompt, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(5...10)
@@ -203,6 +236,14 @@ struct GeneratePanel: View {
                         .foregroundStyle(.tertiary)
                         .labelStyle(.titleAndIcon)
                 }
+
+                Button("Attach Image", systemImage: "paperclip") {
+                    showImporter = true
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
+                .disabled(isGenerating)
+                .help("Attach one or more images to the next message.")
 
                 Button("Export Debug Info", systemImage: "ladybug") {
                     exportDebugInfo()
@@ -248,14 +289,96 @@ struct GeneratePanel: View {
     private var isGenerating: Bool { store?.isGenerating ?? false }
 
     private var canSubmit: Bool {
-        !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isGenerating && hasCredentials
+        let hasText = !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return (hasText || !attachments.isEmpty) && !isGenerating && hasCredentials
     }
 
     private func submit() {
         guard canSubmit else { return }
         let submitted = prompt
+        let images = attachments.map(\.content)
         prompt = ""
-        store?.send(submitted)
+        attachments = []
+        store?.send(submitted, images: images)
+    }
+}
+
+/// A pending image attachment in the composer: the wire-ready ``ImageContent``
+/// plus a thumbnail for display.
+private struct Attachment: Identifiable {
+    let id = UUID()
+    let content: ImageContent
+    let image: Image
+    let filename: String
+
+    init?(url: URL) {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let mediaType = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "image/png"
+        guard let nsImage = NSImage(data: data) else { return nil }
+        self.content = ImageContent(mediaType: mediaType, data: data)
+        self.image = Image(nsImage: nsImage)
+        self.filename = url.lastPathComponent
+    }
+}
+
+/// The pending-attachment thumbnail strip shown above the composer text field,
+/// each with a remove button.
+private struct ComposerAttachments: View {
+    let attachments: [Attachment]
+    let onRemove: (UUID) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(attachments) { attachment in
+                    attachment.image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 48, height: 48)
+                        .clipShape(.rect(cornerRadius: 6))
+                        .overlay(alignment: .topTrailing) {
+                            Button {
+                                onRemove(attachment.id)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .symbolRenderingMode(.palette)
+                                    .foregroundStyle(.white, .black.opacity(0.6))
+                            }
+                            .buttonStyle(.borderless)
+                            .offset(x: 4, y: -4)
+                        }
+                        .help(attachment.filename)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+}
+
+/// Read-only thumbnails of images a user already sent, shown in their
+/// transcript bubble.
+private struct AttachmentThumbnails: View {
+    let images: [ImageContent]
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(Array(images.enumerated()), id: \.offset) { _, image in
+                if let nsImage = NSImage(base64: image.base64Data) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 64, height: 64)
+                        .clipShape(.rect(cornerRadius: 6))
+                }
+            }
+        }
+    }
+}
+
+private extension NSImage {
+    convenience init?(base64: String) {
+        guard let data = Data(base64Encoded: base64) else { return nil }
+        self.init(data: data)
     }
 }
 
@@ -286,9 +409,16 @@ private struct ConversationRow: View {
     @ViewBuilder
     private var content: some View {
         switch item.kind {
-        case .user(let text):
+        case .user(let text, let images):
             bubble(alignment: .trailing, background: Color.accentColor.opacity(0.18)) {
-                Text(text).fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .trailing, spacing: 6) {
+                    if !images.isEmpty {
+                        AttachmentThumbnails(images: images)
+                    }
+                    if !text.isEmpty {
+                        Text(text).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             }
 
         case .assistant(let text):
