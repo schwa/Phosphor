@@ -161,6 +161,8 @@ struct ModelsSettingsView: View {
             case .openAI:
                 OpenAIAPIKeySection()
             }
+
+            ModelPickerSection(backend: provider)
         }
         .formStyle(.grouped)
         // The active backend determines whether credentials exist; refresh so
@@ -301,11 +303,87 @@ private struct OpenAIAPIKeySection: View {
     }
 }
 
+/// A section that lets the user pick the model for `backend`, fetching the
+/// available models from the provider's API. Falls back gracefully when there
+/// are no credentials or the fetch fails.
+private struct ModelPickerSection: View {
+    let backend: GenerationBackend
+
+    @Environment(CredentialsModel.self) private var credentials
+    @State private var models: [ModelInfo] = []
+    @State private var selection: String = ""
+    @State private var phase: Phase = .idle
+
+    private enum Phase: Equatable {
+        case idle, loading, loaded, failed(String)
+    }
+
+    var body: some View {
+        Section {
+            switch phase {
+            case .loading:
+                HStack { ProgressView().controlSize(.small); Text("Loading models…") }
+
+            case .failed(let message):
+                Label(message, systemImage: "exclamationmark.triangle")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+            case .idle, .loaded:
+                Picker("Model", selection: $selection) {
+                    if models.isEmpty {
+                        Text(ConversationProvider.defaultModelID(for: backend)).tag(selection)
+                    } else {
+                        ForEach(models) { model in
+                            Text(model.displayName ?? model.id).tag(model.id)
+                        }
+                    }
+                }
+                .onChange(of: selection) { _, newValue in
+                    UserDefaults.standard.set(newValue, forKey: ConversationProvider.modelDefaultsKey(for: backend))
+                }
+            }
+        } header: {
+            Text("Model")
+        }
+        .task(id: TaskKey(backend: backend, hasCredentials: credentials.hasCredentials)) {
+            await loadModels()
+        }
+    }
+
+    private struct TaskKey: Equatable {
+        var backend: GenerationBackend
+        var hasCredentials: Bool
+    }
+
+    private func loadModels() async {
+        selection = ConversationProvider.selectedModelID(for: backend)
+        guard credentials.hasCredentials else {
+            phase = .idle
+            return
+        }
+        phase = .loading
+        do {
+            let fetched = try await ConversationProvider.listModels(for: backend)
+            models = fetched.sorted { ($0.displayName ?? $0.id) < ($1.displayName ?? $1.id) }
+            // Keep the stored selection if still valid; otherwise fall back.
+            if !models.contains(where: { $0.id == selection }) {
+                selection = models.first?.id ?? ConversationProvider.defaultModelID(for: backend)
+            }
+            phase = .loaded
+        } catch {
+            phase = .failed("Couldn't load models. Using \(ConversationProvider.defaultModelID(for: backend)).")
+        }
+    }
+}
+
 #Preview("Settings") {
     SettingsView()
+        .environment(CredentialsModel())
 }
 
 #Preview("Models pane") {
     ModelsSettingsView()
         .frame(width: 480, height: 280)
+        .environment(CredentialsModel())
 }
