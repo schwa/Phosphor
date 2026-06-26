@@ -4403,3 +4403,41 @@ Verify: 'swift build' and 'xcb test' from Packages/PhosphorSupport, plus 'xcb bu
 - `2026-06-26T05:46:26Z`: Removed the dead @Generable/FoundationModels path: deleted GeneratedShader, GeneratedPlan, ShaderGenerator, GenerationExchange, LanguageModelPort, and ShaderGeneratorTests. GeneratorInstructions simplified (dropped GenerationModel; single instructions property). Inlined the one AnthropicModel.opus.id use in ConversationProvider. Cleaned stale doc comments referencing the @Generable schema. No FoundationModels imports remain. ConfigurationDTO is now the sole model-facing config representation (supersedes #131). App builds via the dev workspace.
 
 ---
+
+## 133: Reduce token usage in AI shader generation
+
++++
+status: new
+priority: medium
+kind: none
+labels: generation,performance
+created: 2026-06-26T17:40:08Z
++++
+
+Investigate and reduce token consumption in the PhosphorGeneration conversational flow (ConversationalGenerator + tools).
+
+## Where tokens go
+
+Every turn ships a large static system prompt:
+- `instructions-full.md` — ~11KB / ~1600 lines.
+- `PhosphorInterface.source` — declarations-only `Phosphor.h` interface, appended to instructions.
+- `toolLoopGuidance` in ConversationalGenerator — another large block of tool/workflow prose.
+- Tool JSON schemas (ShaderTools: read/write/edit/readConfiguration/writeConfiguration/compileShader).
+
+Because the session is long-running and stateful, the full system prompt + growing message history + tool results (read returns the ENTIRE source each call, compileShader echoes errors) are re-sent on every turn.
+
+## Candidate reductions (to investigate, not yet decided)
+
+1. Trim/condense `instructions-full.md` and `toolLoopGuidance` — lots of repetition (e.g. 'read before edit' stated ~4x).
+2. Avoid re-sending the full interface every turn; consider a one-time/cached injection or a tool to fetch helpers on demand.
+3. Reduce `read` payload — return only the relevant span or a diff rather than the whole file each time.
+4. Prune old tool-result messages from history (compile errors, superseded reads) once resolved.
+5. Measure first: log per-turn input/output tokens (totalUsage already tracked) to see the actual split before cutting.
+
+## Acceptance
+
+- Baseline token measurement captured for a representative generation session.
+- At least the low-risk wins (prompt de-duplication, history pruning) applied.
+- No regression in generation quality on a couple of sample prompts.
+
+---
