@@ -225,11 +225,11 @@ final class ConversationStore {
             exportedAt: Date(),
             model: ConversationProvider.exportModelLabel,
             instructions: generator?.instructions ?? ConversationalGenerator.defaultInstructions,
-            usage: .init(liveUsage),
+            usage: liveUsage,
             lastError: lastError,
             currentSource: readSource(),
-            messages: messages.map(ConversationExport.MessageDTO.init),
-            uiTranscript: items.map(ConversationExport.UIItemDTO.init),
+            messages: messages,
+            uiTranscript: items,
             transcriptSpanMS: ConversationExport.transcriptSpanMS(items)
         )
     }

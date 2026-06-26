@@ -11,20 +11,25 @@ import UniformTypeIdentifiers
 /// source, the last harness error, and the live UI transcript. Serialized as
 /// pretty JSON so a bug report carries the exact inputs and outputs.
 ///
+/// Everything here is the real model — `TokenUsage`, `Message`, and
+/// `ConversationItem` — serialized directly via the `Encodable` conformances
+/// in this file. There is no parallel DTO mirror: the export shape *is* the
+/// model's shape (with image bytes redacted and durations surfaced in ms).
+///
 /// `nonisolated`: a pure value-type snapshot. The app target defaults types to
 /// `@MainActor`, but `Transferable` requires nonisolated conformance.
-nonisolated struct ConversationExport: Codable, Sendable {
+nonisolated struct ConversationExport: Encodable, Sendable {
     var exportedAt: Date
     var model: String
     var instructions: String
-    var usage: UsageDTO
+    var usage: TokenUsage
     var lastError: String?
     /// The current full `.metal` source at export time.
     var currentSource: String
     /// The raw session transcript — the authoritative record.
-    var messages: [MessageDTO]
+    var messages: [Message]
     /// The projected UI transcript, as the user saw it.
-    var uiTranscript: [UIItemDTO]
+    var uiTranscript: [ConversationItem]
     /// Wall-clock span of the transcript: first item's timestamp to the last
     /// item's completion. `nil` when the transcript is empty. This is the true
     /// end-to-end time the user experienced (including the gaps between items),
@@ -41,128 +46,6 @@ nonisolated struct ConversationExport: Codable, Sendable {
             return max(latest, itemEnd)
         }
         return end.timeIntervalSince(start) * 1000
-    }
-
-    struct UsageDTO: Codable {
-        var inputTokens: Int
-        var outputTokens: Int
-        var totalTokens: Int
-
-        init(_ usage: TokenUsage) {
-            self.inputTokens = usage.inputTokens
-            self.outputTokens = usage.outputTokens
-            self.totalTokens = usage.totalTokens
-        }
-    }
-
-    struct MessageDTO: Codable {
-        var role: String
-        var blocks: [BlockDTO]
-
-        init(_ message: Message) {
-            self.role = message.role.rawValue
-            self.blocks = message.content.map(BlockDTO.init)
-        }
-    }
-
-    /// One content block. Exactly one payload field is populated per block.
-    struct BlockDTO: Codable {
-        var type: String
-        var text: String?
-        var toolUse: ToolUseDTO?
-        var toolResult: ToolResultDTO?
-
-        init(_ block: ContentBlock) {
-            switch block {
-            case .text(let text):
-                self.type = "text"
-                self.text = text
-
-            case .toolUse(let use):
-                self.type = "toolUse"
-                self.toolUse = ToolUseDTO(use)
-
-            case .toolResult(let result):
-                self.type = "toolResult"
-                self.toolResult = ToolResultDTO(result)
-
-            case .image(let image):
-                self.type = "image"
-                // Record the media type and size, not the (large) base64 bytes.
-                self.text = "\(image.mediaType) (\(image.base64Data.count) base64 chars)"
-            }
-        }
-    }
-
-    struct ToolUseDTO: Codable {
-        var id: String
-        var name: String
-        var input: JSONValue
-
-        init(_ use: ToolUse) {
-            self.id = use.id
-            self.name = use.name
-            self.input = use.input
-        }
-    }
-
-    struct ToolResultDTO: Codable {
-        var toolUseID: String
-        var content: String
-        var isError: Bool
-
-        init(_ result: ToolResult) {
-            self.toolUseID = result.toolUseID
-            self.content = result.content
-            self.isError = result.isError
-        }
-    }
-
-    /// The live UI transcript item, flattened for export.
-    struct UIItemDTO: Codable {
-        var kind: String
-        var text: String?
-        var toolName: String?
-        var toolSummary: String?
-        var toolResult: String?
-        var isError: Bool?
-        /// When this item was first created (item appeared in the transcript).
-        var timestamp: Date
-        /// How long this item took to complete, in milliseconds. `nil` for user
-        /// prompts and anything still in flight. NOTE: this is the duration of
-        /// the visible block only — it does NOT include the gaps between items
-        /// (network round-trips, model thinking time before the first delta).
-        var durationMS: Double?
-        /// The round-trip wait before this item appeared, in milliseconds: the
-        /// model/network latency between the previous item completing and this
-        /// one starting. This is what the UI shows and what "feels slow".
-        var latencyMS: Double?
-
-        init(_ item: ConversationItem) {
-            self.timestamp = item.timestamp
-            self.durationMS = item.duration.map { $0 * 1000 }
-            self.latencyMS = item.latency.map { $0 * 1000 }
-            switch item.kind {
-            case .user(let text, _):
-                self.kind = "user"
-                self.text = text
-
-            case .assistant(let text):
-                self.kind = "assistant"
-                self.text = text
-
-            case .tool(let name, let summary, let result, let isError):
-                self.kind = "tool"
-                self.toolName = name
-                self.toolSummary = summary
-                self.toolResult = result
-                self.isError = isError
-
-            case .error(let message):
-                self.kind = "error"
-                self.text = message
-            }
-        }
     }
 
     /// Pretty-printed JSON for the export file.
@@ -190,5 +73,122 @@ nonisolated extension ConversationExport: Transferable {
             try export.jsonData()
         }
         .suggestedFileName { _ in "Phosphor-Session.json" }
+    }
+}
+
+// MARK: - Export encodings for the real model types
+//
+// These retroactive `Encodable` conformances let `ConversationExport`
+// serialize the live CollaborationKit / app model values directly, instead of
+// copying them into export-only DTO twins. They live in the Phosphor target
+// (CollaborationKit is a separate project) and define exactly one export shape
+// per model type.
+
+extension TokenUsage: @retroactive Encodable {
+    enum CodingKeys: String, CodingKey {
+        case inputTokens, outputTokens, totalTokens
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(inputTokens, forKey: .inputTokens)
+        try c.encode(outputTokens, forKey: .outputTokens)
+        try c.encode(totalTokens, forKey: .totalTokens)
+    }
+}
+
+extension ToolUse: @retroactive Encodable {
+    enum CodingKeys: String, CodingKey { case id, name, input }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(input, forKey: .input)
+    }
+}
+
+extension ToolResult: @retroactive Encodable {
+    enum CodingKeys: String, CodingKey { case toolUseID, content, isError }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(toolUseID, forKey: .toolUseID)
+        try c.encode(content, forKey: .content)
+        try c.encode(isError, forKey: .isError)
+    }
+}
+
+/// One content block. Exactly one payload field is populated per block. Image
+/// blocks record their media type and size, not the (large) base64 bytes.
+extension ContentBlock: @retroactive Encodable {
+    enum CodingKeys: String, CodingKey { case type, text, toolUse, toolResult }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .text(let text):
+            try c.encode("text", forKey: .type)
+            try c.encode(text, forKey: .text)
+
+        case .toolUse(let use):
+            try c.encode("toolUse", forKey: .type)
+            try c.encode(use, forKey: .toolUse)
+
+        case .toolResult(let result):
+            try c.encode("toolResult", forKey: .type)
+            try c.encode(result, forKey: .toolResult)
+
+        case .image(let image):
+            try c.encode("image", forKey: .type)
+            try c.encode("\(image.mediaType) (\(image.base64Data.count) base64 chars)", forKey: .text)
+        }
+    }
+}
+
+extension Message: @retroactive Encodable {
+    enum CodingKeys: String, CodingKey { case role, blocks }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(role.rawValue, forKey: .role)
+        try c.encode(content, forKey: .blocks)
+    }
+}
+
+/// The live UI transcript item, flattened for export: the enum `kind` is
+/// projected to discrete fields and the `TimeInterval` (seconds) durations are
+/// surfaced in milliseconds. `rollbackSnapshot` is editor-only and omitted.
+extension ConversationItem: Encodable {
+    enum CodingKeys: String, CodingKey {
+        case kind, text, toolName, toolSummary, toolResult, isError
+        case timestamp, durationMS, latencyMS
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(timestamp, forKey: .timestamp)
+        try c.encodeIfPresent(duration.map { $0 * 1000 }, forKey: .durationMS)
+        try c.encodeIfPresent(latency.map { $0 * 1000 }, forKey: .latencyMS)
+        switch kind {
+        case .user(let text, _):
+            try c.encode("user", forKey: .kind)
+            try c.encode(text, forKey: .text)
+
+        case .assistant(let text):
+            try c.encode("assistant", forKey: .kind)
+            try c.encode(text, forKey: .text)
+
+        case .tool(let name, let summary, let result, let isError):
+            try c.encode("tool", forKey: .kind)
+            try c.encode(name, forKey: .toolName)
+            try c.encode(summary, forKey: .toolSummary)
+            try c.encodeIfPresent(result, forKey: .toolResult)
+            try c.encode(isError, forKey: .isError)
+
+        case .error(let message):
+            try c.encode("error", forKey: .kind)
+            try c.encode(message, forKey: .text)
+        }
     }
 }

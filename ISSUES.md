@@ -4463,10 +4463,12 @@ Context: came up while designing the 'roll back to here' feature for conversatio
 ## 135: Eliminate DTO objects from ConversationExport — use one model representation
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 created: 2026-06-26T21:12:52Z
+updated: 2026-06-26T21:23:44Z
+closed: 2026-06-26T21:23:44Z
 +++
 
 ConversationExport.swift defines a parallel set of DTO structs (UsageDTO, MessageDTO, BlockDTO, ToolUseDTO, ToolResultDTO, UIItemDTO) that mirror the real CollaborationKit model types (TokenUsage, Message, ContentBlock, ToolUse, ToolResult, ConversationItem) just to serialize them for export.
@@ -4476,5 +4478,7 @@ This is the same one-representation problem that #131/#132 fixed for shader conf
 Goal: make the CollaborationKit model types Codable (or provide a single Encodable conformance / coding layer) so ConversationExport serializes the real objects directly, and delete the *DTO structs. If the model types can't be made Codable directly (e.g. owned by CollaborationKit, or export needs a lossy/redacted shape like the image-bytes elision in BlockDTO), capture the constraints and pick the minimal single-representation approach rather than maintaining a full DTO mirror.
 
 Files: Phosphor/Support/ConversationExport.swift (DTO defs), Phosphor/Support/ConversationStore.swift (MessageDTO/UIItemDTO call sites).
+
+- `2026-06-26T21:23:44Z`: Collapsed the 6 export DTOs (Usage/Message/Block/ToolUse/ToolResult/UIItem) into retroactive Encodable conformances on the real model types (TokenUsage, ToolUse, ToolResult, ContentBlock, Message) plus a native Encodable on ConversationItem. ConversationExport now serializes the live objects directly; export shape unchanged (image bytes redacted, durations in ms, kinds flattened). Builds clean.
 
 ---
