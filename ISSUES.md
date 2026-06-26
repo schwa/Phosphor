@@ -4490,11 +4490,13 @@ Files: Phosphor/Support/ConversationExport.swift (DTO defs), Phosphor/Support/Co
 ## 136: Hand-written JSON schema drifts from PhosphorConfiguration (no parity enforcement)
 
 +++
-status: new
+status: closed
 priority: high
 kind: bug
 labels: refactor, generation
 created: 2026-06-26T21:51:24Z
+updated: 2026-06-26T23:50:10Z
+closed: 2026-06-26T23:50:10Z
 +++
 
 PhosphorConfigurationSchema.jsonSchema (Packages/PhosphorSupport/Sources/PhosphorGeneration/Collaboration/PhosphorConfigurationSchema.swift, ~210 lines) is a hand-authored JSON Schema that mirrors PhosphorKit's PhosphorConfiguration Codable model — which lives in a SEPARATE git repo. Nothing enforces they agree, and it is ALREADY drifting.
@@ -4512,6 +4514,8 @@ Concrete drift / risk:
 No test asserts schema <-> model agreement, so drift is undetectable in CI.
 
 Goal: enforce parity. Options to weigh (not decided): generate the schema from the model, or add a parity test that fails when enum cases / required-fields / coding keys diverge. At minimum, fix the required-fields divergence now and add an enum-case parity check. Cross-repo: the model lives in PhosphorKit, so a generated approach may need a small reflection/derivation helper there.
+
+- `2026-06-26T23:50:10Z`: Fixed the live drift and added parity enforcement. (1) configuration.required is now ['output'] only, matching the decoder (which defaults textures/passes/uniforms/flipY). (2) format/kind/gesture/access enum lists derived from the model via enumValues(_:) where CaseIterable, so they can't silently rot. (3) swap stays a deliberately curated subset (immediate withheld: modeled-but-unimplemented), now guarded. (4) New PhosphorConfigurationSchemaTests: 6 parity tests asserting derived enums match the model exactly, curated enums list only real cases, and required==[output] with a decode round-trip proving the others are optional. Full PhosphorGenerationTests suite (22 tests) passes; app builds clean; lint clean. Note: did NOT make the model enums CaseIterable in PhosphorKit (would need a push); access/swap are guarded by RawRepresentable round-trip instead.
 
 ---
 
@@ -4551,7 +4555,7 @@ This is an RFC-sized refactor; design the deepened interface before implementing
 status: new
 priority: low
 kind: enhancement
-labels: refactor,generation
+labels: refactor, generation
 created: 2026-06-26T21:51:58Z
 +++
 

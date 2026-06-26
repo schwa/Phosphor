@@ -15,6 +15,15 @@ import PhosphorModel
 /// - `uniforms[]`: `{ name, kind, default, ui?, gesture? }`.
 /// - `output`, `flipY`.
 enum PhosphorConfigurationSchema {
+    /// Builds a JSON Schema `enum` array from a `CaseIterable & RawRepresentable`
+    /// model type, so the allowed values are *derived* from the model rather
+    /// than hand-copied. Adding a case in PhosphorModel updates the schema
+    /// automatically; the parity tests guard the few hand-curated lists that
+    /// deliberately diverge (see below).
+    static func enumValues<T: CaseIterable & RawRepresentable>(_: T.Type) -> JSONValue where T.RawValue == String {
+        .array(T.allCases.map { .string($0.rawValue) })
+    }
+
     static var jsonSchema: JSONValue {
         .object([
             "type": "object",
@@ -42,7 +51,11 @@ enum PhosphorConfigurationSchema {
                 "passes": passes,
                 "uniforms": uniforms
             ]),
-            "required": .array(["textures", "passes", "output"])
+            // Only `output` is required: the decoder defaults textures/passes/
+            // uniforms/flipY when absent (PhosphorConfiguration.init(from:)).
+            // Advertising the others as required made the LLM-facing contract
+            // stricter than the model actually accepts.
+            "required": .array(["output"])
         ])
     }
 
@@ -56,11 +69,15 @@ enum PhosphorConfigurationSchema {
                     "id": .object(["type": "string", "description": "Texture id (lowercase letters, digits, underscores)."]),
                     "format": .object([
                         "type": "string",
-                        "enum": .array(["rgba8Unorm", "bgra8Unorm", "rgba16Float", "rgba32Float"]),
+                        "enum": enumValues(PhosphorPixelFormat.self),
                         "description": "Pixel format. Default 'rgba32Float'."
                     ]),
                     "swap": .object([
                         "type": "string",
+                        // Hand-curated: SwapTiming also has `.immediate`, which is
+                        // modeled but not implemented at runtime, so it is
+                        // deliberately withheld from the model. Parity test
+                        // asserts this stays a strict subset of SwapTiming.
                         "enum": .array(["none", "endOfFrame"]),
                         "description": "'endOfFrame' for ping-pong feedback (the runtime keeps two textures and alternates each frame); 'none' otherwise. Default 'none'."
                     ]),
@@ -131,6 +148,9 @@ enum PhosphorConfigurationSchema {
                                 "id": .object(["type": "string", "description": "Texture id this binding refers to (must match a textures[].id)."]),
                                 "access": .object([
                                     "type": "string",
+                                    // Hand-curated to match TextureAccess (not
+                                    // CaseIterable on the published model). Parity
+                                    // test asserts these are all valid cases.
                                     "enum": .array(["read", "sample", "write", "readWrite"]),
                                     "description": "MSL access: 'write' for the output; 'read' for integer-coord input; 'sample' for filtered input."
                                 ]),
@@ -158,7 +178,7 @@ enum PhosphorConfigurationSchema {
                     "name": .object(["type": "string", "description": "Uniform id (lowerCamelCase)."]),
                     "kind": .object([
                         "type": "string",
-                        "enum": .array(["float", "float2", "float3", "float4", "int", "bool", "color"]),
+                        "enum": enumValues(UniformKind.self),
                         "description": "Scalar/vector kind."
                     ]),
                     "default": .object([
@@ -191,7 +211,7 @@ enum PhosphorConfigurationSchema {
                     ]),
                     "gesture": .object([
                         "type": "string",
-                        "enum": .array(["x", "y", "zoom", "rotate"]),
+                        "enum": enumValues(UniformGesture.self),
                         "description": "Optional. Bind a render-surface gesture to drive this uniform live (float only; each gesture used by at most one uniform). 'x'/'y' map a drag to the slider range; 'zoom' a pinch; 'rotate' a rotation."
                     ])
                 ]),
