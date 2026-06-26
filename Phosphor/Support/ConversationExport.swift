@@ -25,6 +25,23 @@ nonisolated struct ConversationExport: Codable, Sendable {
     var messages: [MessageDTO]
     /// The projected UI transcript, as the user saw it.
     var uiTranscript: [UIItemDTO]
+    /// Wall-clock span of the transcript: first item's timestamp to the last
+    /// item's completion. `nil` when the transcript is empty. This is the true
+    /// end-to-end time the user experienced (including the gaps between items),
+    /// which the per-item `durationMS` values do not capture.
+    var transcriptSpanMS: Double?
+
+    /// Computes the wall-clock span across all UI items: from the first item's
+    /// timestamp to the latest (timestamp + duration) among them.
+    static func transcriptSpanMS(_ items: [ConversationItem]) -> Double? {
+        guard let first = items.first else { return nil }
+        let start = first.timestamp
+        let end = items.reduce(start) { latest, item in
+            let itemEnd = item.timestamp.addingTimeInterval(item.duration ?? 0)
+            return max(latest, itemEnd)
+        }
+        return end.timeIntervalSince(start) * 1000
+    }
 
     struct UsageDTO: Codable {
         var inputTokens: Int
@@ -109,8 +126,17 @@ nonisolated struct ConversationExport: Codable, Sendable {
         var toolSummary: String?
         var toolResult: String?
         var isError: Bool?
+        /// When this item was first created (item appeared in the transcript).
+        var timestamp: Date
+        /// How long this item took to complete, in milliseconds. `nil` for user
+        /// prompts and anything still in flight. NOTE: this is the duration of
+        /// the visible block only — it does NOT include the gaps between items
+        /// (network round-trips, model thinking time before the first delta).
+        var durationMS: Double?
 
         init(_ item: ConversationItem) {
+            self.timestamp = item.timestamp
+            self.durationMS = item.duration.map { $0 * 1000 }
             switch item.kind {
             case .user(let text, _):
                 self.kind = "user"

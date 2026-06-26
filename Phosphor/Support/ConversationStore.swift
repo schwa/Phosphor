@@ -223,7 +223,8 @@ final class ConversationStore {
             lastError: lastError,
             currentSource: readSource(),
             messages: messages.map(ConversationExport.MessageDTO.init),
-            uiTranscript: items.map(ConversationExport.UIItemDTO.init)
+            uiTranscript: items.map(ConversationExport.UIItemDTO.init),
+            transcriptSpanMS: ConversationExport.transcriptSpanMS(items)
         )
     }
 
