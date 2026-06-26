@@ -4486,3 +4486,31 @@ Files: Phosphor/Support/ConversationExport.swift (DTO defs), Phosphor/Support/Co
 - `2026-06-26T21:23:44Z`: Collapsed the 6 export DTOs (Usage/Message/Block/ToolUse/ToolResult/UIItem) into retroactive Encodable conformances on the real model types (TokenUsage, ToolUse, ToolResult, ContentBlock, Message) plus a native Encodable on ConversationItem. ConversationExport now serializes the live objects directly; export shape unchanged (image bytes redacted, durations in ms, kinds flattened). Builds clean.
 
 ---
+
+## 136: Hand-written JSON schema drifts from PhosphorConfiguration (no parity enforcement)
+
++++
+status: new
+priority: high
+kind: bug
+labels: refactor,generation
+created: 2026-06-26T21:51:24Z
++++
+
+PhosphorConfigurationSchema.jsonSchema (Packages/PhosphorSupport/Sources/PhosphorGeneration/Collaboration/PhosphorConfigurationSchema.swift, ~210 lines) is a hand-authored JSON Schema that mirrors PhosphorKit's PhosphorConfiguration Codable model — which lives in a SEPARATE git repo. Nothing enforces they agree, and it is ALREADY drifting.
+
+Concrete drift / risk:
+- Required-fields divergence (live drift): schema marks configuration.required = [textures, passes, output] and texture required=[id], pass required=[id, textures]; but the real decoder makes textures/passes/uniforms/flipY optional via decodeIfPresent (PhosphorConfiguration.swift:43-48). The contract advertised to the LLM is STRICTER than what the model actually accepts.
+- Enum lists duplicated as string literals against CaseIterable model types — adding a case in PhosphorKit silently leaves the schema stale:
+  - texture formats vs PhosphorPixelFormat (Resource.swift:50-54)
+  - swap [none, endOfFrame] vs SwapTiming (Resource.swift:67-69)
+  - uniform kinds vs UniformKind (UniformDecl.swift:43-50)
+  - gestures [x,y,zoom,rotate] vs UniformGesture (UniformDecl.swift:35-39)
+- Custom coding keys mirrored by hand: texture 'init' matches CodingKeys.initialContents='init' (Resource+Codable.swift:19); TextureSize/UniformValue/UniformUIHint oneOf shapes hand-encode their custom Codable encoders. Each custom encoder is a place the schema can silently diverge.
+- WriteConfigurationTool.Input.configuration IS PhosphorConfiguration (ShaderTools.swift:227): the tool decodes the runtime model directly, so the LLM's JSON contract is implicitly the model's Codable shape — but the advertised schema is the hand-written one, so the two can disagree.
+
+No test asserts schema <-> model agreement, so drift is undetectable in CI.
+
+Goal: enforce parity. Options to weigh (not decided): generate the schema from the model, or add a parity test that fails when enum cases / required-fields / coding keys diverge. At minimum, fix the required-fields divergence now and add an enum-case parity check. Cross-repo: the model lives in PhosphorKit, so a generated approach may need a small reflection/derivation helper there.
+
+---
