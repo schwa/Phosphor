@@ -4493,7 +4493,7 @@ Files: Phosphor/Support/ConversationExport.swift (DTO defs), Phosphor/Support/Co
 status: new
 priority: high
 kind: bug
-labels: refactor,generation
+labels: refactor, generation
 created: 2026-06-26T21:51:24Z
 +++
 
@@ -4512,5 +4512,35 @@ Concrete drift / risk:
 No test asserts schema <-> model agreement, so drift is undetectable in CI.
 
 Goal: enforce parity. Options to weigh (not decided): generate the schema from the model, or add a parity test that fails when enum cases / required-fields / coding keys diverge. At minimum, fix the required-fields divergence now and add an enum-case parity check. Cross-repo: the model lives in PhosphorKit, so a generated approach may need a small reflection/derivation helper there.
+
+---
+
+## 137: Deepen ConversationStore: split its 6 responsibilities, make the projection engine testable
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: refactor,architecture
+created: 2026-06-26T21:51:43Z
++++
+
+ConversationStore (Phosphor/Support/ConversationStore.swift, ~632 lines) is a @MainActor @Observable class bundling at least six responsibilities, with no test coverage (the app target has no test bundle):
+
+1. Session lifecycle / lazy construction of generator + provider + document (ensureGenerator).
+2. Cancellable turn orchestration (send/run/stop).
+3. A hand-maintained MIRROR of LLMSession.messages — appendToolUseToMirror / appendToolResultToMirror / appendAssistantProseToMirror — which duplicates CollaborationKit's content-block merging rules, then overwrites the whole mirror from generator.messages at turn end. Leaky seam into how CollaborationKit structures blocks.
+4. UI projection engine: messages -> [ConversationItem] with stable identity (reproject + userPrompt/applyToolResults/appendAssistantRows/makeRow + ProjectionKey/idByKey).
+5. Presentation/timing analytics: timestamps, durations, round-trip latency (Presentation, latencyForNextRow, duration stamping in handle()).
+6. Rollback across editor source + tool buffer + model memory (rollBack), and debug export assembly (buildExport).
+
+Why this is friction:
+- Understanding 'how a prompt becomes an applied edit shown in the transcript' requires holding ~6 files at once; the edit path (document.onWrite -> writeSource -> editor) and the display path (events -> handle -> mirror -> reproject) are two separate control flows that never meet in one place.
+- The riskiest logic (projection, mirror-merge rules, timing, rollback truncation) is all private on a class that needs an MTLDevice, two closures, and a live ConversationalGenerator/LLMSession to construct. There is no seam to feed a synthetic [SessionEvent] stream into handle() without a real provider — so none of it is testable today.
+- Tool-name string literals are hardcoded in THREE places (ConversationStore.summary(for:), GeneratePanel ConversationRow icon/resultWorthShowing, ShaderTools) with no shared enum.
+
+Goal (module-deepening): extract a pure, value-typed projection/timeline engine (input: ordered [SessionEvent] + presentation metadata; output: [ConversationItem]) that is unit-testable in isolation, and separate it from session lifecycle/orchestration and from rollback. This gives the conversation subsystem its first real test coverage. Note: the app has no test bundle — adding one (or hosting the engine in a testable package target) is part of the work.
+
+This is an RFC-sized refactor; design the deepened interface before implementing.
 
 ---
