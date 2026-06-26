@@ -4459,3 +4459,22 @@ Refactor so the UI transcript is a pure projection of CollaborationKit's `messag
 Context: came up while designing the 'roll back to here' feature for conversation mode. For that feature we chose the pragmatic option (truncate both, mapped by index); this ticket tracks the deeper cleanup.
 
 ---
+
+## 135: Eliminate DTO objects from ConversationExport — use one model representation
+
++++
+status: new
+priority: low
+kind: enhancement
+created: 2026-06-26T21:12:52Z
++++
+
+ConversationExport.swift defines a parallel set of DTO structs (UsageDTO, MessageDTO, BlockDTO, ToolUseDTO, ToolResultDTO, UIItemDTO) that mirror the real CollaborationKit model types (TokenUsage, Message, ContentBlock, ToolUse, ToolResult, ConversationItem) just to serialize them for export.
+
+This is the same one-representation problem that #131/#132 fixed for shader configuration (collapsed ConfigurationDTO into PhosphorConfiguration). Apply the same principle here: there should be ONE model object, not a runtime type plus a flattened export-only DTO twin.
+
+Goal: make the CollaborationKit model types Codable (or provide a single Encodable conformance / coding layer) so ConversationExport serializes the real objects directly, and delete the *DTO structs. If the model types can't be made Codable directly (e.g. owned by CollaborationKit, or export needs a lossy/redacted shape like the image-bytes elision in BlockDTO), capture the constraints and pick the minimal single-representation approach rather than maintaining a full DTO mirror.
+
+Files: Phosphor/Support/ConversationExport.swift (DTO defs), Phosphor/Support/ConversationStore.swift (MessageDTO/UIItemDTO call sites).
+
+---
