@@ -24,7 +24,6 @@ struct ShaderEditorView: View {
     /// ``GeneratePanel``) so the chat history survives inspector tab switches,
     /// which tear down the non-selected tab's view tree.
     @State private var conversation: ConversationStore?
-    @State private var showHeader: Bool = false
     @SceneStorage("phosphor.ui.inspectorTab") private var inspectorTab: InspectorTab = .generate
     @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
     @SceneStorage("phosphor.ui.showFrameTiming") private var showFrameTiming: Bool = true
@@ -142,21 +141,6 @@ struct ShaderEditorView: View {
             .pickerStyle(.segmented)
             .labelStyle(.iconOnly)
             .help("Choose editor layout")
-        }
-        ToolbarItem(placement: .navigation) {
-            Button {
-                showHeader.toggle()
-            } label: {
-                Label("Phosphor.h", systemImage: "doc.text.magnifyingglass")
-            }
-            .help("View the generated Phosphor.h prelude")
-            .popover(isPresented: $showHeader, arrowEdge: .top) {
-                ScrollView([.horizontal, .vertical]) {
-                    MetalSourceView(text: PhosphorHeader.source(for: parsed.configuration))
-                        .padding(12)
-                }
-                .frame(minWidth: 480, minHeight: 360)
-            }
         }
         ToolbarItem(placement: .navigation) {
             ResourcePickerView(

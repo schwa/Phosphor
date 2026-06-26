@@ -58,7 +58,7 @@ struct ShaderEditorLayoutView: View {
         switch layoutMode {
         case .horizontal:
             HSplitView {
-                CodePaneView(text: $text, onTextChange: onTextChange)
+                CodePaneView(text: $text, onTextChange: onTextChange, configuration: parsed.configuration)
                     .frame(minWidth: 300)
                 preview
                     .frame(minWidth: 300)
@@ -66,7 +66,7 @@ struct ShaderEditorLayoutView: View {
 
         case .vertical:
             VSplitView {
-                CodePaneView(text: $text, onTextChange: onTextChange)
+                CodePaneView(text: $text, onTextChange: onTextChange, configuration: parsed.configuration)
                     .frame(minHeight: 200)
                 preview
                     .frame(minHeight: 200)
@@ -112,7 +112,7 @@ struct ShaderEditorLayoutView: View {
             PreviewPaneView(parsed: parsed)
                 .ignoresSafeArea()
 
-            CodePaneView(text: $text, onTextChange: onTextChange, opaque: false, palette: .darkWithBackdrop)
+            CodePaneView(text: $text, onTextChange: onTextChange, configuration: parsed.configuration, opaque: false, palette: .darkWithBackdrop)
                 .padding(16)
         }
         .modifier(PreviewOverlays(
