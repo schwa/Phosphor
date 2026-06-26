@@ -4445,11 +4445,13 @@ Because the session is long-running and stateful, the full system prompt + growi
 ## 134: Make conversation `items` a pure projection of `messages`
 
 +++
-status: new
+status: closed
 priority: medium
 kind: none
 labels: refactor
 created: 2026-06-26T20:35:40Z
+updated: 2026-06-26T21:38:15Z
+closed: 2026-06-26T21:38:15Z
 +++
 
 Currently there are two parallel histories: CollaborationKit's `LLMSession.history` (`[Message]`, the model's actual memory, sent every turn) and Phosphor's `ConversationStore.items` (`[ConversationItem]`, the UI transcript). `items` is accumulated by hand from the session event stream rather than derived from `messages`, so the two can drift — most notably during rollback/truncation, which must keep both in sync by index.
@@ -4457,6 +4459,8 @@ Currently there are two parallel histories: CollaborationKit's `LLMSession.histo
 Refactor so the UI transcript is a pure projection of CollaborationKit's `messages` (domain history) plus presentation-only metadata (timestamps, durations, tool summaries, thumbnails). One source of truth; rollback then only truncates `history`.
 
 Context: came up while designing the 'roll back to here' feature for conversation mode. For that feature we chose the pragmatic option (truncate both, mapped by index); this ticket tracks the deeper cleanup.
+
+- `2026-06-26T21:38:15Z`: Reworked ConversationStore so the UI transcript is a pure projection of the model's Message history (messages) plus two overlays that have no home there: the in-flight streaming assistant bubble and harness errors. Presentation-only metadata (timestamp/duration/latency/tool summary) lives in a side-table keyed by a stable ProjectionKey, with a key->UUID cache preserving SwiftUI identity across re-projection. Rollback now truncates the single history (messages + truncateHistory) and re-derives items; no more index-synced parallel structures. Option A: timestamps stay in Phosphor (UI-event times), CollaborationKit unchanged. App builds clean via xcb. NOTE: app target has no test bundle, so the projection isn't unit-tested yet.
 
 ---
 
