@@ -4306,7 +4306,7 @@ Author the template by hand first and confirm it builds/runs, then fold it into 
 status: new
 priority: low
 kind: feature
-labels: research,phosphorkit
+labels: research, phosphorkit
 created: 2026-06-26T05:31:39Z
 +++
 
@@ -4333,5 +4333,29 @@ PhosphorKit is a *generative* renderer: shaders produce pixels from iTime/iMouse
 
 ## Recommended next step
 Prototype an FxPlug 4 target reusing PhosphorCompile: single-shot renderer + input-texture plumbing + parameter mapping.
+
+---
+
+## 131: Collapse three configuration representations into one
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: refactor
+created: 2026-06-26T05:38:11Z
++++
+
+We currently model shader configuration in three overlapping ways:
+
+1. PhosphorConfiguration (PhosphorKit/PhosphorModel) — canonical runtime model; payload-carrying enums, Codable shape tuned for hand-written TOML front-matter.
+2. ConfigurationDTO (PhosphorGeneration/Collaboration) — flat, model-facing shape for the writeConfiguration tool; decodes model JSON then maps via toConfiguration() to PhosphorConfiguration.
+3. GeneratedShader (PhosphorGeneration) — @Generable flat shape for whole-shader generation; maps via toPhosphorConfiguration() to PhosphorConfiguration.
+
+ConfigurationDTO and GeneratedShader are nearly the same flattened shape with two separate to*Configuration() mappers — ConfigurationDTO's doc comment even notes it deliberately reuses the shape GeneratedShader already proves works.
+
+Goal: collapse to a single representation (ideally one flat model-facing type + the runtime PhosphorConfiguration, or fully unify if feasible). Eliminate the duplicate flat shape and the two parallel mapping functions.
+
+While here, reconsider the DTO suffix naming (e.g. GeneratedConfiguration / ConfigurationSchema / ConfigurationInput) for whatever survives.
 
 ---
