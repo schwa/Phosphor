@@ -5,9 +5,9 @@ import PhosphorModel
 /// System prompt text handed to the language model for shader generation.
 ///
 /// The model emits a configuration through the `writeConfiguration` tool, whose
-/// contract is ``ConfigurationDTO`` (flat resources / passes / inputs / output).
-/// The host synthesizes the per-binding access list when mapping that DTO to
-/// the runtime ``PhosphorConfiguration``.
+/// contract is the runtime ``PhosphorConfiguration`` shape directly (textures,
+/// passes with explicit per-binding access, uniforms, output) — the same shape
+/// `readConfiguration` returns.
 enum GeneratorInstructions {
     /// The full generation instructions plus the `Phosphor.h` helper interface,
     /// so the model knows exactly which helpers and constants are in scope.

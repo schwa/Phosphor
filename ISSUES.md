@@ -4339,12 +4339,13 @@ Prototype an FxPlug 4 target reusing PhosphorCompile: single-shot renderer + inp
 ## 131: Collapse three configuration representations into one
 
 +++
-status: open
+status: closed
 priority: medium
 kind: enhancement
 labels: refactor
 created: 2026-06-26T05:38:11Z
-updated: 2026-06-26T05:47:15Z
+updated: 2026-06-26T05:53:01Z
+closed: 2026-06-26T05:53:01Z
 +++
 
 We currently model shader configuration in three overlapping ways:
@@ -4361,6 +4362,7 @@ While here, reconsider the DTO suffix naming (e.g. GeneratedConfiguration / Conf
 
 - `2026-06-26T05:46:51Z`: Resolved by #132: deleting the @Generable GeneratedShader path removes the third representation. Shader configuration is now two reps — runtime PhosphorConfiguration and the model-facing ConfigurationDTO (single to-runtime mapper).
 - `2026-06-26T05:47:15Z`: Reopening: #132 only got three reps down to two (PhosphorConfiguration + ConfigurationDTO). #131's goal is ONE — eliminate ConfigurationDTO so the model targets PhosphorConfiguration directly (or a single shared shape + schema). Still to do.
+- `2026-06-26T05:53:01Z`: Collapsed to one configuration representation. writeConfiguration now decodes PhosphorConfiguration directly (deleted ConfigurationDTO + its mapper); the tool schema is hand-written for the real PhosphorConfiguration shape (textures with size/format/swap/init, passes with explicit per-binding access, uniforms incl. ui/gesture, output, flipY) and matches what readConfiguration returns. Updated the full prompt and ShaderTools tests to the runtime shape.
 
 ---
 

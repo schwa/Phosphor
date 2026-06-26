@@ -117,10 +117,10 @@ struct WriteConfigurationToolTests {
     func rewritesFrontMatter() async throws {
         let doc = makeDocument()
         let tool = WriteConfigurationTool(document: doc)
-        let dto = try decodeDTO("""
+        let dto = try decodeInput("""
         { "configuration": { "output": "image",
-          "resources": [{ "id": "image", "format": "rgba16Float" }],
-          "passes": [{ "id": "image", "output": "image" }] } }
+          "textures": [{ "id": "image", "format": "rgba16Float" }],
+          "passes": [{ "id": "image", "textures": [{ "id": "image", "access": "write" }] }] } }
         """)
         let result = try await tool.call(dto)
         #expect(result.hasPrefix("Configuration written"))
@@ -137,16 +137,16 @@ struct WriteConfigurationToolTests {
     func rejectsInvalid() async throws {
         let doc = makeDocument()
         let tool = WriteConfigurationTool(document: doc)
-        // output references a resource/pass that doesn't exist → fatal validation.
-        let dto = try decodeDTO("""
-        { "configuration": { "output": "missing", "resources": [], "passes": [] } }
+        // output references a texture that doesn't exist → fatal validation.
+        let dto = try decodeInput("""
+        { "configuration": { "output": "missing", "textures": [], "passes": [] } }
         """)
         await #expect(throws: ToolError.self) {
             try await tool.call(dto)
         }
     }
 
-    private func decodeDTO(_ json: String) throws -> WriteConfigurationTool.Input {
+    private func decodeInput(_ json: String) throws -> WriteConfigurationTool.Input {
         try JSONDecoder().decode(WriteConfigurationTool.Input.self, from: Data(json.utf8))
     }
 }
@@ -185,39 +185,42 @@ struct CompileShaderToolTests {
     }
 }
 
-// MARK: - ConfigurationDTO mapping
+// MARK: - PhosphorConfiguration decoding (the writeConfiguration shape)
 
-@Suite("ConfigurationDTO")
-struct ConfigurationDTOTests {
-    @Test("maps flat resources/passes to runtime bindings")
-    func mapsToRuntime() throws {
+@Suite("PhosphorConfiguration decoding")
+struct PhosphorConfigurationDecodeTests {
+    @Test("decodes the runtime shape the writeConfiguration tool accepts")
+    func decodesRuntimeShape() throws {
         let json = """
         { "output": "image",
-          "resources": [
-            { "id": "bufA", "pingPong": true },
+          "textures": [
+            { "id": "bufA", "swap": "endOfFrame" },
             { "id": "image" }
           ],
           "passes": [
-            { "id": "bufA", "output": "bufA", "inputs": [{ "name": "iChannel0", "resource": "bufA" }] },
-            { "id": "image", "output": "image", "inputs": [{ "name": "iChannel0", "resource": "bufA" }] }
+            { "id": "bufA", "textures": [
+              { "id": "bufA", "access": "write" },
+              { "id": "bufA", "access": "read", "name": "bufAPrev" }
+            ] },
+            { "id": "image", "textures": [
+              { "id": "image", "access": "write" },
+              { "id": "bufA", "access": "read" }
+            ] }
           ],
           "uniforms": [
-            { "name": "speed", "kind": "float", "defaultValue": [1.0], "sliderMin": 0.0, "sliderMax": 5.0 }
+            { "name": "speed", "kind": "float", "default": 1.0, "ui": { "slider": { "min": 0.0, "max": 5.0 } } }
           ] }
         """
-        let dto = try JSONDecoder().decode(ConfigurationDTO.self, from: Data(json.utf8))
-        let config = dto.toConfiguration()
+        let config = try JSONDecoder().decode(PhosphorConfiguration.self, from: Data(json.utf8))
 
         #expect(config.output == "image")
         #expect(config.textures.count == 2)
         #expect(config.texture("bufA")?.swap == .endOfFrame)
 
-        // Self-feedback pass gets a write binding plus a distinct `bufAPrev` read.
         let bufA = try #require(config.passes.first { $0.id == "bufA" })
         #expect(bufA.textures.contains { $0.access == .write && $0.id == "bufA" })
         #expect(bufA.textures.contains { $0.access == .read && $0.name == "bufAPrev" })
 
-        // Uniform maps to a slider.
         let speed = try #require(config.uniforms.first { $0.name == "speed" })
         if case .slider(let lo, let hi) = speed.ui {
             #expect(lo == 0.0)

@@ -195,13 +195,14 @@ public struct ReadConfigurationTool: Tool {
 
 /// Replaces the front-matter configuration with a new structured value, then
 /// re-emits the `/* phosphor:environment ... */` block via
-/// ``FrontMatterFormatter`` and splices it onto the current body. The input
-/// schema is the JSON Schema for ``PhosphorConfiguration``. The configuration
-/// typically changes little between turns, so a coarse-grained whole-config
-/// write is the right grain.
+/// ``FrontMatterFormatter`` and splices it onto the current body. The input is
+/// the runtime ``PhosphorConfiguration`` shape directly — the same shape
+/// ``ReadConfigurationTool`` returns (one representation, read/write symmetric).
+/// The configuration typically changes little between turns, so a
+/// coarse-grained whole-config write is the right grain.
 public struct WriteConfigurationTool: Tool {
     public struct Input: Decodable, Sendable {
-        public let configuration: ConfigurationDTO
+        public let configuration: PhosphorConfiguration
     }
 
     private let document: TextDocument
@@ -218,10 +219,10 @@ public struct WriteConfigurationTool: Tool {
         front-matter block is regenerated; the kernel body is preserved.
         """
     }
-    public var inputSchema: JSONValue { ConfigurationDTO.jsonSchema }
+    public var inputSchema: JSONValue { PhosphorConfigurationSchema.jsonSchema }
 
     public func call(_ input: Input) async throws -> String {
-        let configuration = input.configuration.toConfiguration()
+        let configuration = input.configuration
         let diagnostics = validate(configuration)
         if let fatal = diagnostics.first(where: \.isFatal) {
             throw ToolError("Configuration is invalid: \(fatal)")
