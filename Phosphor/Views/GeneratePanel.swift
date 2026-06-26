@@ -82,16 +82,13 @@ struct GeneratePanel: View {
         ScrollViewReader { proxy in
             List {
                 ForEach(store?.items ?? []) { item in
-                    ConversationRow(item: item)
-                        .id(item.id)
-                        .listRowSeparator(.hidden)
-                        .contextMenu {
-                            if store?.canRollBack(to: item.id) == true {
-                                Button("Roll Back to Here", systemImage: "arrow.uturn.backward") {
-                                    store?.rollBack(to: item.id)
-                                }
-                            }
-                        }
+                    ConversationRow(
+                        item: item,
+                        canRollBack: store?.canRollBack(to: item.id) ?? false,
+                        onRollBack: { store?.rollBack(to: item.id) }
+                    )
+                    .id(item.id)
+                    .listRowSeparator(.hidden)
                 }
                 if store?.isGenerating == true {
                     thinkingRow
@@ -392,6 +389,10 @@ private extension NSImage {
 /// One transcript row, styled per item kind.
 private struct ConversationRow: View {
     let item: ConversationItem
+    /// Whether a "roll back to here" action is available for this row.
+    var canRollBack: Bool = false
+    /// Rolls the session back to just before this prompt.
+    var onRollBack: () -> Void = {}
 
     var body: some View {
         content.textSelection(.enabled)
@@ -417,14 +418,23 @@ private struct ConversationRow: View {
     private var content: some View {
         switch item.kind {
         case .user(let text, let images):
-            bubble(alignment: .trailing, background: Color.accentColor.opacity(0.18)) {
-                VStack(alignment: .trailing, spacing: 6) {
-                    if !images.isEmpty {
-                        AttachmentThumbnails(images: images)
+            VStack(alignment: .trailing, spacing: 2) {
+                bubble(alignment: .trailing, background: Color.accentColor.opacity(0.18)) {
+                    VStack(alignment: .trailing, spacing: 6) {
+                        if !images.isEmpty {
+                            AttachmentThumbnails(images: images)
+                        }
+                        if !text.isEmpty {
+                            Text(text).fixedSize(horizontal: false, vertical: true)
+                        }
                     }
-                    if !text.isEmpty {
-                        Text(text).fixedSize(horizontal: false, vertical: true)
-                    }
+                }
+                if canRollBack {
+                    Button("Roll Back to Here", systemImage: "arrow.uturn.backward", action: onRollBack)
+                        .buttonStyle(.borderless)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .help("Restore the shader and conversation to just before this message.")
                 }
             }
 
