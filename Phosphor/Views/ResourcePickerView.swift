@@ -21,20 +21,19 @@ struct ResourcePickerView: View {
     }
 
     var body: some View {
-        Picker("Preview", selection: $displayedResource) {
-            Text("Output (\(configuration.output.raw))").tag(ResourceID?.none)
-            Divider()
-            ForEach(resourceIDs, id: \.self) { id in
-                Text(id.raw).tag(Optional(id))
+        if !isDisabled {
+            Picker("Preview", selection: $displayedResource) {
+                Text("Output (\(configuration.output.raw))").tag(ResourceID?.none)
+                Divider()
+                ForEach(resourceIDs, id: \.self) { id in
+                    Text(id.raw).tag(Optional(id))
+                }
             }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .frame(maxWidth: 180)
+            .help("Preview a specific resource instead of the declared output")
         }
-        .pickerStyle(.menu)
-        .labelsHidden()
-        .frame(maxWidth: 180)
-        .disabled(isDisabled)
-        .help(isDisabled
-                ? "Only one resource declared—nothing to switch to"
-                : "Preview a specific resource instead of the declared output")
     }
 }
 
