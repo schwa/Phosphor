@@ -4521,7 +4521,7 @@ Goal: enforce parity. Options to weigh (not decided): generate the schema from t
 status: new
 priority: medium
 kind: enhancement
-labels: refactor,architecture
+labels: refactor, architecture
 created: 2026-06-26T21:51:43Z
 +++
 
@@ -4542,5 +4542,31 @@ Why this is friction:
 Goal (module-deepening): extract a pure, value-typed projection/timeline engine (input: ordered [SessionEvent] + presentation metadata; output: [ConversationItem]) that is unit-testable in isolation, and separate it from session lifecycle/orchestration and from rollback. This gives the conversation subsystem its first real test coverage. Note: the app has no test bundle — adding one (or hosting the engine in a testable package target) is part of the work.
 
 This is an RFC-sized refactor; design the deepened interface before implementing.
+
+---
+
+## 138: ShaderTools: collapse boilerplate tool pattern and overlapping edit surfaces
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: refactor,generation
+created: 2026-06-26T21:51:58Z
++++
+
+ShaderTools.swift (Packages/PhosphorSupport/Sources/PhosphorGeneration/Collaboration/, ~364 lines) defines 6 Tool structs where 4 of 6 are mechanical wrappers, and the tool surface overlaps with itself.
+
+Boilerplate / shallow-module evidence:
+- Empty-input + empty-schema triplicated across ReadMetalTool, ReadConfigurationTool, CompileShaderTool (lines ~41-43, 184-186, 295-297): same Input struct + .object([type:object, properties:.object([:])]).
+- readSource/writeSource private helpers (lines ~318-329) exist only to wrap document.read/write in ToolError; every tool funnels through them.
+- EditMetalTool is described in-source as 'a near-verbatim port of CollaborationKit's EditTool' (lines ~92-95) — re-implemented rather than reused, just to target the custom document.
+- Deep logic lives in only TWO tools (WriteConfigurationTool, CompileShaderTool); the other four are mechanical.
+- Lint suppressions at file top (lines 1-3) for async_without_await / unused_parameter are concrete evidence CollaborationKit's Tool.call signature doesn't fit these impls.
+
+Surface overlap (the real smell):
+- The configuration is editable through BOTH the whole-file text tools (read/write/edit) AND the structured tools (readConfiguration/writeConfiguration). Because of that overlap, ConversationalGenerator's prompt spends ~35 lines (toolLoopGuidance, ConversationalGenerator.swift:115-150) policing which to use ('front-matter is TOML not JSON', 'PREFER these'). Prompt-as-glue is a sign the tool surface overlaps and should be narrowed.
+
+Goal: reduce the tool definitions to a small shared pattern (kill the triplicated empty-input/empty-schema and the ToolError-wrapping helpers), and reconsider the two-surface design so the prompt doesn't have to referee text-vs-structured edits. Lower-leverage than #137/#136 — mostly surface collapse, not coverage (ShaderTools is already fairly tested).
 
 ---
