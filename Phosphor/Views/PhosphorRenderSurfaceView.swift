@@ -32,6 +32,15 @@ struct PhosphorRenderSurfaceView: View {
     // shader sees, applying pause and reset.
     @State private var playbackClock = PlaybackClock()
 
+    // Accumulator base for the zoom/rotate channels: the channel's normalized
+    // value when the magnify/rotate gesture began, so deltas accumulate.
+    @State private var zoomBase: Float = 0.5
+    @State private var rotateBase: Float = 0.5
+
+    private var gestureBindings: UniformGestureBinding.Bindings {
+        UniformGestureBinding.bindings(for: configuration)
+    }
+
     var body: some View {
         PhosphorMetalSprocketsView(
             runtime: runtime,
@@ -74,10 +83,29 @@ struct PhosphorRenderSurfaceView: View {
                         mouseClickOrigin = pixelCoordinate(from: value.startLocation)
                     }
                     mouseButtons |= 0b1
+                    applyDragChannels(at: value.location)
                 }
                 .onEnded { _ in
                     mouseButtons &= ~0b1
                 }
+        )
+        .gesture(
+            MagnifyGesture()
+                .onChanged { value in
+                    // magnification: 1.0 at rest; scale deltas around the base.
+                    let delta = Float(value.magnification - 1.0)
+                    apply(zoomBase + delta, to: .zoom)
+                }
+                .onEnded { _ in zoomBase = currentNormalized(for: .zoom) ?? zoomBase }
+        )
+        .gesture(
+            RotateGesture()
+                .onChanged { value in
+                    // One full turn spans the uniform's range.
+                    let delta = Float(value.rotation.radians / (2 * .pi))
+                    apply(rotateBase + delta, to: .rotate)
+                }
+                .onEnded { _ in rotateBase = currentNormalized(for: .rotate) ?? rotateBase }
         )
     }
 
@@ -98,6 +126,41 @@ struct PhosphorRenderSurfaceView: View {
     /// Per-frame state mutation triggered once per frame from the host.
     private func applyPlaybackSideEffects(context: RenderViewContext) {
         playbackClock.commit(wallClock: wallClock(from: context))
+    }
+
+    // MARK: - Gesture-bound uniforms
+
+    /// Drives the x / y channels from an absolute drag location, normalized to
+    /// 0...1 over the view (y flipped so up == 1).
+    private func applyDragChannels(at location: CGPoint) {
+        let bindings = gestureBindings
+        guard !bindings.isEmpty, viewSize.width > 0, viewSize.height > 0 else { return }
+        let nx = Float(location.x / viewSize.width)
+        let ny = 1 - Float(location.y / viewSize.height)
+        var values = model.uniformValues
+        UniformGestureBinding.apply(normalized: nx, channel: .x, bindings: bindings, into: &values)
+        UniformGestureBinding.apply(normalized: ny, channel: .y, bindings: bindings, into: &values)
+        model.uniformValues = values
+    }
+
+    /// Writes a normalized channel value into its bound uniform.
+    private func apply(_ normalized: Float, to channel: UniformGesture) {
+        let bindings = gestureBindings
+        guard !bindings.isEmpty else { return }
+        var values = model.uniformValues
+        UniformGestureBinding.apply(normalized: normalized, channel: channel, bindings: bindings, into: &values)
+        model.uniformValues = values
+    }
+
+    /// The current normalized (0...1) value of a channel's bound uniform, by
+    /// inverting the slider-range mapping. Used to rebase zoom/rotate at
+    /// gesture end. `nil` if nothing is bound.
+    private func currentNormalized(for channel: UniformGesture) -> Float? {
+        guard let bound = gestureBindings.uniform(for: channel),
+              case .float(let value)? = model.uniformValues[bound.name] else { return nil }
+        let span = bound.range.upperBound - bound.range.lowerBound
+        guard span > 0 else { return 0 }
+        return min(max((value - bound.range.lowerBound) / span, 0), 1)
     }
 
     private func wallClock(from context: RenderViewContext) -> PlaybackClock.WallClock {

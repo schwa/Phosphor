@@ -28,6 +28,11 @@ Notes on the signature:
   Access fields with `uniforms.time`, `uniforms.resolution`, etc. — dot, not arrow.
 - `UserUniforms` is a separate argument buffer at buffer(1). Access with
   `userUniforms.<name>`, also dot, not arrow.
+- A `float` uniform may optionally set `gesture` to `x`, `y`, `zoom`, or
+  `rotate` so a drag / pinch / rotation on the preview drives it live (mapped
+  into its slider range). Only on `float`; each gesture by at most one uniform.
+  Use it when direct manipulation helps (a draggable focal point, pinch-to-zoom
+  scale); otherwise leave it unset.
 - The pass writes through `uniforms.textures.<output_id>.write(color, gid)`.
   The field name inside `textures` matches the resource id (so if the output
   resource is `image`, you write `uniforms.textures.image.write(...)`).

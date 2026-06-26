@@ -63,6 +63,12 @@ struct DiagnosticsView: View {
 
         case .imageTextureCannotPingPong(let id):
             return "image texture '\(id)' cannot be ping-pong (swap must be \"none\")"
+
+        case .gestureRequiresFloat(let uniform):
+            return "uniform '\(uniform)' binds a gesture but isn't a float"
+
+        case .duplicateGesture(let channel, let uniforms):
+            return "gesture '\(channel.rawValue)' bound by multiple uniforms: \(uniforms.joined(separator: ", "))"
         }
     }
 }

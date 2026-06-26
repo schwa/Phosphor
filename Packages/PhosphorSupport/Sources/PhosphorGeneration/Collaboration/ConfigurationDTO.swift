@@ -79,8 +79,10 @@ public struct ConfigurationDTO: Decodable, Sendable {
         public var defaultValue: [Float]
         public var sliderMin: Float
         public var sliderMax: Float
+        /// Optional gesture channel ("x", "y", "zoom", "rotate"), or empty/"none".
+        public var gesture: String
 
-        private enum CodingKeys: String, CodingKey { case name, kind, defaultValue, sliderMin, sliderMax }
+        private enum CodingKeys: String, CodingKey { case name, kind, defaultValue, sliderMin, sliderMax, gesture }
 
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -89,6 +91,7 @@ public struct ConfigurationDTO: Decodable, Sendable {
             self.defaultValue = try c.decodeIfPresent([Float].self, forKey: .defaultValue) ?? []
             self.sliderMin = try c.decodeIfPresent(Float.self, forKey: .sliderMin) ?? 0
             self.sliderMax = try c.decodeIfPresent(Float.self, forKey: .sliderMax) ?? 0
+            self.gesture = try c.decodeIfPresent(String.self, forKey: .gesture) ?? ""
         }
     }
 
@@ -128,7 +131,8 @@ public struct ConfigurationDTO: Decodable, Sendable {
                 name: uniform.name,
                 kind: kind,
                 defaultValue: Self.uniformValue(uniform.defaultValue, kind: kind),
-                ui: Self.uniformUI(uniform, kind: kind)
+                ui: Self.uniformUI(uniform, kind: kind),
+                gesture: Self.uniformGesture(uniform.gesture, kind: kind)
             )
         }
 
@@ -160,6 +164,13 @@ public struct ConfigurationDTO: Decodable, Sendable {
         case .int: return .int(Int32(safe[0]))
         case .bool: return .bool(safe[0] != 0)
         }
+    }
+
+    /// Maps the raw gesture string to a ``UniformGesture``. Only valid on
+    /// `.float`; anything else (or empty/"none"/unknown) yields `nil`.
+    private static func uniformGesture(_ raw: String, kind: UniformKind) -> UniformGesture? {
+        guard kind == .float else { return nil }
+        return UniformGesture(rawValue: raw)
     }
 
     private static func uniformUI(_ uniform: UniformDTO, kind: UniformKind) -> UniformUIHint? {
@@ -258,7 +269,12 @@ public struct ConfigurationDTO: Decodable, Sendable {
                                         "description": "Default as up to 4 floats."
                                     ]),
                                     "sliderMin": .object(["type": "number", "description": "Slider minimum (float/int only)."]),
-                                    "sliderMax": .object(["type": "number", "description": "Slider maximum (float/int only)."])
+                                    "sliderMax": .object(["type": "number", "description": "Slider maximum (float/int only)."]),
+                                    "gesture": .object([
+                                        "type": "string",
+                                        "enum": .array(["none", "x", "y", "zoom", "rotate"]),
+                                        "description": "Optional render-surface gesture that drives this uniform live (float only; each gesture used by at most one uniform). 'x'/'y' map a drag to 0..1 over the slider range; 'zoom' a pinch; 'rotate' a rotation. Use 'none' unless direct manipulation clearly helps."
+                                    ])
                                 ]),
                                 "required": .array(["name", "kind"])
                             ])

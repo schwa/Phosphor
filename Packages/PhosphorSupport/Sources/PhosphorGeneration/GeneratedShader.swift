@@ -96,6 +96,9 @@ public struct GeneratedUniform {
 
     @Guide(description: "Slider maximum. Ignored unless kind is float or int.")
     var sliderMax: Float
+
+    @Guide(description: "Optionally let a render-surface gesture drive this uniform live. 'none' for no gesture. 'x'/'y' map a drag on the preview to 0..1 (mapped into the slider range); 'zoom' a pinch; 'rotate' a rotation. Only valid when kind is 'float', and each gesture may be used by at most one uniform. Prefer 'none' unless the effect clearly benefits from direct manipulation (e.g. a draggable focal point or a pinch-to-zoom scale).")
+    var gesture: GeneratedUniformGesture
 }
 
 @Generable
@@ -104,6 +107,15 @@ public enum GeneratedUniformKind: String {
     case int
     case bool
     case color
+}
+
+@Generable
+public enum GeneratedUniformGesture: String {
+    case none
+    case x
+    case y
+    case zoom
+    case rotate
 }
 
 // MARK: - Codable
@@ -125,6 +137,7 @@ extension GeneratedPass: Codable, Hashable, Sendable {}
 extension GeneratedBinding: Codable, Hashable, Sendable {}
 extension GeneratedUniform: Codable, Hashable, Sendable {}
 extension GeneratedUniformKind: Codable, Hashable, Sendable {}
+extension GeneratedUniformGesture: Codable, Hashable, Sendable {}
 
 // MARK: - Conversion to runtime model
 
@@ -173,7 +186,8 @@ public extension GeneratedShader {
                 name: uniform.name,
                 kind: uniformKind(from: uniform.kind),
                 defaultValue: uniformValue(uniform.defaultValue, kind: uniform.kind),
-                ui: uniformUI(uniform)
+                ui: uniformUI(uniform),
+                gesture: uniformGesture(uniform)
             )
         }
 
@@ -243,6 +257,20 @@ public extension GeneratedShader {
                 return .slider(min: uniform.sliderMin, max: uniform.sliderMax)
             }
             return nil
+        }
+    }
+
+    /// Maps the generated gesture choice to a runtime ``UniformGesture``.
+    /// Only `.float` uniforms may bind a gesture; anything else is dropped
+    /// (validation would otherwise reject it downstream).
+    private func uniformGesture(_ uniform: GeneratedUniform) -> UniformGesture? {
+        guard uniform.kind == .float else { return nil }
+        switch uniform.gesture {
+        case .none: return nil
+        case .x: return .x
+        case .y: return .y
+        case .zoom: return .zoom
+        case .rotate: return .rotate
         }
     }
 }
