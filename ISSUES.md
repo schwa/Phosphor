@@ -4299,3 +4299,39 @@ Plumbing: reuse SwiftPackageExporter (AppleArchive expand + single-file swap) an
 Author the template by hand first and confirm it builds/runs, then fold it into the export flow. No renaming for now; swap the single .phosphor file only.
 
 ---
+
+## 130: Explore video-effects plugin host integration for PhosphorKit
+
++++
+status: new
+priority: low
+kind: feature
+labels: research,phosphorkit
+created: 2026-06-26T05:31:39Z
++++
+
+Investigate turning PhosphorKit into a video-effects plugin for host apps (Final Cut/Motion, After Effects, Premiere, DaVinci Resolve, OBS).
+
+## Core challenge
+PhosphorKit is a *generative* renderer: shaders produce pixels from iTime/iMouse/audio/built-in textures via a live render loop (PhosphorRuntime). Video-effects plugins are the inverse: the host hands you input frame(s) + parameters and you return a processed frame, rendered deterministically on demand at arbitrary timeline times.
+
+## Work required
+- Add a host-fed "input frame" texture concept (PhosphorRuntime has no notion of host-supplied frames today).
+- Build a single-shot, deterministic renderer (no realtime loop, no audio capture, no mouse) that renders one frame at a requested time.
+- Map host parameters -> Phosphor uniforms.
+- Note: many existing shaders are pure generators with no input, so they map poorly to "video effect".
+
+## Reuse vs rewrite
+- Reusable: PhosphorModel, PhosphorCompile.
+- Mostly NOT reusable: PhosphorRuntime (built around a live loop) — needs a new single-shot renderer.
+
+## Per-host difficulty
+- Final Cut / Motion (FxPlug 4): EASIEST, best fit. Metal-native, macOS-only, Swift-friendly. ~few weeks for v1. Recommended first target.
+- After Effects / Premiere (C++ SDK): HARD, 1-3 months+. C++ glue, cross-platform (Windows = no Metal), awkward Metal interop.
+- DaVinci Resolve (OFX/DCTL): medium-hard. OFX is documented C++; DCTL cannot take Metal shaders.
+- OBS (live C plugin + Metal): medium; closest to PhosphorKit live model but it is live capture, not editing.
+
+## Recommended next step
+Prototype an FxPlug 4 target reusing PhosphorCompile: single-shot renderer + input-texture plumbing + parameter mapping.
+
+---
