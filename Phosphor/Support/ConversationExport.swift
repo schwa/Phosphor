@@ -133,10 +133,15 @@ nonisolated struct ConversationExport: Codable, Sendable {
         /// the visible block only — it does NOT include the gaps between items
         /// (network round-trips, model thinking time before the first delta).
         var durationMS: Double?
+        /// The round-trip wait before this item appeared, in milliseconds: the
+        /// model/network latency between the previous item completing and this
+        /// one starting. This is what the UI shows and what "feels slow".
+        var latencyMS: Double?
 
         init(_ item: ConversationItem) {
             self.timestamp = item.timestamp
             self.durationMS = item.duration.map { $0 * 1000 }
+            self.latencyMS = item.latency.map { $0 * 1000 }
             switch item.kind {
             case .user(let text, _):
                 self.kind = "user"
@@ -164,7 +169,14 @@ nonisolated struct ConversationExport: Codable, Sendable {
     func jsonData() throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        encoder.dateEncodingStrategy = .iso8601
+        // ISO8601 with fractional seconds: the default `.iso8601` rounds to
+        // whole seconds, which hides sub-second gaps between transcript items.
+        encoder.dateEncodingStrategy = .custom { date, encoder in
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            var container = encoder.singleValueContainer()
+            try container.encode(formatter.string(from: date))
+        }
         return try encoder.encode(self)
     }
 }

@@ -32,6 +32,12 @@ struct ConversationItem: Identifiable {
     /// the end of the block, a tool from invocation to result. `nil` until
     /// complete (and always `nil` for user prompts).
     var duration: TimeInterval?
+    /// The wall-clock "round-trip" gap before this item appeared: the time the
+    /// model/network spent between the previous item completing and this one
+    /// starting. `nil` for the first item of a turn. This is the number that
+    /// actually reflects how long the user waited — unlike ``duration``, which
+    /// only times the visible block.
+    var latency: TimeInterval?
     /// For user prompts only: a snapshot of the editor's `.metal` source and the
     /// model's history length *just before* this turn ran. Used by
     /// ``ConversationStore/rollBack(to:)`` to restore the shader and truncate
@@ -273,13 +279,16 @@ final class ConversationStore {
 
         case .toolCall(let use):
             finishStreamingAssistant()
+            let latency = latencyForNextItem()
             let index = items.count
-            items.append(ConversationItem(kind: .tool(
+            var item = ConversationItem(kind: .tool(
                 name: use.name,
                 summary: Self.summary(for: use),
                 result: nil,
                 isError: false
-            )))
+            ))
+            item.latency = latency
+            items.append(item)
             toolRowIndex[use.id] = index
 
         case .toolResult(let result):
@@ -314,9 +323,21 @@ final class ConversationStore {
            case .assistant(let existing) = items[index].kind {
             items[index].kind = .assistant(existing + chunk)
         } else {
-            items.append(ConversationItem(kind: .assistant(chunk)))
+            let latency = latencyForNextItem()
+            var item = ConversationItem(kind: .assistant(chunk))
+            item.latency = latency
+            items.append(item)
             streamingAssistantIndex = items.count - 1
         }
+    }
+
+    /// The wall-clock gap between the last item completing and now, used as the
+    /// "round-trip" latency for the item about to be appended. `nil` when there
+    /// is no prior item.
+    private func latencyForNextItem() -> TimeInterval? {
+        guard let last = items.last else { return nil }
+        let lastEnd = last.timestamp.addingTimeInterval(last.duration ?? 0)
+        return Date().timeIntervalSince(lastEnd)
     }
 
     /// A short, human-readable argument summary for a tool-call row.

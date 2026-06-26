@@ -398,12 +398,13 @@ private struct ConversationRow: View {
         content.textSelection(.enabled)
     }
 
-    /// How long this item took to produce, e.g. "1.2s". Empty when unknown
-    /// (still in flight, or a user prompt).
+    /// The round-trip wait before this item appeared, e.g. "1.2s" — the time the
+    /// user actually waited for the model/network, not the block-render time.
+    /// Empty when unknown (first item of a turn, or still in flight).
     @ViewBuilder
     private var durationLabel: some View {
-        if let duration = item.duration {
-            Text(Self.durationText(duration))
+        if let latency = item.latency {
+            Text(Self.durationText(latency))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
