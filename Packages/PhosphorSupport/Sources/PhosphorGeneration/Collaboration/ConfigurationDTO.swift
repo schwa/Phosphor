@@ -8,14 +8,14 @@ import simd
 ///
 /// The runtime configuration uses payload-carrying enums (`TextureSize`,
 /// `TextureInit`, `UniformValue`) whose Codable shapes are tuned for
-/// hand-written TOML, not for a model to emit. ``ConfigurationDTO`` deliberately
-/// reuses the same *flattened* shape the `@Generable` ``GeneratedShader`` schema
-/// already proves works for models (id/format/pingPong/imageFile resources,
-/// id/output/inputs passes, scalar uniforms) and maps it to the runtime model
-/// with the same binding-synthesis rules as
-/// ``GeneratedShader/toPhosphorConfiguration()``.
+/// hand-written TOML, not for a model to emit. ``ConfigurationDTO`` uses a
+/// flattened, model-friendly shape (id/format/pingPong/imageFile resources,
+/// id/output/inputs passes, scalar uniforms) and maps it to the runtime model,
+/// synthesizing the per-binding access list: each pass gets a `write` binding
+/// for its declared output plus a `read` binding for each declared input.
 ///
-/// The hand-written ``jsonSchema`` is the contract presented to the model.
+/// This is the sole model-facing configuration representation. The hand-written
+/// ``jsonSchema`` is the contract presented to the model.
 public struct ConfigurationDTO: Decodable, Sendable {
     public var resources: [ResourceDTO]
     public var passes: [PassDTO]
@@ -98,8 +98,8 @@ public struct ConfigurationDTO: Decodable, Sendable {
     // MARK: - Mapping to the runtime model
 
     /// Maps the flat DTO to a runtime ``PhosphorConfiguration``, synthesizing
-    /// the per-binding access list exactly as
-    /// ``GeneratedShader/toPhosphorConfiguration()`` does.
+    /// the per-binding access list (a `write` binding for each pass's output
+    /// plus a `read` binding for each input).
     public func toConfiguration() -> PhosphorConfiguration {
         let textures: [Texture] = resources.map { resource in
             let trimmed = resource.imageFile.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -192,7 +192,7 @@ public struct ConfigurationDTO: Decodable, Sendable {
     // MARK: - JSON Schema
 
     /// The JSON Schema for the `writeConfiguration` tool input. Mirrors the
-    /// flat DTO shape above and the `@Generable` ``GeneratedShader`` schema.
+    /// flat DTO shape above.
     public static var jsonSchema: JSONValue {
         .object([
             "type": "object",

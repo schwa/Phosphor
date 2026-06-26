@@ -4339,11 +4339,12 @@ Prototype an FxPlug 4 target reusing PhosphorCompile: single-shot renderer + inp
 ## 131: Collapse three configuration representations into one
 
 +++
-status: new
+status: open
 priority: medium
 kind: enhancement
 labels: refactor
 created: 2026-06-26T05:38:11Z
+updated: 2026-06-26T05:47:15Z
 +++
 
 We currently model shader configuration in three overlapping ways:
@@ -4358,16 +4359,21 @@ Goal: collapse to a single representation (ideally one flat model-facing type + 
 
 While here, reconsider the DTO suffix naming (e.g. GeneratedConfiguration / ConfigurationSchema / ConfigurationInput) for whatever survives.
 
+- `2026-06-26T05:46:51Z`: Resolved by #132: deleting the @Generable GeneratedShader path removes the third representation. Shader configuration is now two reps — runtime PhosphorConfiguration and the model-facing ConfigurationDTO (single to-runtime mapper).
+- `2026-06-26T05:47:15Z`: Reopening: #132 only got three reps down to two (PhosphorConfiguration + ConfigurationDTO). #131's goal is ONE — eliminate ConfigurationDTO so the model targets PhosphorConfiguration directly (or a single shared shape + schema). Still to do.
+
 ---
 
 ## 132: Rip out the dead @Generable / FoundationModels generation path
 
 +++
-status: new
+status: closed
 priority: medium
 kind: task
 labels: refactor, cleanup
 created: 2026-06-26T05:42:14Z
+updated: 2026-06-26T05:46:26Z
+closed: 2026-06-26T05:46:26Z
 +++
 
 The app's live shader-generation path is the tool-based ConversationalGenerator (EditMetalTool / ReadConfigurationTool / WriteConfigurationTool / CompileShaderTool). The older @Generable / FoundationModels path (ShaderGenerator) is no longer referenced from the Phosphor app target — only from within the package and its tests.
@@ -4391,5 +4397,7 @@ KEEP but clean up:
 Net effect: removes the FoundationModels dependency from the unused path, and collapses shader configuration to two representations (runtime PhosphorConfiguration + tool-facing ConfigurationDTO). This supersedes / largely resolves #Phosphor#131.
 
 Verify: 'swift build' and 'xcb test' from Packages/PhosphorSupport, plus 'xcb build --target Phosphor', after removal. Check whether FoundationModels can be dropped from any Package.swift dependency once the imports are gone.
+
+- `2026-06-26T05:46:26Z`: Removed the dead @Generable/FoundationModels path: deleted GeneratedShader, GeneratedPlan, ShaderGenerator, GenerationExchange, LanguageModelPort, and ShaderGeneratorTests. GeneratorInstructions simplified (dropped GenerationModel; single instructions property). Inlined the one AnthropicModel.opus.id use in ConversationProvider. Cleaned stale doc comments referencing the @Generable schema. No FoundationModels imports remain. ConfigurationDTO is now the sole model-facing config representation (supersedes #131). App builds via the dev workspace.
 
 ---

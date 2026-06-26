@@ -5,10 +5,8 @@ import Metal
 /// Drives conversational, agentic shader generation over a persistent
 /// ``CollaborationKit/LLMSession``.
 ///
-/// Unlike the one-shot ``ShaderGenerator`` (which runs a single host-driven
-/// generate→compile→retry turn against a ``LanguageModelPort``), this owns a
-/// long-running session: the model retains the full conversation, and edits the
-/// live `.metal` source through tools (``EditMetalTool``,
+/// It owns a long-running session: the model retains the full conversation, and
+/// edits the live `.metal` source through tools (``EditMetalTool``,
 /// ``ReadConfigurationTool``, ``WriteConfigurationTool``, ``CompileShaderTool``).
 /// The model converges by editing and compiling, not by re-emitting the file.
 ///
@@ -79,8 +77,7 @@ public final class ConversationalGenerator: Sendable {
     /// `Phosphor.h` helper interface, with the conversational tool loop
     /// explained.
     public static let defaultInstructions: String = {
-        let base = GeneratorInstructions.instructions(for: .privateCloudCompute)
-        return base + "\n\n" + toolLoopGuidance
+        GeneratorInstructions.instructions + "\n\n" + toolLoopGuidance
     }()
 
     private static let toolLoopGuidance = """

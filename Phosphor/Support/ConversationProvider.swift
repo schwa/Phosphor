@@ -6,8 +6,7 @@ import PhosphorGeneration
 /// generation, dispatching on the backend the user selected in Settings.
 ///
 /// The agentic tool loop needs reliable, schema-validated tool calling, which
-/// Anthropic and OpenAI both provide (the on-device / PCC FoundationModels
-/// backends do not).
+/// the Anthropic and OpenAI backends both provide.
 enum ConversationProvider {
     /// Errors surfaced to the user when a provider can't be built.
     enum Failure: LocalizedError {
@@ -34,7 +33,7 @@ enum ConversationProvider {
     /// (or if model listing isn't available).
     static func defaultModelID(for backend: GenerationBackend) -> String {
         switch backend {
-        case .claudeSubscription, .anthropicAPI: AnthropicModel.opus.id
+        case .claudeSubscription, .anthropicAPI: "claude-opus-4-8"
         case .openAI: "gpt-4o"
         }
     }
