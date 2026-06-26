@@ -4410,7 +4410,7 @@ Verify: 'swift build' and 'xcb test' from Packages/PhosphorSupport, plus 'xcb bu
 status: new
 priority: medium
 kind: none
-labels: generation,performance
+labels: generation, performance
 created: 2026-06-26T17:40:08Z
 +++
 
@@ -4439,5 +4439,23 @@ Because the session is long-running and stateful, the full system prompt + growi
 - Baseline token measurement captured for a representative generation session.
 - At least the low-risk wins (prompt de-duplication, history pruning) applied.
 - No regression in generation quality on a couple of sample prompts.
+
+---
+
+## 134: Make conversation `items` a pure projection of `messages`
+
++++
+status: new
+priority: medium
+kind: none
+labels: refactor
+created: 2026-06-26T20:35:40Z
++++
+
+Currently there are two parallel histories: CollaborationKit's `LLMSession.history` (`[Message]`, the model's actual memory, sent every turn) and Phosphor's `ConversationStore.items` (`[ConversationItem]`, the UI transcript). `items` is accumulated by hand from the session event stream rather than derived from `messages`, so the two can drift — most notably during rollback/truncation, which must keep both in sync by index.
+
+Refactor so the UI transcript is a pure projection of CollaborationKit's `messages` (domain history) plus presentation-only metadata (timestamps, durations, tool summaries, thumbnails). One source of truth; rollback then only truncates `history`.
+
+Context: came up while designing the 'roll back to here' feature for conversation mode. For that feature we chose the pragmatic option (truncate both, mapped by index); this ticket tracks the deeper cleanup.
 
 ---
