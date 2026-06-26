@@ -85,6 +85,13 @@ struct GeneratePanel: View {
                     ConversationRow(item: item)
                         .id(item.id)
                         .listRowSeparator(.hidden)
+                        .contextMenu {
+                            if store?.canRollBack(to: item.id) == true {
+                                Button("Roll Back to Here", systemImage: "arrow.uturn.backward") {
+                                    store?.rollBack(to: item.id)
+                                }
+                            }
+                        }
                 }
                 if store?.isGenerating == true {
                     thinkingRow

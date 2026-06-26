@@ -32,6 +32,21 @@ struct ConversationItem: Identifiable {
     /// the end of the block, a tool from invocation to result. `nil` until
     /// complete (and always `nil` for user prompts).
     var duration: TimeInterval?
+    /// For user prompts only: a snapshot of the editor's `.metal` source and the
+    /// model's history length *just before* this turn ran. Used by
+    /// ``ConversationStore/rollBack(to:)`` to restore the shader and truncate
+    /// the conversation to this point. `nil` for non-user items.
+    var rollbackSnapshot: RollbackSnapshot?
+}
+
+/// The state captured before a user turn, so the conversation can be rolled
+/// back to just before that turn.
+struct RollbackSnapshot {
+    /// The `.metal` source as it was before this turn edited it.
+    let source: String
+    /// The model history length (``ConversationalGenerator/messages`` count)
+    /// before this turn's user message was appended.
+    let messageCount: Int
 }
 
 /// Owns a conversational shader-generation session and projects its live event
@@ -90,11 +105,17 @@ final class ConversationStore {
         guard !(trimmed.isEmpty && images.isEmpty), !isGenerating else { return }
 
         lastError = nil
-        items.append(ConversationItem(kind: .user(trimmed, images: images)))
+        // Snapshot the pre-turn editor source now (synchronously) so a later
+        // "roll back to here" can restore exactly what the shader was before
+        // this prompt ran. The history length is filled in in `run()`.
+        var userItem = ConversationItem(kind: .user(trimmed, images: images))
+        userItem.rollbackSnapshot = RollbackSnapshot(source: readSource(), messageCount: 0)
+        let userItemID = userItem.id
+        items.append(userItem)
         isGenerating = true
 
         sendTask = Task { [weak self] in
-            await self?.run(trimmed, images: images)
+            await self?.run(trimmed, images: images, userItemID: userItemID)
         }
     }
 
@@ -106,7 +127,41 @@ final class ConversationStore {
         sendTask?.cancel()
     }
 
-    private func run(_ trimmed: String, images: [ImageContent]) async {
+    /// True when the item at `id` is a user prompt that can be rolled back to
+    /// (it carries a snapshot and a turn isn't in flight).
+    func canRollBack(to id: ConversationItem.ID) -> Bool {
+        guard !isGenerating, let item = items.first(where: { $0.id == id }) else { return false }
+        return item.rollbackSnapshot != nil
+    }
+
+    /// Rolls the whole session back to just before the user prompt at `id`:
+    /// restores the `.metal` source to its pre-turn snapshot, truncates the
+    /// model's memory to that point, and drops every transcript item from this
+    /// prompt onward. A no-op while a turn is generating.
+    func rollBack(to id: ConversationItem.ID) {
+        guard !isGenerating,
+              let index = items.firstIndex(where: { $0.id == id }),
+              let snapshot = items[index].rollbackSnapshot else { return }
+
+        // Restore the editor source as an undoable edit.
+        writeSource(snapshot.source, "Roll Back Shader")
+        // Keep the document buffer the tools see in sync.
+        document?.setSource(snapshot.source)
+
+        // Drop this prompt and everything after it from the UI transcript.
+        items.removeLast(items.count - index)
+        lastError = nil
+        streamingAssistantIndex = nil
+        toolRowIndex.removeAll()
+
+        // Truncate the model's memory to the same point.
+        let keep = snapshot.messageCount
+        if let generator {
+            Task { await generator.truncateHistory(keeping: keep) }
+        }
+    }
+
+    private func run(_ trimmed: String, images: [ImageContent], userItemID: UUID) async {
         defer {
             isGenerating = false
             sendTask = nil
@@ -119,6 +174,14 @@ final class ConversationStore {
             items.append(ConversationItem(kind: .error(error.localizedDescription)))
             lastError = error.localizedDescription
             return
+        }
+
+        // Record the history length before this turn appends its user message,
+        // so rollback can truncate the model's memory back to exactly here.
+        let priorMessageCount = await generator.messages.count
+        if let index = items.firstIndex(where: { $0.id == userItemID }),
+           let source = items[index].rollbackSnapshot?.source {
+            items[index].rollbackSnapshot = RollbackSnapshot(source: source, messageCount: priorMessageCount)
         }
 
         // Seed the document buffer with the editor's current text so the tools

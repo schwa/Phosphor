@@ -68,6 +68,15 @@ public final class ConversationalGenerator: Sendable {
         get async { await session.messages }
     }
 
+    /// Rolls the model's memory back to the first `count` messages, discarding
+    /// every later turn. The next ``send(_:images:)`` continues as if those
+    /// turns never happened.
+    ///
+    /// - Parameter count: The number of leading messages to keep.
+    public func truncateHistory(keeping count: Int) async {
+        await session.truncateHistory(keeping: count)
+    }
+
     /// Cumulative token usage across the session.
     public var totalUsage: TokenUsage {
         get async { await session.totalUsage }
