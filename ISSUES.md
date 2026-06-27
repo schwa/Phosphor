@@ -4547,6 +4547,10 @@ Goal (module-deepening): extract a pure, value-typed projection/timeline engine 
 
 This is an RFC-sized refactor; design the deepened interface before implementing.
 
+- `2026-06-27T00:22:30Z`: Partial progress via a CollaborationKit model refactor (the '3/4' fix). Made the message model domain-shaped in CollaborationKit: ContentBlock.toolCall(ToolCall) replaces split toolUse/toolResult so a tool call owns its result in one assistant message; Message gained a stable id + timestamp. This removed the use/result correlation logic and the separate-tool-result-message mirror handling from ConversationStore (applyToolResults deleted; appendToolResultToMirror -> attachResultToMirror in place; appendAssistantRows reads call.result inline). Tested in the app (generate + tool call + rollback) and works.
+
+Remaining (the deeper 1/4): extract the projection/timeline into a pure, value-typed engine that's unit-testable with scripted events + a fake clock. ConversationStore is still ~620 lines and still owns reproject()/the presentation+idByKey side-tables/streaming+error overlays/rollback. Message.id/timestamp now exist but the store still uses its own per-row timing (duration/latency are UI-event times, not message times, so those legitimately stay in Phosphor). App target still has no test bundle, so the extraction's testability payoff depends on hosting the engine in a leaf package target.
+
 ---
 
 ## 138: ShaderTools: collapse boilerplate tool pattern and overlapping edit surfaces
