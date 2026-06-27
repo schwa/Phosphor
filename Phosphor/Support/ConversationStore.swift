@@ -5,19 +5,18 @@ import Observation
 import PhosphorGeneration
 import SwiftUI
 
-/// A stable identity for a projected transcript row.
+/// Stable identity for a projected transcript row.
 ///
 /// The UI transcript is a pure projection of the model's ``Message`` history
 /// (plus two overlays that have no home in that history: live streaming and
-/// harness errors). Each logical row carries a key so re-projecting the same
-/// history yields the same row identity — which keeps SwiftUI's `ForEach`,
-/// scroll position, and `.id()` stable across updates.
-enum ProjectionKey: Hashable {
-    /// A user prompt at the given history index.
-    case user(Int)
-    /// A finalized assistant prose row at the given history index.
-    case assistant(Int)
-    /// A tool row, merged use+result, keyed by the provider-assigned tool-use id.
+/// harness errors). The id is *derived* from the source — a ``Message/id`` for
+/// prompt/prose rows, a ``ToolUse/id`` for tool rows — so re-projecting the same
+/// history yields the same row identity with no side-table cache. That keeps
+/// SwiftUI's `ForEach`, scroll position, and `.id()` stable across updates.
+enum ItemID: Hashable {
+    /// A prompt or assistant-prose row, identified by its source message.
+    case message(UUID)
+    /// A tool row, identified by the provider-assigned tool-use id.
     case tool(String)
     /// The in-flight assistant bubble streaming deltas for the current turn.
     case streamingAssistant
@@ -28,10 +27,10 @@ enum ProjectionKey: Hashable {
 /// A single item in the conversation transcript.
 ///
 /// Items are a *projection* of the session's ``Message`` history: the store
-/// never accumulates them by hand. Each carries presentation-only metadata
-/// (timestamps, durations, latency) merged in from a side-table keyed by
-/// ``ProjectionKey``, plus a stable ``id`` so SwiftUI identity survives
-/// re-projection.
+/// never accumulates them by hand. Identity comes straight from the source
+/// (``Message/id`` / ``ToolUse/id``); only presentation-only timing the model
+/// can't carry (durations, round-trip latency, and tool start times) is merged
+/// in from a side-table keyed by ``ItemID``.
 struct ConversationItem: Identifiable {
     enum Kind {
         /// A user prompt, with any attached input images.
@@ -45,11 +44,8 @@ struct ConversationItem: Identifiable {
         case error(String)
     }
 
-    /// Stable SwiftUI identity, preserved across re-projection via the store's
-    /// key→id cache.
-    let id: UUID
-    /// The projection key this row derives from.
-    let key: ProjectionKey
+    /// Stable SwiftUI identity, derived from the source message / tool-use id.
+    let id: ItemID
     var kind: Kind
     /// When this item first appeared (user sent it, assistant started replying,
     /// or a tool was invoked).
@@ -72,9 +68,9 @@ struct ConversationItem: Identifiable {
 }
 
 /// Presentation-only metadata for one projected row, kept in a side-table
-/// keyed by ``ProjectionKey``. This is the data the model history does not
-/// carry (CollaborationKit's ``Message`` has no notion of time): when the row
-/// appeared, how long it took, and the round-trip latency the user felt.
+/// keyed by ``ItemID``. This is the data the model history does not carry:
+/// per-row timing (``Message/timestamp`` is per-message, but a tool row needs
+/// its own start to time `duration`) and the round-trip latency the user felt.
 private struct Presentation {
     var timestamp: Date
     var duration: TimeInterval?
@@ -91,7 +87,8 @@ struct RollbackSnapshot {
     /// The `.metal` source as it was before this turn edited it.
     let source: String
     /// The model history length (``ConversationalGenerator/messages`` count)
-    /// before this turn's user message was appended.
+    /// before this turn's user message was appended. Also the index of the user
+    /// message in the mirror, since rollback truncates to just before it.
     let messageCount: Int
 }
 
@@ -135,10 +132,10 @@ final class ConversationStore {
     /// Harness/transport errors, which have no place in the model history.
     private var errorOverlays: [(seq: Int, message: String)] = []
     private var errorSeq = 0
-    /// Stable id per projection key, so re-projection preserves SwiftUI identity.
-    private var idByKey: [ProjectionKey: UUID] = [:]
-    /// Presentation metadata (timestamps/durations/latency/summaries) per key.
-    private var presentation: [ProjectionKey: Presentation] = [:]
+    /// Presentation metadata (per-row timing + tool summary) keyed by ``ItemID``.
+    /// Only holds what the model history can't carry; identity is derived, not
+    /// cached.
+    private var presentation: [ItemID: Presentation] = [:]
 
     private let device: MTLDevice
     private let readSource: @MainActor () -> String
@@ -177,17 +174,16 @@ final class ConversationStore {
         // the pre-turn editor source so a later "roll back to here" can restore
         // exactly what the shader was before this prompt ran. The history length
         // is filled in in `run()`.
-        let userIndex = messages.count
-        messages.append(images.isEmpty ? .user(trimmed) : .user(text: trimmed, images: images))
-        let key = ProjectionKey.user(userIndex)
-        presentation[key, default: Presentation(timestamp: Date())].rollbackSnapshot =
+        let userMessage = images.isEmpty ? .user(trimmed) : Message.user(text: trimmed, images: images)
+        messages.append(userMessage)
+        let userID = ItemID.message(userMessage.id)
+        presentation[userID, default: Presentation(timestamp: Date())].rollbackSnapshot =
             RollbackSnapshot(source: readSource(), messageCount: 0)
-        let userItemID = ensureID(for: key)
         isGenerating = true
         reproject()
 
         sendTask = Task { [weak self] in
-            await self?.run(trimmed, images: images, userItemID: userItemID)
+            await self?.run(trimmed, images: images, userID: userID)
         }
     }
 
@@ -217,7 +213,6 @@ final class ConversationStore {
     func rollBack(to id: ConversationItem.ID) {
         guard !isGenerating,
               let item = items.first(where: { $0.id == id }),
-              case .user(let userIndex) = item.key,
               let snapshot = item.rollbackSnapshot else { return }
 
         // Restore the editor source as an undoable edit.
@@ -226,7 +221,9 @@ final class ConversationStore {
         document?.setSource(snapshot.source)
 
         // Truncate the single source of truth to just before this user message.
-        messages.removeLast(messages.count - userIndex)
+        // `messageCount` is the user message's index in the mirror (== the model
+        // history length before the turn ran).
+        messages.removeLast(messages.count - snapshot.messageCount)
         lastError = nil
         streamingAssistantText = nil
         errorOverlays.removeAll()
@@ -239,7 +236,7 @@ final class ConversationStore {
         }
     }
 
-    private func run(_ trimmed: String, images: [ImageContent], userItemID: UUID) async {
+    private func run(_ trimmed: String, images: [ImageContent], userID: ItemID) async {
         defer {
             isGenerating = false
             sendTask = nil
@@ -258,10 +255,8 @@ final class ConversationStore {
         // Record the history length before this turn appends its user message,
         // so rollback can truncate the model's memory back to exactly here.
         let priorMessageCount = await generator.messages.count
-        if let item = items.first(where: { $0.id == userItemID }),
-           case .user(let userIndex) = item.key,
-           let source = presentation[.user(userIndex)]?.rollbackSnapshot?.source {
-            presentation[.user(userIndex)]?.rollbackSnapshot =
+        if let source = presentation[userID]?.rollbackSnapshot?.source {
+            presentation[userID]?.rollbackSnapshot =
                 RollbackSnapshot(source: source, messageCount: priorMessageCount)
             reproject()
         }
@@ -284,9 +279,13 @@ final class ConversationStore {
         }
         streamingAssistantText = nil
         usage = await generator.totalUsage
-        // Refresh the mirror from the session's authoritative history so the
-        // projection reflects exactly what the model now remembers.
-        messages = await generator.messages
+        // Note: we deliberately do NOT overwrite the mirror from
+        // `generator.messages` here. The mirror is already built from the same
+        // event stream and is structurally equivalent, but its messages carry
+        // the *stable ids* the projection (and rollback snapshots) key on.
+        // Replacing it would remint every message id and reshuffle row identity
+        // at turn end. Export reads `generator.messages` directly when it needs
+        // the session's authoritative copy.
     }
 
     /// The serialized session transcript, for persistence in a bundle (#83).
@@ -320,43 +319,43 @@ final class ConversationStore {
     /// hand-accumulation, so the UI cannot structurally drift from the model.
     private func reproject() {
         var rows: [ConversationItem] = []
-        var liveKeys: Set<ProjectionKey> = []
+        var liveIDs: Set<ItemID> = []
 
-        for (index, message) in messages.enumerated() {
+        for message in messages {
             switch message.role {
             case .user:
                 // A user message is always a prompt now: tool results live
                 // inside the assistant message's ToolCall, not in a user message.
                 if let (text, images) = userPrompt(message) {
-                    let key = ProjectionKey.user(index)
-                    liveKeys.insert(key)
-                    rows.append(makeRow(key: key, kind: .user(text, images: images)))
+                    let id = ItemID.message(message.id)
+                    liveIDs.insert(id)
+                    rows.append(makeRow(id: id, fallbackTimestamp: message.timestamp,
+                                        kind: .user(text, images: images)))
                 }
 
             case .assistant:
-                appendAssistantRows(message, index: index, into: &rows, liveKeys: &liveKeys)
+                appendAssistantRows(message, into: &rows, liveIDs: &liveIDs)
             }
         }
 
         // Overlay: the in-flight assistant bubble (deltas not yet finalized).
         if let streaming = streamingAssistantText {
-            let key = ProjectionKey.streamingAssistant
-            liveKeys.insert(key)
-            rows.append(makeRow(key: key, kind: .assistant(streaming)))
+            let id = ItemID.streamingAssistant
+            liveIDs.insert(id)
+            rows.append(makeRow(id: id, fallbackTimestamp: Date(), kind: .assistant(streaming)))
         }
 
         // Overlay: harness errors, which never enter the model history.
         for error in errorOverlays {
-            let key = ProjectionKey.error(error.seq)
-            liveKeys.insert(key)
-            rows.append(makeRow(key: key, kind: .error(error.message)))
+            let id = ItemID.error(error.seq)
+            liveIDs.insert(id)
+            rows.append(makeRow(id: id, fallbackTimestamp: Date(), kind: .error(error.message)))
         }
 
-        // Drop presentation/id entries for keys that no longer project (e.g.
-        // after rollback), so the side-tables don't grow without bound.
-        for key in Set(idByKey.keys).subtracting(liveKeys) {
-            idByKey[key] = nil
-            presentation[key] = nil
+        // Drop presentation entries that no longer project (e.g. after rollback),
+        // so the side-table doesn't grow without bound.
+        for id in Set(presentation.keys).subtracting(liveIDs) {
+            presentation[id] = nil
         }
         items = rows
     }
@@ -387,22 +386,22 @@ final class ConversationStore {
     /// Projects an assistant message into one prose row (if it has text) plus
     /// one row per tool call. Each ``ToolCall`` owns its result, so a tool row's
     /// result fills in from the same block — no separate result message.
-    private func appendAssistantRows(_ message: Message, index: Int, into rows: inout [ConversationItem], liveKeys: inout Set<ProjectionKey>) {
+    private func appendAssistantRows(_ message: Message, into rows: inout [ConversationItem], liveIDs: inout Set<ItemID>) {
         var prose = ""
         for block in message.content {
             if case .text(let value) = block { prose += value }
         }
         if !prose.isEmpty {
-            let key = ProjectionKey.assistant(index)
-            liveKeys.insert(key)
-            rows.append(makeRow(key: key, kind: .assistant(prose)))
+            let id = ItemID.message(message.id)
+            liveIDs.insert(id)
+            rows.append(makeRow(id: id, fallbackTimestamp: message.timestamp, kind: .assistant(prose)))
         }
         for block in message.content {
             guard case .toolCall(let call) = block else { continue }
-            let key = ProjectionKey.tool(call.use.id)
-            liveKeys.insert(key)
-            let summary = presentation[key]?.summary ?? Self.summary(for: call.use)
-            rows.append(makeRow(key: key, kind: .tool(
+            let id = ItemID.tool(call.use.id)
+            liveIDs.insert(id)
+            let summary = presentation[id]?.summary ?? Self.summary(for: call.use)
+            rows.append(makeRow(id: id, fallbackTimestamp: message.timestamp, kind: .tool(
                 name: call.use.name,
                 summary: summary,
                 result: call.result?.content,
@@ -411,26 +410,19 @@ final class ConversationStore {
         }
     }
 
-    /// Builds one projected row, merging in its presentation metadata and stable id.
-    private func makeRow(key: ProjectionKey, kind: ConversationItem.Kind) -> ConversationItem {
-        let meta = presentation[key] ?? Presentation(timestamp: Date())
-        if presentation[key] == nil { presentation[key] = meta }
+    /// Builds one projected row, merging in its presentation metadata. Identity
+    /// is the supplied ``ItemID`` (derived from the source); timing comes from
+    /// the side-table, falling back to the message's own timestamp.
+    private func makeRow(id: ItemID, fallbackTimestamp: Date, kind: ConversationItem.Kind) -> ConversationItem {
+        let meta = presentation[id]
         return ConversationItem(
-            id: ensureID(for: key),
-            key: key,
+            id: id,
             kind: kind,
-            timestamp: meta.timestamp,
-            duration: meta.duration,
-            latency: meta.latency,
-            rollbackSnapshot: meta.rollbackSnapshot
+            timestamp: meta?.timestamp ?? fallbackTimestamp,
+            duration: meta?.duration,
+            latency: meta?.latency,
+            rollbackSnapshot: meta?.rollbackSnapshot
         )
-    }
-
-    private func ensureID(for key: ProjectionKey) -> UUID {
-        if let id = idByKey[key] { return id }
-        let id = UUID()
-        idByKey[key] = id
-        return id
     }
 
     private func appendError(_ message: String) {
@@ -487,23 +479,23 @@ final class ConversationStore {
 
         case .toolCall(let use):
             finishStreamingAssistant()
-            let key = ProjectionKey.tool(use.id)
+            let id = ItemID.tool(use.id)
             var meta = Presentation(timestamp: Date())
             meta.latency = latencyForNextRow()
             meta.summary = Self.summary(for: use)
-            presentation[key] = meta
+            presentation[id] = meta
             // Mirror the tool call into history so the row projects immediately,
             // before the session's authoritative refresh at turn end.
             appendToolUseToMirror(use)
             reproject()
 
         case .toolResult(let result):
-            let key = ProjectionKey.tool(result.toolUseID)
+            let id = ItemID.tool(result.toolUseID)
             // Compute the duration from a local copy first: reading and modifying
             // `presentation` in one statement trips Swift's exclusive-access
             // enforcement (it's an @Observable-tracked property).
-            if let start = presentation[key]?.timestamp {
-                presentation[key]?.duration = Date().timeIntervalSince(start)
+            if let start = presentation[id]?.timestamp {
+                presentation[id]?.duration = Date().timeIntervalSince(start)
             }
             attachResultToMirror(result)
             reproject()
@@ -521,18 +513,16 @@ final class ConversationStore {
     /// overlay's presentation metadata (timestamp/latency, plus a freshly
     /// stamped duration) onto the finalized row so the visible timing survives.
     private func finalizeAssistantProse(_ block: String) {
-        let index = appendAssistantProseToMirror(block)
-        let destKey = ProjectionKey.assistant(index)
-        let streamKey = ProjectionKey.streamingAssistant
-        if var meta = presentation[streamKey] {
+        let destID = appendAssistantProseToMirror(block)
+        // Carry the streaming overlay's timing onto the finalized prose row
+        // (which is now keyed by its message id), then drop the overlay. Because
+        // both rows are stamped from the same Presentation, the visible timing
+        // survives the hand-off without flashing a new bubble.
+        if var meta = presentation[.streamingAssistant] {
             meta.duration = Date().timeIntervalSince(meta.timestamp)
-            // Preserve identity: hand the streaming row's id to the finalized row
-            // so it doesn't flash as a new bubble.
-            if let id = idByKey[streamKey] { idByKey[destKey] = id }
-            presentation[destKey] = meta
+            presentation[destID] = meta
         }
-        presentation[streamKey] = nil
-        idByKey[streamKey] = nil
+        presentation[.streamingAssistant] = nil
         streamingAssistantText = nil
         reproject()
     }
@@ -541,9 +531,8 @@ final class ConversationStore {
     /// where no `.text` block arrived). Stamps duration for completeness.
     private func finishStreamingAssistant() {
         if streamingAssistantText != nil {
-            let key = ProjectionKey.streamingAssistant
-            if let start = presentation[key]?.timestamp {
-                presentation[key]?.duration = Date().timeIntervalSince(start)
+            if let start = presentation[.streamingAssistant]?.timestamp {
+                presentation[.streamingAssistant]?.duration = Date().timeIntervalSince(start)
             }
         }
         streamingAssistantText = nil
@@ -551,16 +540,17 @@ final class ConversationStore {
     }
 
     /// Appends a finalized assistant prose block to the mirror, merging into the
-    /// trailing assistant message when it has no prose yet. Returns the history
-    /// index of the assistant message holding it.
-    private func appendAssistantProseToMirror(_ block: String) -> Int {
+    /// trailing assistant message when it has no prose yet. Returns the ``ItemID``
+    /// of the assistant message holding it.
+    private func appendAssistantProseToMirror(_ block: String) -> ItemID {
         if let last = messages.indices.last, messages[last].role == .assistant,
            !messages[last].content.contains(where: { if case .text = $0 { return true } else { return false } }) {
             messages[last].content.insert(.text(block), at: 0)
-            return last
+            return .message(messages[last].id)
         }
-        messages.append(Message(role: .assistant, content: [.text(block)]))
-        return messages.count - 1
+        let message = Message(role: .assistant, content: [.text(block)])
+        messages.append(message)
+        return .message(message.id)
     }
 
     private func appendAssistantDelta(_ chunk: String) {
