@@ -325,15 +325,13 @@ final class ConversationStore {
         for (index, message) in messages.enumerated() {
             switch message.role {
             case .user:
-                // The first user message of a turn is a prompt; subsequent
-                // user-role messages carry tool results, which attach to their
-                // tool rows (handled below), not their own bubbles.
+                // A user message is always a prompt now: tool results live
+                // inside the assistant message's ToolCall, not in a user message.
                 if let (text, images) = userPrompt(message) {
                     let key = ProjectionKey.user(index)
                     liveKeys.insert(key)
                     rows.append(makeRow(key: key, kind: .user(text, images: images)))
                 }
-                applyToolResults(in: message, to: &rows)
 
             case .assistant:
                 appendAssistantRows(message, index: index, into: &rows, liveKeys: &liveKeys)
@@ -379,27 +377,16 @@ final class ConversationStore {
                 images.append(image)
                 sawPromptContent = true
 
-            case .toolResult, .toolUse:
+            case .toolCall:
                 break
             }
         }
         return sawPromptContent ? (text, images) : nil
     }
 
-    /// Fills in tool rows from the tool-result blocks in a user message.
-    private func applyToolResults(in message: Message, to rows: inout [ConversationItem]) {
-        for block in message.content {
-            guard case .toolResult(let result) = block else { continue }
-            let key = ProjectionKey.tool(result.toolUseID)
-            guard let rowIndex = rows.firstIndex(where: { $0.key == key }) else { continue }
-            if case .tool(let name, let summary, _, _) = rows[rowIndex].kind {
-                rows[rowIndex].kind = .tool(name: name, summary: summary, result: result.content, isError: result.isError)
-            }
-        }
-    }
-
     /// Projects an assistant message into one prose row (if it has text) plus
-    /// one row per tool call.
+    /// one row per tool call. Each ``ToolCall`` owns its result, so a tool row's
+    /// result fills in from the same block — no separate result message.
     private func appendAssistantRows(_ message: Message, index: Int, into rows: inout [ConversationItem], liveKeys: inout Set<ProjectionKey>) {
         var prose = ""
         for block in message.content {
@@ -411,11 +398,16 @@ final class ConversationStore {
             rows.append(makeRow(key: key, kind: .assistant(prose)))
         }
         for block in message.content {
-            guard case .toolUse(let use) = block else { continue }
-            let key = ProjectionKey.tool(use.id)
+            guard case .toolCall(let call) = block else { continue }
+            let key = ProjectionKey.tool(call.use.id)
             liveKeys.insert(key)
-            let summary = presentation[key]?.summary ?? Self.summary(for: use)
-            rows.append(makeRow(key: key, kind: .tool(name: use.name, summary: summary, result: nil, isError: false)))
+            let summary = presentation[key]?.summary ?? Self.summary(for: call.use)
+            rows.append(makeRow(key: key, kind: .tool(
+                name: call.use.name,
+                summary: summary,
+                result: call.result?.content,
+                isError: call.result?.isError ?? false
+            )))
         }
     }
 
@@ -507,8 +499,13 @@ final class ConversationStore {
 
         case .toolResult(let result):
             let key = ProjectionKey.tool(result.toolUseID)
-            presentation[key]?.duration = presentation[key].map { Date().timeIntervalSince($0.timestamp) }
-            appendToolResultToMirror(result)
+            // Compute the duration from a local copy first: reading and modifying
+            // `presentation` in one statement trips Swift's exclusive-access
+            // enforcement (it's an @Observable-tracked property).
+            if let start = presentation[key]?.timestamp {
+                presentation[key]?.duration = Date().timeIntervalSince(start)
+            }
+            attachResultToMirror(result)
             reproject()
 
         case .usage(let turnUsage):
@@ -578,23 +575,30 @@ final class ConversationStore {
         reproject()
     }
 
-    /// Appends a tool-use block to the message mirror so its row projects live.
-    /// The trailing assistant message accumulates tool uses for the turn.
+    /// Appends a pending tool call to the mirror so its row projects live. The
+    /// trailing assistant message accumulates the turn's tool calls.
     private func appendToolUseToMirror(_ use: ToolUse) {
+        let call = ToolCall(use: use)
         if let last = messages.indices.last, messages[last].role == .assistant {
-            messages[last].content.append(.toolUse(use))
+            messages[last].content.append(.toolCall(call))
         } else {
-            messages.append(Message(role: .assistant, content: [.toolUse(use)]))
+            messages.append(Message(role: .assistant, content: [.toolCall(call)]))
         }
     }
 
-    /// Appends a tool-result block to the message mirror so its row fills in live.
-    private func appendToolResultToMirror(_ result: ToolResult) {
-        if let last = messages.indices.last, messages[last].role == .user,
-           !messages[last].content.contains(where: { if case .text = $0 { return true } else { return false } }) {
-            messages[last].content.append(.toolResult(result))
-        } else {
-            messages.append(Message(role: .user, content: [.toolResult(result)]))
+    /// Fills in a pending tool call's result in the mirror, matched by tool-use
+    /// id, so the existing tool row updates in place (domain shape: the result
+    /// lives inside the ToolCall, not in a separate message).
+    private func attachResultToMirror(_ result: ToolResult) {
+        for messageIndex in messages.indices.reversed() {
+            for blockIndex in messages[messageIndex].content.indices {
+                if case .toolCall(var call) = messages[messageIndex].content[blockIndex],
+                   call.use.id == result.toolUseID {
+                    call.result = result
+                    messages[messageIndex].content[blockIndex] = .toolCall(call)
+                    return
+                }
+            }
         }
     }
 

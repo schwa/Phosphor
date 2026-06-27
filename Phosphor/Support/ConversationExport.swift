@@ -119,10 +119,21 @@ extension ToolResult: @retroactive Encodable {
     }
 }
 
+/// A tool call with its (possibly pending) result, for export.
+extension ToolCall: @retroactive Encodable {
+    enum CodingKeys: String, CodingKey { case use, result }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(use, forKey: .use)
+        try c.encodeIfPresent(result, forKey: .result)
+    }
+}
+
 /// One content block. Exactly one payload field is populated per block. Image
 /// blocks record their media type and size, not the (large) base64 bytes.
 extension ContentBlock: @retroactive Encodable {
-    enum CodingKeys: String, CodingKey { case type, text, toolUse, toolResult }
+    enum CodingKeys: String, CodingKey { case type, text, toolCall }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
@@ -131,13 +142,9 @@ extension ContentBlock: @retroactive Encodable {
             try c.encode("text", forKey: .type)
             try c.encode(text, forKey: .text)
 
-        case .toolUse(let use):
-            try c.encode("toolUse", forKey: .type)
-            try c.encode(use, forKey: .toolUse)
-
-        case .toolResult(let result):
-            try c.encode("toolResult", forKey: .type)
-            try c.encode(result, forKey: .toolResult)
+        case .toolCall(let call):
+            try c.encode("toolCall", forKey: .type)
+            try c.encode(call, forKey: .toolCall)
 
         case .image(let image):
             try c.encode("image", forKey: .type)
@@ -147,10 +154,12 @@ extension ContentBlock: @retroactive Encodable {
 }
 
 extension Message: @retroactive Encodable {
-    enum CodingKeys: String, CodingKey { case role, blocks }
+    enum CodingKeys: String, CodingKey { case id, timestamp, role, blocks }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(timestamp, forKey: .timestamp)
         try c.encode(role.rawValue, forKey: .role)
         try c.encode(content, forKey: .blocks)
     }
