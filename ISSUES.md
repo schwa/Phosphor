@@ -4522,11 +4522,13 @@ Goal: enforce parity. Options to weigh (not decided): generate the schema from t
 ## 137: Deepen ConversationStore: split its 6 responsibilities, make the projection engine testable
 
 +++
-status: new
+status: closed
 priority: medium
 kind: enhancement
 labels: refactor, architecture
 created: 2026-06-26T21:51:43Z
+updated: 2026-06-27T00:34:24Z
+closed: 2026-06-27T00:34:24Z
 +++
 
 ConversationStore (Phosphor/Support/ConversationStore.swift, ~632 lines) is a @MainActor @Observable class bundling at least six responsibilities, with no test coverage (the app target has no test bundle):
