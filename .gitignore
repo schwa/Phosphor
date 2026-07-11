@@ -135,7 +135,5 @@ iOSInjectionProject/
 # with the peer checkout at ../PhosphorKit). Not committed.
 Phosphor-Dev.xcworkspace/
 
-# Local xcb config (points at the dev workspace). Not committed.
-.xcb.toml
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,swift,xcode
