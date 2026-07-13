@@ -4582,3 +4582,148 @@ Surface overlap (the real smell):
 Goal: reduce the tool definitions to a small shared pattern (kill the triplicated empty-input/empty-schema and the ToolError-wrapping helpers), and reconsider the two-surface design so the prompt doesn't have to referee text-vs-structured edits. Lower-leverage than #137/#136 — mostly surface collapse, not coverage (ShaderTools is already fairly tested).
 
 ---
+
+## 139: Adopt CollaborationKitUI to replace hand-rolled generation UI (umbrella)
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: generation, ck-migration, effort:l
+created: 2026-07-13T17:42:20Z
++++
+
+CollaborationKit 0.2.2 now ships every piece of chat/generation UI Phosphor currently maintains locally, plus features we don't have (prompt queueing, compaction progress, RollbackSnapshot API, ToolPresenterRegistry, sessionDebugExport modifier).
+
+## What can be deleted / replaced
+
+| Phosphor file | Lines | CollaborationKitUI replacement |
+|---|---:|---|
+| `Views/GeneratePanel.swift` | 525 | `CollaborationChatView` |
+| `Support/ConversationStore.swift` | ~500 | `CKUI.ConversationStore` |
+| `Views/SettingsView.swift` | 389 | `CollaborationSettingsView` |
+| `Support/CredentialsModel.swift` | ~20 | `CollaborationCredentials` |
+| `Support/ConversationProvider.swift` | ~150 | `Backend` values + `credentials.makeProvider` |
+| `Support/AnthropicOAuthStore.swift` | ~60 | `anthropicOAuthTokenProvider(store:)` |
+| `Support/ConversationExport.swift` | — | `SessionExport` (with `userInfo` for shader source) |
+| `Views/GlowingPromptBorder.swift` | 59 | public in CKUI |
+| `Views/StopButton.swift` | 56 | public in CKUI |
+
+Roughly ~1,750 lines removable.
+
+## Phosphor-specific behavior to preserve (all supported by CK hooks)
+
+- Tool icons/summaries for `writeConfiguration`, `readConfiguration`, `compileShader` — `iconForTool:` on chat view, `summarizeTool:` on store init.
+- Compile errors visible / 'compiles cleanly' hidden — `ToolPresenterRegistry.resultVisibility`.
+- Rollback restores `.metal` via undoable `TextMutator` — `store.snapshotProvider = { RollbackSnapshot { ... } }`. Also needs to reseed the tools' `MetalSourceDocument`.
+- OpenAI `parallelToolCalls: false` (critical for the read→edit→compile loop) — CK's built-in `Backend.openAI` doesn't set this; register a custom `Backend` value that mirrors `.openAI` but flips the flag.
+- Debug export includes current shader source — `store.buildExport(userInfo: ["currentSource": text])`.
+
+## Migration snag
+
+CK's default `KeychainCredentialStore` uses service `io.collaborationkit.credentials`; Phosphor uses `io.schwa.Phosphor`. Account names match exactly (`anthropic.apiKey`, `anthropic.oauth`, `openai.apiKey`), so `KeychainCredentialStore(service: "io.schwa.Phosphor")` preserves stored credentials on upgrade.
+
+## Sub-issues
+
+Three-step migration, one commit each:
+
+1. Settings + credentials swap
+2. ConversationStore + chat view swap
+3. Cleanup
+
+(Child issue ids added once filed.)
+
+---
+
+## 140: CK migration step 1: swap Settings + credentials for CollaborationSettingsView / CollaborationCredentials
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: generation, ck-migration, effort:m
+created: 2026-07-13T17:42:32Z
+updated: 2026-07-13T17:55:27Z
++++
+
+First step of the CollaborationKitUI adoption tracked in #139.
+
+Replace Phosphor's hand-rolled credentials + settings surface with the CollaborationKit equivalents.
+
+## In scope
+
+- Delete `Phosphor/Support/CredentialsModel.swift`; use `CollaborationCredentials` from the environment.
+- Delete `Phosphor/Support/ConversationProvider.swift`; register a Phosphor `[Backend]` (Claude subscription, Anthropic API, OpenAI, plus any locals we want to expose) and build providers via `credentials.makeProvider(...)`.
+- Delete `Phosphor/Support/AnthropicOAuthStore.swift`; use `anthropicOAuthTokenProvider(store:)` + the `CredentialStore.anthropicOAuth*` extensions.
+- Replace `Phosphor/Views/SettingsView.swift` with `CollaborationSettingsView`.
+- Delete `Packages/PhosphorSupport/Sources/PhosphorGeneration/KeychainStore.swift` (only used by the three files above).
+
+## Keychain compatibility — load-bearing
+
+Wire `KeychainCredentialStore(service: "io.schwa.Phosphor")` when constructing `CollaborationCredentials`. The service string override is **load-bearing**: if we forget it and take CK's default (`io.collaborationkit.credentials`), every existing user is silently logged out on upgrade.
+
+With the override, existing Keychain items are read and updated in place:
+
+- Same `kSecClass` (`kSecClassGenericPassword`).
+- Same `kSecAttrService` (`io.schwa.Phosphor`).
+- Same account names (`anthropic.apiKey`, `anthropic.oauth`, `openai.apiKey`).
+- Same `kSecAttrAccessible` on add (`AfterFirstUnlock`).
+- Neither side sets `kSecAttrAccessGroup` or `kSecAttrSynchronizable`.
+- Both do `SecItemUpdate` → fall back to `SecItemAdd`.
+
+No migration step required.
+
+## Must preserve
+
+- Existing `@AppStorage("phosphor.modelProvider")` selection — either migrate the persisted string to CK's default key (`collaborationkit.backend`) or pass `defaultsKey: "phosphor.modelProvider"` to `CollaborationCredentials`.
+
+## Watch, but do not fix pre-emptively
+
+- CK's built-in `Backend.openAI` doesn't set `parallelToolCalls: false`, unlike Phosphor's current `ConversationProvider`. Try CK-default first; if the read→edit→compile agentic loop misbehaves on OpenAI in step 2, register a custom `Backend` value that mirrors `.openAI` but disables parallel tool calls. Filed upstream as CollaborationKit #114.
+
+## Out of scope
+
+- ConversationStore / chat panel changes (step 2).
+- Deleting `GlowingPromptBorder`, `StopButton`, `ConversationExport` (step 3).
+
+---
+
+## 141: CK migration step 2: swap ConversationStore + GeneratePanel for CKUI equivalents
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: generation, ck-migration, effort:l
+created: 2026-07-13T17:42:50Z
++++
+
+Second step of the CollaborationKitUI adoption tracked in #139. Depends on #140.
+
+Replace Phosphor's hand-rolled conversation store and Generate panel with CollaborationKitUI's `ConversationStore` and `CollaborationChatView`.
+
+## In scope
+
+- Delete `Phosphor/Support/ConversationStore.swift` (~500 lines); use `CollaborationKitUI.ConversationStore` directly, constructed with the phosphor shader tools.
+- Replace `Phosphor/Views/GeneratePanel.swift` (525 lines) with a thin wrapper around `CollaborationChatView`.
+- `ShaderEditorView` still owns the store (chat history survives inspector tab switches).
+
+## Phosphor-specific hooks to wire up
+
+- **Tool summaries.** Pass `summarizeTool:` to `ConversationStore.init` covering `writeConfiguration`, `readConfiguration`, `compileShader` (CK's default already handles `read`/`write`/`edit`).
+- **Tool icons.** Pass `iconForTool:` to `CollaborationChatView` covering the same three phosphor tools.
+- **Compile result visibility.** Register a `ToolPresenterRegistry` and set `resultVisibility { ctx in ... }` so `compileShader` only shows the result when it contains 'failed', and `readConfiguration`/`read` always show. Inject via `.environment(registry)`.
+- **Rollback.** Set `store.snapshotProvider = { RollbackSnapshot { textMutator.apply(source, actionName: "Roll Back Shader") } }` capturing the pre-turn text. On rollback, the tools' `MetalSourceDocument` buffer must also be reseeded to the restored source — either fold that into the snapshot closure or expose a document reset hook.
+- **Empty state.** Use `CollaborationChatView(..., emptyPlaceholder:)` to keep the current 'Generate a Shader — describe an effect…' copy.
+- **Composer header.** Use the `composerHeader:` slot to keep the 'cpu · Backend · model' caption.
+- **Composer border.** `borderStyle: .glow` to match today's look.
+- **Debug export.** Wire the File menu `ExportDebugLogAction` through CKUI's `.sessionDebugExport(store:model:userInfo:)` modifier with `userInfo: ["currentSource": text]`.
+- **Image attachments** stay on for Anthropic backends; disable for OpenAI-compatible locals if we expose any.
+
+## Must verify
+
+- Streaming autoscroll still pins to bottom (CKUI's TranscriptView has its own autoscroll — should just work).
+- Prompt queueing (new CK feature) behaves sanely when the user hits Send during a turn.
+- `stop()` still cancels mid-turn without corrupting undo history.
+
+---
