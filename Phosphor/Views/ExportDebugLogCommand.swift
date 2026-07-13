@@ -1,25 +1,15 @@
+import CollaborationKitUI
 import SwiftUI
 
-/// Wraps the export action in a concrete type. Focused values that are bare
-/// closures choke the type-checker, so we box the closure in a struct.
-struct ExportDebugLogAction {
-    let run: () -> Void
-}
-
-extension FocusedValues {
-    /// Action that exports the current generation session's debug log.
-    /// Published by ``GeneratePanel``; `nil` when no conversation exists.
-    @Entry var exportDebugLog: ExportDebugLogAction?
-}
-
-/// File-menu item that exports the AI generation debug log. Disabled when no
-/// conversation is active.
+/// File-menu item that exports the AI generation debug log. Reads the
+/// action installed by ``CollaborationKitUI/View/collaborationDebugExport(store:model:defaultFilename:userInfo:)``
+/// on the Generate panel; disabled when no conversation is active.
 struct ExportDebugLogButton: View {
-    @FocusedValue(\.exportDebugLog) private var exportDebugLog: ExportDebugLogAction?
+    @FocusedValue(\.exportDebugLog) private var exportDebugLog
 
     var body: some View {
         Button("Export Generation Debug Log…") {
-            exportDebugLog?.run()
+            exportDebugLog?()
         }
         .disabled(exportDebugLog == nil)
     }

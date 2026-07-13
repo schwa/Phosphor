@@ -4684,9 +4684,8 @@ No migration step required.
 
 ## Out of scope
 
-- ConversationStore / chat panel changes (step 2).
-- Deleting `GlowingPromptBorder`, `StopButton`, `ConversationExport` (step 3).
-
+- `2026-07-13T17:42:32Z`: ConversationStore / chat panel changes (step 2).
+- `2026-07-13T17:42:32Z`: Deleting `GlowingPromptBorder`, `StopButton`, `ConversationExport` (step 3).
 - `2026-07-13T18:23:38Z`: Adopted CollaborationSettingsView + CollaborationCredentials; deleted CredentialsModel, ConversationProvider, AnthropicOAuthStore, KeychainStore, GlowingPromptBorder. Added PhosphorBackends with .openAI(parallelToolCalls: false) to keep the read→edit→compile loop sequential. Keychain migration preserved via KeychainCredentialStore(service: "io.schwa.Phosphor").
 
 ---
@@ -4694,11 +4693,13 @@ No migration step required.
 ## 141: CK migration step 2: swap ConversationStore + GeneratePanel for CKUI equivalents
 
 +++
-status: new
+status: closed
 priority: medium
 kind: enhancement
 labels: generation, ck-migration, effort:l
 created: 2026-07-13T17:42:50Z
+updated: 2026-07-13T18:31:44Z
+closed: 2026-07-13T18:31:44Z
 +++
 
 Second step of the CollaborationKitUI adoption tracked in #139. Depends on #140.
@@ -4728,5 +4729,9 @@ Replace Phosphor's hand-rolled conversation store and Generate panel with Collab
 - Streaming autoscroll still pins to bottom (CKUI's TranscriptView has its own autoscroll — should just work).
 - Prompt queueing (new CK feature) behaves sanely when the user hits Send during a turn.
 - `stop()` still cancels mid-turn without corrupting undo history.
+
+- `2026-07-13T18:31:44Z`: Replaced Phosphor's hand-rolled ConversationStore (~500 lines) and GeneratePanel (525 lines) with CollaborationKitUI's ConversationStore + CollaborationChatView. New PhosphorConversation coordinator (@MainActor) bundles the LLMSession, MetalSourceDocument, tool summarizer, tool-icon lookup, tool-result visibility rule, and the RollbackSnapshot closure. Debug export flows through .collaborationDebugExport(store:model:userInfo:) with userInfo.currentSource so bug-report bundles include the exact .metal.
+
+Also deleted ConversationExport.swift and StopButton.swift (CK has native SessionExport + StopButton). Replaced Phosphor's local ExportDebugLogAction with CK's public one, so File → Export Generation Debug Log… now reads @FocusedValue(\.exportDebugLog) from CK.
 
 ---

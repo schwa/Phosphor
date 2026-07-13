@@ -22,10 +22,11 @@ struct ShaderEditorView: View {
     var logIdentity: String?
 
     @State private var model = EditorModel()
-    /// The conversational generation session. Owned here (not in
-    /// ``GeneratePanel``) so the chat history survives inspector tab switches,
-    /// which tear down the non-selected tab's view tree.
-    @State private var conversation: ConversationStore?
+    /// The conversational generation coordinator (LLMSession + tools +
+    /// rollback wiring). Owned here (not in ``GeneratePanel``) so the chat
+    /// history survives inspector tab switches, which tear down the
+    /// non-selected tab's view tree.
+    @State private var conversation: PhosphorConversation?
     @SceneStorage("phosphor.ui.inspectorTab") private var inspectorTab: InspectorTab = .generate
     @SceneStorage("phosphor.ui.showUniformsPanel") private var showUniformsPanel: Bool = true
     @SceneStorage("phosphor.ui.showFrameTiming") private var showFrameTiming: Bool = true
@@ -42,25 +43,39 @@ struct ShaderEditorView: View {
         !parsed.configuration.uniforms.isEmpty
     }
 
-    /// Lazily creates the per-document conversation store, wiring it to the
-    /// live text binding, the undoable text mutator, and the shared
-    /// ``CollaborationCredentials`` for provider construction.
+    /// Lazily creates the per-document conversation coordinator, wiring
+    /// it to the shader source, the undoable text mutator, and the
+    /// current provider from the environment credentials.
+    ///
+    /// Returns early when the store already exists or when there are no
+    /// credentials for the selected backend (the panel shows a sign-in
+    /// placeholder in that case).
     private func ensureConversation() {
-        guard conversation == nil else { return }
-        conversation = ConversationStore(
+        guard conversation == nil,
+              credentials.hasCredentials,
+              let provider = try? credentials.makeProvider() else { return }
+
+        conversation = PhosphorConversation(
+            provider: provider,
             device: runtime.device,
-            readSource: { text },
-            writeSource: { newText, actionName in
+            initialSource: text,
+            apply: { newText, actionName in
                 if let textMutator {
                     textMutator.apply(newText, actionName: actionName)
                 } else {
                     text = newText
                     onTextChange()
                 }
-            },
-            providerFactory: { try credentials.makeProvider() },
-            modelLabel: { credentials.selectedModel }
+            }
         )
+    }
+
+    /// Recreates the coordinator when the backend or credentials change,
+    /// so the tool loop always uses the right provider.
+    private func resetConversation() {
+        conversation?.cancel()
+        conversation = nil
+        ensureConversation()
     }
 
     /// Two-way binding for the mic toggle: writes the AppStorage flag AND
@@ -85,6 +100,16 @@ struct ShaderEditorView: View {
         .onChange(of: parsed.configuration) { _, newConfiguration in
             model.seedUniformDefaults(for: newConfiguration)
         }
+        // Keep the tools' view of the source in sync with the editor so
+        // the next model turn sees any hand-edits the user made.
+        .onChange(of: text) { _, newText in
+            conversation?.syncSource(newText)
+        }
+        // Recreate the coordinator when credentials change (sign in / out,
+        // switching backends) so the LLMSession always uses the current
+        // provider.
+        .onChange(of: credentials.backend.id) { _, _ in resetConversation() }
+        .onChange(of: credentials.hasCredentials) { _, _ in resetConversation() }
         .task {
             model.seedUniformDefaults(for: parsed.configuration)
             ensureConversation()

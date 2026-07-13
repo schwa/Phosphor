@@ -19,9 +19,9 @@ struct PhosphorInspectorView: View {
     let isUntouchedTemplate: Bool
     let onTextChange: () -> Void
     var logIdentity: String?
-    /// The persistent conversation store, owned by the editor view so it
-    /// survives tab switches. `nil` until created.
-    var conversation: ConversationStore?
+    /// The persistent conversation coordinator, owned by the editor view
+    /// so it survives tab switches. `nil` until created.
+    var conversation: PhosphorConversation?
     @Binding var selection: InspectorTab
     var onGeneratingChange: (Bool) -> Void = { _ in }
 
@@ -30,7 +30,8 @@ struct PhosphorInspectorView: View {
             Tab("Generate", systemImage: "sparkles", value: InspectorTab.generate) {
                 GeneratePanel(
                     parsed: parsed,
-                    store: conversation,
+                    conversation: conversation,
+                    currentSource: text,
                     onGeneratingChange: onGeneratingChange
                 )
             }
