@@ -3253,12 +3253,13 @@ Relates to #89 (2D built-in textures) and #87 (generation context).
 ## 93: Generation trace: click a chat turn to see the full prompt sent
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: effort:m
 created: 2026-06-22T19:48:18Z
-updated: 2026-06-23T06:05:18Z
+updated: 2026-07-13T18:44:01Z
+closed: 2026-07-13T18:44:01Z
 +++
 
 Each assistant turn in the Generate chat (#82) currently shows only a title + elapsed time. Capture a richer "generation trace" per turn and let the user click the turn to open a popover with the full details — primarily what was actually sent to the model, for transparency and debugging.
@@ -3284,6 +3285,7 @@ Sets up #48 (attach the rendered-frame screenshot to the same trace) and #74 (at
 Touch points: ShaderGenerator, GenerationResult/new GenerationTrace, GenerationTurn, GeneratePanel.
 
 - `2026-06-23T06:05:18Z`: Related to #105 (verbose model logging): #93 surfaces a per-turn subset in the UI; #105 is the full off-by-default log.
+- `2026-07-13T18:44:01Z`: Moved upstream to CollaborationKit as CollaborationKit #119 — per-turn inspector belongs at the LLMSession / ConversationStore layer now, not in the Phosphor Generate panel.
 
 ---
 
@@ -3858,11 +3860,13 @@ Just reorder the Tab() entries in the TabView; the InspectorTab enum cases and s
 ## 113: Render Markdown in the generation conversation
 
 +++
-status: new
+status: closed
 priority: medium
 kind: enhancement
 labels: effort:m, generation
 created: 2026-06-24T22:51:04Z
+updated: 2026-07-13T18:44:00Z
+closed: 2026-07-13T18:44:00Z
 +++
 
 Assistant (and user) messages in the Generate panel transcript are rendered as plain text via SwiftUI Text (Phosphor/Views/GeneratePanel.swift, ConversationRow.content -> bubble, lines ~243-246 for .assistant, ~235-238 for .user). Claude's replies contain Markdown — bold, lists, inline code, fenced code blocks, links — which currently shows as raw markup.
@@ -3875,19 +3879,23 @@ Render Markdown instead:
 - Keep text selection working (.textSelection(.enabled) is applied today).
 
 Open questions:
-- Inline-only AttributedString vs a full block renderer — which is worth it?
-- Add a dependency or hand-roll a minimal renderer?
+
+- `2026-06-24T22:51:04Z`: Inline-only AttributedString vs a full block renderer — which is worth it?
+- `2026-06-24T22:51:04Z`: Add a dependency or hand-roll a minimal renderer?
+- `2026-07-13T18:44:00Z`: Done in CollaborationKit — CKUI's ConversationRowView renders assistant text as Markdown natively. Adopted via the CK migration (#139).
 
 ---
 
 ## 114: Use HTML rendering for the conversation tab
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 labels: effort:l, generation
 created: 2026-06-24T22:51:33Z
+updated: 2026-07-13T18:44:00Z
+closed: 2026-07-13T18:44:00Z
 +++
 
 Render the Generate panel transcript (Phosphor/Views/GeneratePanel.swift) using HTML — e.g. a WKWebView-backed view — instead of (or in addition to) SwiftUI Text. Assistant/user turns would be converted to HTML and displayed in a web view, giving full rich rendering: headings, lists, tables, fenced code blocks with syntax highlighting, links, etc.
@@ -3900,21 +3908,27 @@ Considerations:
 - Security: sanitize/sandbox the HTML; disable JS and remote loads if not needed.
 
 Open questions:
-- WKWebView vs a native Markdown renderer (#113) — decide and possibly close the other.
-- Per-message web views vs one web view for the whole transcript.
+
+- `2026-06-24T22:51:33Z`: WKWebView vs a native Markdown renderer (#113) — decide and possibly close the other.
+- `2026-06-24T22:51:33Z`: Per-message web views vs one web view for the whole transcript.
+- `2026-07-13T18:44:01Z`: Dupe of #113 (rich text rendering). #113 is now done via CollaborationKit's Markdown rendering; HTML/WebView is not being pursued.
 
 ---
 
 ## 115: Chat tab does not scroll to bottom when new content arrives
 
 +++
-status: new
+status: closed
 priority: medium
 kind: bug
 created: 2026-06-24T23:21:22Z
+updated: 2026-07-13T18:44:01Z
+closed: 2026-07-13T18:44:01Z
 +++
 
 The Generate chat transcript (GeneratePanel.swift) still fails to scroll to the bottom when new content streams in. Existing onChange hooks on items.count, isGenerating, and lastItemContentLength call scrollToEnd, but the view stays pinned above the newest content. Likely the proxy.scrollTo fires before the freshly-appended/grown row is laid out in the List.
+
+- `2026-07-13T18:44:01Z`: Fixed by adopting CollaborationKit's TranscriptView (#139), which owns autoscroll with its own ScrollSignal on content length. Any regression should be filed upstream in CollaborationKit.
 
 ---
 
@@ -4586,11 +4600,13 @@ Goal: reduce the tool definitions to a small shared pattern (kill the triplicate
 ## 139: Adopt CollaborationKitUI to replace hand-rolled generation UI (umbrella)
 
 +++
-status: new
+status: closed
 priority: medium
 kind: enhancement
 labels: generation, ck-migration, effort:l
 created: 2026-07-13T17:42:20Z
+updated: 2026-07-13T18:37:09Z
+closed: 2026-07-13T18:37:09Z
 +++
 
 CollaborationKit 0.2.2 now ships every piece of chat/generation UI Phosphor currently maintains locally, plus features we don't have (prompt queueing, compaction progress, RollbackSnapshot API, ToolPresenterRegistry, sessionDebugExport modifier).
@@ -4632,6 +4648,10 @@ Three-step migration, one commit each:
 3. Cleanup
 
 (Child issue ids added once filed.)
+
+- `2026-07-13T18:37:09Z`: All three steps done. Deleted ~1,750 lines of hand-rolled UI/plumbing (CredentialsModel, ConversationProvider, AnthropicOAuthStore, ConversationStore, ConversationExport, GeneratePanel, SettingsView, GlowingPromptBorder, StopButton, KeychainStore, ExportDebugLogAction). Replaced with CollaborationCredentials + CollaborationSettingsView + CollaborationChatView + CKUI ConversationStore + SessionExport, plus a small PhosphorConversation coordinator (~140 lines) that owns the LLMSession, MetalSourceDocument, tool set, and rollback snapshot wiring.
+
+Verified working end-to-end by the user: sign-in, chat, streaming, tool calls, undo, and rollback all functional.
 
 ---
 
