@@ -50,7 +50,7 @@ final class PhosphorConversation {
 
         let session = LLMSession(
             provider: provider,
-            system: ConversationalGenerator.defaultInstructions,
+            system: GeneratorInstructions.conversationalInstructions,
             tools: .shaderTools(for: document, device: device)
         )
         let store = ConversationStore(
