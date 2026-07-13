@@ -314,33 +314,33 @@ public struct CompileShaderTool: Tool {
 
 // MARK: - Tool set
 
-extension Array where Element == AnyTool {
+extension Array where Element == any Tool {
     /// The conversational shader tool set over one document: whole-file
     /// read/write/edit, the specialist read/write configuration tools, and
     /// compile to check.
-    public static func shaderTools(for document: TextDocument, device: MTLDevice) -> [AnyTool] {
+    public static func shaderTools(for document: TextDocument, device: MTLDevice) -> [any Tool] {
         fileTools(for: document) + [
-            ReadConfigurationTool(document: document).eraseToAnyTool(),
-            WriteConfigurationTool(document: document).eraseToAnyTool(),
-            CompileShaderTool(document: document, device: device).eraseToAnyTool()
+            ReadConfigurationTool(document: document),
+            WriteConfigurationTool(document: document),
+            CompileShaderTool(document: document, device: device)
         ]
     }
 
     /// Tool set with an injected compile check, for tests without a device.
-    public static func shaderTools(for document: TextDocument, compileCheck: @escaping CompileShaderTool.CompileCheck) -> [AnyTool] {
+    public static func shaderTools(for document: TextDocument, compileCheck: @escaping CompileShaderTool.CompileCheck) -> [any Tool] {
         fileTools(for: document) + [
-            ReadConfigurationTool(document: document).eraseToAnyTool(),
-            WriteConfigurationTool(document: document).eraseToAnyTool(),
-            CompileShaderTool(document: document, compileCheck: compileCheck).eraseToAnyTool()
+            ReadConfigurationTool(document: document),
+            WriteConfigurationTool(document: document),
+            CompileShaderTool(document: document, compileCheck: compileCheck)
         ]
     }
 
     /// The whole-file read/write/edit tools — the default editing surface.
-    private static func fileTools(for document: TextDocument) -> [AnyTool] {
+    private static func fileTools(for document: TextDocument) -> [any Tool] {
         [
-            ReadMetalTool(document: document).eraseToAnyTool(),
-            WriteMetalTool(document: document).eraseToAnyTool(),
-            EditMetalTool(document: document).eraseToAnyTool()
+            ReadMetalTool(document: document),
+            WriteMetalTool(document: document),
+            EditMetalTool(document: document)
         ]
     }
 }

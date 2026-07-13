@@ -1,6 +1,8 @@
 #if canImport(AppKit)
 import AppKit
 #endif
+import CollaborationKit
+import CollaborationKitUI
 import PhosphorCompile
 import PhosphorGeneration
 import PhosphorModel
@@ -14,7 +16,15 @@ struct PhosphorApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     #endif
     @State private var audioCapture = AudioCaptureEngine()
-    @State private var credentials = CredentialsModel()
+    // The Keychain service override is load-bearing: it points
+    // CollaborationKit at Phosphor's existing Keychain items so
+    // existing users don't have to sign in again after upgrade.
+    // Account names already match CollaborationKit's `CredentialStoreKey`.
+    @State private var credentials = CollaborationCredentials(
+        store: KeychainCredentialStore(service: PhosphorBackends.keychainService),
+        backends: PhosphorBackends.all,
+        defaultsKey: PhosphorBackends.backendDefaultsKey
+    )
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
 
     var body: some Scene {
@@ -70,6 +80,7 @@ struct PhosphorApp: App {
         Settings {
             SettingsView()
                 .environment(credentials)
+                .frame(width: 480, height: 440)
         }
         #endif
     }

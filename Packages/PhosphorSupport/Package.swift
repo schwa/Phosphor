@@ -15,16 +15,9 @@ let package = Package(
         .library(name: "PhosphorEditorSupport", targets: ["PhosphorEditorSupport"])
     ],
     dependencies: [
-        // PhosphorKit owns the parse/compile/render targets (the single source
-        // of truth). PhosphorSupport adds AI generation and the MetalSprockets
-        // render host on top. PhosphorKit itself is MetalSprockets-free.
         .package(url: "https://github.com/schwa/PhosphorKit", branch: "main"),
-        .package(url: "https://github.com/schwa/CollaborationKit.git", branch: "main"),
+        .package(url: "https://github.com/schwa/CollaborationKit", branch: "main"),
         .package(url: "https://github.com/schwa/MetalSprockets", from: "0.1.10"),
-        // tree-sitter powers PhosphorInterface (the declarations-only view of
-        // Phosphor.h shown to the model) and the editor's syntax highlighting.
-        // Lives here, not in PhosphorKit, so embedders don't drag tree-sitter
-        // into their binaries.
         .package(url: "https://github.com/tree-sitter/swift-tree-sitter", from: "0.25.0"),
         .package(url: "https://github.com/tree-sitter/tree-sitter-cpp", branch: "master"),
         .package(url: "https://github.com/tree-sitter-grammars/tree-sitter-toml", branch: "master")
@@ -37,6 +30,7 @@ let package = Package(
                 .product(name: "PhosphorModel", package: "PhosphorKit"),
                 .product(name: "PhosphorCompile", package: "PhosphorKit"),
                 .product(name: "CollaborationKit", package: "CollaborationKit"),
+                .product(name: "CollaborationKitUI", package: "CollaborationKit"),
                 .product(name: "SwiftTreeSitter", package: "swift-tree-sitter"),
                 .product(name: "TreeSitterCPP", package: "tree-sitter-cpp")
             ],

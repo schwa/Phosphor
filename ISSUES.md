@@ -4638,12 +4638,13 @@ Three-step migration, one commit each:
 ## 140: CK migration step 1: swap Settings + credentials for CollaborationSettingsView / CollaborationCredentials
 
 +++
-status: new
+status: closed
 priority: medium
 kind: enhancement
 labels: generation, ck-migration, effort:m
 created: 2026-07-13T17:42:32Z
-updated: 2026-07-13T17:55:27Z
+updated: 2026-07-13T18:23:37Z
+closed: 2026-07-13T18:23:37Z
 +++
 
 First step of the CollaborationKitUI adoption tracked in #139.
@@ -4685,6 +4686,8 @@ No migration step required.
 
 - ConversationStore / chat panel changes (step 2).
 - Deleting `GlowingPromptBorder`, `StopButton`, `ConversationExport` (step 3).
+
+- `2026-07-13T18:23:38Z`: Adopted CollaborationSettingsView + CollaborationCredentials; deleted CredentialsModel, ConversationProvider, AnthropicOAuthStore, KeychainStore, GlowingPromptBorder. Added PhosphorBackends with .openAI(parallelToolCalls: false) to keep the read→edit→compile loop sequential. Keychain migration preserved via KeychainCredentialStore(service: "io.schwa.Phosphor").
 
 ---
 

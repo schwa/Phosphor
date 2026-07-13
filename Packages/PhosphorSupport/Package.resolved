@@ -1,13 +1,13 @@
 {
-  "originHash" : "2acfa79f62388f235c3ab27ee4c4ed2cc842a0fba1c668a35ed9ac2eea7d74cd",
+  "originHash" : "0736a08c9b7e28c7ba8aa970c41d4005847930eab1321cf698275a85e9633bc4",
   "pins" : [
     {
       "identity" : "collaborationkit",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/schwa/CollaborationKit.git",
+      "location" : "https://github.com/schwa/CollaborationKit",
       "state" : {
         "branch" : "main",
-        "revision" : "628c8b7372fb11af4c423eae5fd3b5199b6342ed"
+        "revision" : "90e5cd29b164120a5f848ae3feb3d3a3ac979dc9"
       }
     },
     {

@@ -140,6 +140,8 @@ final class ConversationStore {
     private let device: MTLDevice
     private let readSource: @MainActor () -> String
     private let writeSource: @MainActor (String, String) -> Void
+    private let providerFactory: @MainActor () throws -> any ModelProvider
+    private let modelLabel: @MainActor () -> String
 
     private var document: MetalSourceDocument?
     private var generator: ConversationalGenerator?
@@ -150,10 +152,21 @@ final class ConversationStore {
     ///   - readSource: Returns the current full `.metal` source.
     ///   - writeSource: Applies a full-text replacement as an undoable edit
     ///     (newText, actionName).
-    init(device: MTLDevice, readSource: @escaping @MainActor () -> String, writeSource: @escaping @MainActor (String, String) -> Void) {
+    ///   - providerFactory: Builds the CollaborationKit ``ModelProvider`` when
+    ///     the store lazily spins up its session. Called on the main actor.
+    ///   - modelLabel: Returns the current model identifier for debug exports.
+    init(
+        device: MTLDevice,
+        readSource: @escaping @MainActor () -> String,
+        writeSource: @escaping @MainActor (String, String) -> Void,
+        providerFactory: @escaping @MainActor () throws -> any ModelProvider,
+        modelLabel: @escaping @MainActor () -> String
+    ) {
         self.device = device
         self.readSource = readSource
         self.writeSource = writeSource
+        self.providerFactory = providerFactory
+        self.modelLabel = modelLabel
     }
 
     var isEmpty: Bool { items.isEmpty }
@@ -301,7 +314,7 @@ final class ConversationStore {
         let liveUsage = await generator?.totalUsage ?? usage
         return ConversationExport(
             exportedAt: Date(),
-            model: ConversationProvider.exportModelLabel,
+            model: modelLabel(),
             instructions: generator?.instructions ?? ConversationalGenerator.defaultInstructions,
             usage: liveUsage,
             lastError: lastError,
@@ -448,7 +461,7 @@ final class ConversationStore {
                 apply(newText, "Generate Shader")
             }
         }
-        let provider = try ConversationProvider.make()
+        let provider = try providerFactory()
         let generator = ConversationalGenerator(provider: provider, document: document, device: device)
         self.document = document
         self.generator = generator
@@ -505,6 +518,12 @@ final class ConversationStore {
 
         case .turnComplete:
             finishStreamingAssistant()
+
+        // New CK cases (historyChanged, turnCancelled, and any future ones):
+        // ignore in this legacy store; step 2 replaces the whole file with
+        // CollaborationKit's ConversationStore which handles them natively.
+        default:
+            break
         }
     }
 

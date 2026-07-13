@@ -1,4 +1,5 @@
 import CollaborationKit
+import CollaborationKitUI
 import PhosphorCompile
 import PhosphorGeneration
 import PhosphorModel
@@ -25,8 +26,7 @@ struct GeneratePanel: View {
     let store: ConversationStore?
     var onGeneratingChange: (Bool) -> Void = { _ in }
 
-    @Environment(CredentialsModel.self) private var credentials
-    @AppStorage("phosphor.modelProvider") private var backend: GenerationBackend = .claudeSubscription
+    @Environment(CollaborationCredentials.self) private var credentials
     @State private var prompt: String = ""
     @State private var attachments: [Attachment] = []
     @State private var showImporter = false
@@ -169,7 +169,7 @@ struct GeneratePanel: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 4) {
                 Image(systemName: "cpu")
-                Text("\(backend.displayName) · \(ConversationProvider.selectedModelID(for: backend))")
+                Text("\(credentials.backend.displayName) · \(credentials.selectedModel)")
                 Spacer()
             }
             .font(.caption2)

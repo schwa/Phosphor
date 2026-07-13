@@ -1,3 +1,5 @@
+import CollaborationKit
+import CollaborationKitUI
 import PhosphorCompile
 import PhosphorEditorSupport
 import PhosphorGeneration
@@ -32,6 +34,7 @@ struct ShaderEditorView: View {
     @SceneStorage("phosphor.ui.layoutMode") private var layoutMode: LayoutMode = .horizontal
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
     @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
+    @Environment(CollaborationCredentials.self) private var credentials
     @Environment(\.textMutator) private var textMutator
 
     /// True if the current document has at least one declared uniform.
@@ -40,7 +43,8 @@ struct ShaderEditorView: View {
     }
 
     /// Lazily creates the per-document conversation store, wiring it to the
-    /// live text binding and the undoable text mutator.
+    /// live text binding, the undoable text mutator, and the shared
+    /// ``CollaborationCredentials`` for provider construction.
     private func ensureConversation() {
         guard conversation == nil else { return }
         conversation = ConversationStore(
@@ -53,7 +57,9 @@ struct ShaderEditorView: View {
                     text = newText
                     onTextChange()
                 }
-            }
+            },
+            providerFactory: { try credentials.makeProvider() },
+            modelLabel: { credentials.selectedModel }
         )
     }
 
