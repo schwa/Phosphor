@@ -1,5 +1,7 @@
 # Phosphor
 
+![Phosphor](docs/hero.png)
+
 A [Shadertoy](https://www.shadertoy.com)-like playground for Metal compute shaders, using AI to generate and modify shaders.
 
 Built on [MetalSprockets](https://github.com/schwa/MetalSprockets), with the
