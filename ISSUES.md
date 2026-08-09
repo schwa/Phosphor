@@ -3212,12 +3212,13 @@ Not verified visually: I couldn't get a screenshot of the running app window (it
 ## 91: Built-in MetalFX spatial AI upscaling support
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: effort:m
 created: 2026-06-22T17:26:14Z
-updated: 2026-06-23T06:05:14Z
+updated: 2026-08-09T21:20:31Z
+closed: 2026-08-09T21:20:31Z
 +++
 
 Add built-in support for MetalFX spatial scaling (MTLFXSpatialScaler) so shaders can render at a lower internal resolution and be AI-upscaled to the display resolution.
@@ -3243,6 +3244,26 @@ Out of scope for this issue: MetalFX temporal scaling.
     }
 
 So we don't need to write the scaler from scratch — wire this element into the Phosphor pipeline. (MetalSprockets also has MetalFXTemporal + RFC 0001 for temporal, out of scope here.) MetalSprocketsAddOns has no MetalFX support; the core package is the place to source it from.
+
+\- `2026-08-09T21:20:31Z`: Implemented via MetalSprockets' `MetalFXSpatial` element, as suggested in the earlier comment.
+
+Render path (`PhosphorMetalSprockets`):
+- `UpscaleTarget` holds a reusable offscreen colour target (bgra8Unorm, `[.renderTarget, .shaderRead, .shaderWrite]`, private), reallocated only when the internal size changes — that covers the resize requirement.
+- `PhosphorRenderElement` takes an optional `targetTexture`; when supplied the whole shader pipeline renders into it at reduced size (so the compute passes get cheaper, not just the final blit), and `BuiltinUniforms.resolution` is the reduced size.
+- `PhosphorUpscaleElement` reads `\.currentDrawable` from the element environment and emits `MetalFXSpatial` into it. Needed because `MetalFXSpatial` wants its output texture as a value.
+- The drawable is only made non-framebuffer-only while upscaling, since the scaler writes to it from a compute encoder.
+- At native scale nothing changes: no offscreen texture, no scaler element, framebuffer-only drawable as before.
+
+UI: a Render ▸ Render Resolution picker (Native / 75% / 67% / 50%), persisted per scene via `@SceneStorage("phosphor.render.scale")` and mirrored onto `EditorModel.renderScale`. The picker is disabled when `MTLFXSpatialScalerDescriptor.supportsDevice` is false.
+
+Colour processing mode: left at the descriptor default. `MTLFXSpatialScalerDescriptor.colorProcessingMode` is worth revisiting if/when the pipeline gains a linear or HDR output path — right now output is bgra8Unorm throughout.
+
+Verification:
+- Unit tests (`PhosphorMetalSprocketsTests`) cover `internalSize`, including that scales ≥ 1 and degenerate scales pass the drawable size straight through, so the default path can't be perturbed.
+- The GPU side was checked with a standalone harness rather than guessed at: `MTLFXSpatialScalerDescriptor.supportsDevice` is true here, a 100×100 → 200×200 spatial scale with these exact formats/usages completes with no error and produces the expected pixels, and a `framebufferOnly = false` CAMetalLayer drawable does report `.shaderWrite` usage.
+- Not verified: the assembled element tree on screen. I couldn't get a window up for inspection during this run (machine screen was locked).
+
+Out of scope as stated: temporal scaling.
 
 ---
 

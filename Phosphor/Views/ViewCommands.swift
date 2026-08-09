@@ -12,6 +12,8 @@ struct EditorCommandState {
     var showInspector: Binding<Bool>
     var micEnabled: Binding<Bool>
     var micPermissionDenied: Bool
+    var renderScale: Binding<RenderScale>
+    var isUpscalingSupported: Bool
     var hasUniforms: Bool
     var showGenerate: () -> Void
 }
@@ -92,6 +94,15 @@ private struct RenderMenu: View {
         }
         .keyboardShortcut("r", modifiers: [.command, .shift])
         .disabled(state == nil)
+
+        Divider()
+
+        Picker("Render Resolution", selection: state?.renderScale ?? .constant(.native)) {
+            ForEach(RenderScale.allCases) { scale in
+                Text(scale.title).tag(scale)
+            }
+        }
+        .disabled(state == nil || state?.isUpscalingSupported == false)
 
         Divider()
 

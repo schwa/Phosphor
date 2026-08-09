@@ -83,6 +83,10 @@ let package = Package(
             ]
         ),
         .testTarget(
+            name: "PhosphorMetalSprocketsTests",
+            dependencies: ["PhosphorMetalSprockets"]
+        ),
+        .testTarget(
             name: "SourceEditorTests",
             dependencies: [
                 "SourceEditor",

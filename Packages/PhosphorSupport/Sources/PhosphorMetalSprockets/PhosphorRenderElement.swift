@@ -18,23 +18,29 @@ import PhosphorRuntime
 /// own encoders. This is the bridge that keeps PhosphorKit MetalSprockets-free
 /// while letting the app render Phosphor shaders inside a MetalSprockets
 /// `RenderView` (for frame timing and, later, video import/export).
+/// - Parameter targetTexture: where to render. `nil` renders straight into the
+///   current drawable; pass an offscreen texture to render at a different
+///   resolution (see ``UpscaleTarget``).
 @MainActor
 public func PhosphorRenderElement(
     renderer: PhosphorRenderer,
     runtime: PhosphorRuntime,
     builtin: BuiltinUniforms,
     userUniformValues: [String: UniformValue] = [:],
-    displayedResource: ResourceID? = nil
+    displayedResource: ResourceID? = nil,
+    targetTexture overrideTexture: MTLTexture? = nil
 ) -> some Element {
     EmptyElement()
         .onWorkloadEnter { environment in
-            guard let commandBuffer = environment.commandBuffer,
-                  let drawable = environment.currentDrawable else {
+            guard let commandBuffer = environment.commandBuffer else {
                 return
             }
-            let targetTexture = drawable.texture
-            let drawableSize = environment.drawableSize
-                ?? CGSize(width: targetTexture.width, height: targetTexture.height)
+            guard let targetTexture = overrideTexture ?? environment.currentDrawable?.texture else {
+                return
+            }
+            let drawableSize = overrideTexture != nil
+                ? CGSize(width: targetTexture.width, height: targetTexture.height)
+                : environment.drawableSize ?? CGSize(width: targetTexture.width, height: targetTexture.height)
 
             try renderer.render(
                 runtime: runtime,

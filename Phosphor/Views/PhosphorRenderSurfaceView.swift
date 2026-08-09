@@ -51,6 +51,7 @@ struct PhosphorRenderSurfaceView: View {
             runtime: runtime,
             userUniformValues: model.uniformValues,
             displayedResource: model.displayedResource,
+            renderScale: model.renderScale.factor,
             makeUniforms: { context, drawableSize in
                 buildUniforms(context: context, drawableSize: drawableSize)
             },

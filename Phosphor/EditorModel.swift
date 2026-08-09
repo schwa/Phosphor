@@ -33,6 +33,11 @@ final class EditorModel {
     /// drive the FPS / timing overlay. `nil` until the first frame.
     var frameTimingStatistics: FrameTimingStatistics?
 
+    /// Resolution the shader pipeline renders at, relative to the drawable.
+    /// Below native, the frame is MetalFX-upscaled (#91). Mirrored from the
+    /// scene's persisted preference by ``ShaderEditorView``.
+    var renderScale: RenderScale = .native
+
     init() {}
 
     /// Fire a one-shot reset and resume playback.

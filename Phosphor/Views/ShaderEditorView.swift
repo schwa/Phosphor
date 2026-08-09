@@ -2,6 +2,7 @@ import CollaborationKit
 import CollaborationKitUI
 import PhosphorCompile
 import PhosphorGeneration
+import PhosphorMetalSprockets
 import PhosphorModel
 import PhosphorRuntime
 import SwiftUI
@@ -32,6 +33,7 @@ struct ShaderEditorView: View {
     @AppStorage("phosphor.audio.micEnabled") private var micEnabled: Bool = false
     @SceneStorage("phosphor.ui.showInspector") private var showInspector: Bool = true
     @SceneStorage("phosphor.ui.layoutMode") private var layoutMode: LayoutMode = .horizontal
+    @SceneStorage("phosphor.render.scale") private var renderScale: RenderScale = .native
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
     @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
     @Environment(CollaborationCredentials.self) private var credentials
@@ -77,6 +79,18 @@ struct ShaderEditorView: View {
         ensureConversation()
     }
 
+    /// Two-way binding for the render-scale picker: writes the SceneStorage
+    /// preference AND pushes through to the model the render surface reads.
+    private var renderScaleBinding: Binding<RenderScale> {
+        Binding(
+            get: { renderScale },
+            set: { newValue in
+                renderScale = newValue
+                model.renderScale = newValue
+            }
+        )
+    }
+
     /// Two-way binding for the mic toggle: writes the AppStorage flag AND
     /// pushes through to the live engine.
     private var micToggleBinding: Binding<Bool> {
@@ -111,6 +125,7 @@ struct ShaderEditorView: View {
         .onChange(of: credentials.hasCredentials) { _, _ in resetConversation() }
         .task {
             model.seedUniformDefaults(for: parsed.configuration)
+            model.renderScale = renderScale
             ensureConversation()
         }
         .focusedSceneValue(\.shaderText, $text)
@@ -123,6 +138,8 @@ struct ShaderEditorView: View {
             showInspector: $showInspector,
             micEnabled: micToggleBinding,
             micPermissionDenied: audioCapture?.isPermissionDenied ?? false,
+            renderScale: renderScaleBinding,
+            isUpscalingSupported: UpscaleTarget.isSupported(device: runtime.device),
             hasUniforms: hasUniforms,
             showGenerate: openGenerate
         ))

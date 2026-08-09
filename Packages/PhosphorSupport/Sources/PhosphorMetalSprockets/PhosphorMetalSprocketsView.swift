@@ -20,15 +20,26 @@ public struct PhosphorMetalSprocketsView: View {
     private let makeUniforms: (RenderViewContext, CGSize) -> BuiltinUniforms
     private let onFrameTiming: (FrameTimingStatistics) -> Void
     private let onFrameTick: (RenderViewContext) -> Void
+    private let renderScale: Double
 
     /// A renderer instance held across frames so its compute pipeline-state
     /// cache survives. Keyed to the runtime's device.
     @State private var renderer: PhosphorRenderer
 
+    #if canImport(MetalFX)
+    /// Offscreen target for reduced-resolution rendering. Held across frames so
+    /// it's only reallocated when the internal size changes.
+    @State private var upscaleTarget = UpscaleTarget()
+    #endif
+
+    /// - Parameter renderScale: fraction of the drawable resolution the shader
+    ///   pipeline renders at. `1` renders natively; anything smaller renders
+    ///   into an offscreen target and MetalFX-upscales it to the drawable.
     public init(
         runtime: PhosphorRuntime,
         userUniformValues: [String: UniformValue] = [:],
         displayedResource: ResourceID? = nil,
+        renderScale: Double = 1,
         makeUniforms: @escaping (RenderViewContext, CGSize) -> BuiltinUniforms,
         onFrameTiming: @escaping (FrameTimingStatistics) -> Void = { _ in },
         onFrameTick: @escaping (RenderViewContext) -> Void = { _ in }
@@ -36,6 +47,7 @@ public struct PhosphorMetalSprocketsView: View {
         self.runtime = runtime
         self.userUniformValues = userUniformValues
         self.displayedResource = displayedResource
+        self.renderScale = renderScale
         self.makeUniforms = makeUniforms
         self.onFrameTiming = onFrameTiming
         self.onFrameTick = onFrameTick
@@ -44,18 +56,53 @@ public struct PhosphorMetalSprocketsView: View {
 
     public var body: some View {
         RenderView { context, drawableSize in
+            try content(context: context, drawableSize: drawableSize)
+        }
+        .metalColorPixelFormat(UpscaleTarget.pixelFormat)
+        // The scaler writes to the drawable from a compute encoder, which a
+        // framebuffer-only drawable forbids. Only relax it when upscaling.
+        .metalFramebufferOnly(renderScale >= 1)
+        .metalClearColor(MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0))
+        .onFrameTimingChange { onFrameTiming($0) }
+    }
+
+    /// Built outside the `@ElementBuilder` closure so it can do the arithmetic
+    /// and texture lookup that a result builder won't allow inline.
+    private func content(context: RenderViewContext, drawableSize: CGSize) throws -> some Element {
+        let internalSize = Self.internalSize(for: drawableSize, scale: renderScale)
+        let offscreen = internalSize == drawableSize
+            ? nil
+            : upscaleTarget.texture(
+                device: runtime.device,
+                width: Int(internalSize.width),
+                height: Int(internalSize.height)
+            )
+
+        return try Group {
             PhosphorRenderElement(
                 renderer: renderer,
                 runtime: runtime,
-                builtin: makeUniforms(context, drawableSize),
+                builtin: makeUniforms(context, offscreen == nil ? drawableSize : internalSize),
                 userUniformValues: userUniformValues,
-                displayedResource: displayedResource
+                displayedResource: displayedResource,
+                targetTexture: offscreen
             )
             .onWorkloadEnter { _ in
                 onFrameTick(context)
             }
+            if let offscreen {
+                PhosphorUpscaleElement(sourceTexture: offscreen)
+            }
         }
-        .metalClearColor(MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0))
-        .onFrameTimingChange { onFrameTiming($0) }
+    }
+
+    /// The pixel size the shader pipeline renders at. Falls back to the
+    /// drawable size for scales at or above 1, or if scaling would degenerate.
+    static func internalSize(for drawableSize: CGSize, scale: Double) -> CGSize {
+        guard scale > 0, scale < 1 else { return drawableSize }
+        let width = Int((drawableSize.width * scale).rounded())
+        let height = Int((drawableSize.height * scale).rounded())
+        guard width >= 1, height >= 1 else { return drawableSize }
+        return CGSize(width: width, height: height)
     }
 }
