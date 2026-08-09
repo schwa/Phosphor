@@ -20,7 +20,7 @@ What still costs manual work, roughly in order of how often you'll hit it:
 1. Helper functions that read `iTime`/`iResolution` directly — Metal has no
    globals, so they need the value passed in as a parameter (#144).
 2. GLSL idioms Metal's stricter type checker rejects (`1.0 / 2` and friends).
-3. Anything with more than one pass — Buffer A–D and the Common tab (#143).
+3. Wiring `iChannelN` to buffers on a multi-pass port — the structure translates, the routing can't (Shadertoy keeps it outside the source).
 4. Non-image channel inputs: video, keyboard, cubemaps, 3D textures.
 
 All of these fail loudly, as Metal compile errors. Nothing known renders
@@ -50,7 +50,7 @@ and gesture bindings), or the waveform/spectrum audio buffers.
 | Shadertoy | Status | How |
 |---|---|---|
 | Image textures | ✅ | `[[textures]]` with `init = { kind = "image", file = "…" }`, plus seven `builtin:` textures (mandrill, test card, four noise variants, blue noise) |
-| Buffer A–D | ⚠️ | Multi-pass works — declare several `[[passes]]` and a ping-pong texture, as in the `Bloom` example. What's missing is the *translator* mapping Shadertoy's four buffer tabs onto it |
+| Buffer A–D | ⚠️ | Translated. Mark the tabs with a comment (`// Buffer A`, `// Image`) since Shadertoy's tabs carry no in-source delimiter; each becomes a pass writing a `swap = "endOfFrame"` texture. Channel-to-buffer routing can't be recovered — Shadertoy stores it outside the source — so those bindings are wired by hand |
 | Microphone | ✅ | `uniforms.waveform` (1024 time-domain samples) and `uniforms.spectrum` (512 FFT bins). Not a texture like Shadertoy's, so shaders index a buffer rather than sampling row 0/1 |
 | Keyboard | ❌ | No key state anywhere in the runtime |
 | Webcam | ❌ | #39 |
@@ -65,7 +65,7 @@ and gesture bindings), or the waveform/spectrum audio buffers.
 |---|---|---|
 | Image | ✅ | The normal case |
 | Buffer A–D | ⚠️ | The runtime does multi-pass and ping-pong properly (`swap = "endOfFrame"` is exactly Shadertoy's semantics; `"immediate"` is an extra Phosphor offers). Porting is manual |
-| Common | ❌ | No mechanism for source shared across passes. Phosphor kernels live in one file, so a port means copying the Common tab in by hand |
+| Common | ✅ | Mark it `// Common` and it becomes top-level source, shared by every kernel — which is what Phosphor's single file gives for free |
 | Cubemap | ❌ | Reported by the translator rather than mistranslated |
 | Sound | ❌ | Ditto |
 
@@ -112,14 +112,11 @@ Ordered by how much Shadertoy coverage each unlocks per unit of work.
 1. **Built-ins in helper functions** (#144). The single biggest source of
    "it didn't compile" on otherwise-simple shaders. Needs either a real
    parse step to thread a uniforms parameter through, or a macro trick.
-2. **Buffer A–D translation** (#143). The runtime is already capable; this
-   is translator plumbing plus a directive for splitting tabs. Opens up the
-   multi-pass half of Shadertoy.
-3. **`iChannelResolution`, `iDate`.** Small additions to `BuiltinUniforms`.
-4. **Per-channel sampler state** (filter/wrap/sRGB/vflip). Currently
+2. **`iChannelResolution`, `iDate`.** Small additions to `BuiltinUniforms`.
+3. **Per-channel sampler state** (filter/wrap/sRGB/vflip). Currently
    shader-authored; making it a texture property matches Shadertoy and
    removes a class of subtle mismatches.
-5. **Video and webcam channels** (#118, #39). Large — they need the first
+4. **Video and webcam channels** (#118, #39). Large — they need the first
    live-texture pathway — and they unlock a narrower slice than the above.
 
 Note on failure modes: every known incompatibility on this page surfaces as

@@ -5301,11 +5301,13 @@ Tests (`GLSLModTests`) render a 1×1 shader and read the pixel back, comparing `
 ## 143: Shadertoy translator doesn't handle Buffer A-D or Common tabs
 
 +++
-status: new
+status: closed
 priority: medium
 kind: feature
 labels: effort:m
 created: 2026-08-09T21:36:46Z
+updated: 2026-08-09T22:54:29Z
+closed: 2026-08-09T22:54:29Z
 +++
 
 The Shadertoy translator (#27) handles a single Image pass. Shadertoy shaders with Buffer A/B/C/D tabs, or a Common tab, are not translated: pasting one produces a shader that references buffers that don't exist.
@@ -5318,6 +5320,31 @@ Two sub-problems:
 - The Common tab is source shared by every pass. Phosphor kernels all live in one file, so this may fall out for free, or may need its own handling.
 
 Found during the Shadertoy compatibility audit (#26); see `docs/Shadertoy-Compatibility.md`, which ranks this third by coverage-per-unit-work.
+
+\- `2026-08-09T22:54:29Z`: Done in PhosphorKit (commit efedfe82, unpushed).
+
+**The delimiter.** Shadertoy tabs carry nothing in the source, so something had to be invented. A comment line naming the tab, tolerant of decoration:
+
+```
+// Common
+// === Buffer A ===
+//---- image ----
+  // *** COMMON ***
+```
+
+All of those work, and `Buf A` is accepted alongside `Buffer A` since Shadertoy uses both. **Unmarked source is still a single Image pass** — the single-tab path is byte-identical to before, which the existing 19 translator tests confirm.
+
+**Buffer A–D** each become a pass writing a texture of the same name with `swap = "endOfFrame"` — which, as the audit noted, is exactly Shadertoy's buffer semantics. Passes are emitted buffers-first-then-image regardless of paste order, matching Shadertoy's execution order.
+
+**Common falls out for free**, as you suspected: it becomes top-level source in the single file, shared by every kernel. A test pins that it lands *once*, not copied per pass. Source pasted above the first marker is also treated as Common, so a preamble isn't silently dropped.
+
+**What I couldn't translate, and said so instead of guessing:** Shadertoy stores which buffer each `iChannel` reads in its project metadata, not in the shader text. There's no way to recover `iChannel0 = Buffer A` from the source. The translation emits a note naming the buffers it created and saying to wire the bindings by hand, rather than inventing a routing that would be silently wrong. That's the one part of a multi-pass port that stays manual.
+
+Also: a tab without a `mainImage` isn't claimed at all — that's someone mid-port, and half-translating it would clobber their work.
+
+**Something this turned up:** writing the end-to-end test, I found that these advisory notes render as **red error banners** in the app, because `PhosphorDiagnostic` has no severity axis and the translator has to emit them as `.frontMatterParse`. So a *successful* multi-pass translation looks like a failure. That's a defect in my own #27 work extended by this one — filed as **#146**. It also forces tests to filter diagnostics by case instead of asserting `isEmpty`, which is the same smell showing through.
+
+Updated `docs/Shadertoy-Compatibility.md`: Common goes to ✅, Buffer A–D stays ⚠️ but for the routing reason rather than "not translated", and the priority list drops this entry.
 
 ---
 
@@ -5394,5 +5421,38 @@ One case needed more than a fallback: a **mixed** array like `[1, 0.5, 0, 1]` de
 Eight assertions fail before the change — verified by reverting the two decode sites.
 
 Also updated `docs/Front-Matter-Reference.md`, which previously told people the opposite (it documented the decimal point as a requirement, since that was true when I wrote it for #25).
+
+---
+
+## 146: Shadertoy translation notes show as red error banners
+
++++
+status: new
+priority: medium
+kind: bug
+labels: effort:s
+created: 2026-08-09T22:53:23Z
++++
+
+Paste a Shadertoy shader into Phosphor and it translates successfully — then a red error banner appears over the render saying something like:
+
+```
+frontmatter: iChannel inputs (iChannel0) were mapped to texture resources; assign assets to them in the front matter.
+```
+
+or, for a multi-pass shader:
+
+```
+frontmatter: Translated 1 buffer pass(es): bufferA. Shadertoy stores which buffer each iChannel reads outside the shader source, so those bindings can't be recovered — wire the iChannel textures to the buffer resources by hand in the front matter.
+```
+
+Nothing is wrong. The shader compiled and is rendering. These are advisory notes from the Shadertoy translator, but `PhosphorDiagnostic` has no severity axis, so the translator has to emit them as `.frontMatterParse` — which `DiagnosticsView` renders identically to a genuine parse failure, on a red background.
+
+Expected: advisory notes are visually distinct from errors, or aren't shown in the error banner at all.
+Actual: a successful translation looks like a failure.
+
+Knock-on effect: tests that want to assert "this translated cleanly" can't just check `diagnostics.isEmpty` — they have to filter by case, which is a smell pointing at the same missing distinction.
+
+Introduced by #27 (the iChannel note) and extended by #143 (the buffer-routing note).
 
 ---
