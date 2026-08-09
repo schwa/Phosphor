@@ -2644,15 +2644,37 @@ When a texture is init = { kind = "image", file = ... }, allow omitting size so 
 ## 68: Support more/all pixel formats
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: effort:m
 created: 2026-06-21T05:09:15Z
-updated: 2026-06-22T15:40:16Z
+updated: 2026-08-09T22:29:31Z
+closed: 2026-08-09T22:29:31Z
 +++
 
 PhosphorPixelFormat currently only exposes rgba8Unorm, bgra8Unorm, rgba16Float, rgba32Float. Expand to cover the rest of the useful MTLPixelFormat set (e.g. r8/rg8/r16f/rg16f/r32f/rg32f, rgba8Unorm_srgb/bgra8Unorm_srgb, rgb10a2, rg11b10f, etc.). Touch points: PhosphorPixelFormat enum (Resource.swift) + mtlPixelFormat() and bytesPerPixel switch in PhosphorRuntime.swift. Consider deriving bytesPerPixel from the format rather than a hand-maintained switch.
+
+\- `2026-08-09T22:29:31Z`: Done in PhosphorKit (commit b307c3f9, unpushed). `PhosphorPixelFormat` goes from 4 to 20 formats:
+
+| Group | Added |
+|---|---|
+| 8-bit normalised | `r8Unorm`, `rg8Unorm`, `rgba8Unorm_srgb`, `bgra8Unorm_srgb`, `r8Snorm`, `rgba8Snorm` |
+| 16-bit normalised | `r16Unorm`, `rg16Unorm`, `rgba16Unorm` |
+| Floating point | `r16Float`, `rg16Float`, `r32Float`, `rg32Float` |
+| Packed | `rgb10a2Unorm`, `rg11b10Float`, `rgb9e5Float` |
+
+Which formats to offer wasn't taken from a table — Phosphor allocates every texture `[.shaderRead, .shaderWrite]` and binds it as `texture2d<float, …>`, so a format is only usable if a compute kernel can actually write it and read the value back. I probed each candidate on the device that way. All 20 round-trip, including the sRGB and packed ones I expected to be write-restricted.
+
+Worth recording: my first probe only checked whether the command buffer errored, and reported everything as fine — which would also be the result if an unsupported write were silently dropped. The probe that decided this writes a known value and reads it back. The tests do the same, so the claim stays honest on other hardware.
+
+`bytesPerPixel` is now derived, as you suggested. It lives on `PhosphorPixelFormat`, replacing the `switch` over `MTLPixelFormat` in `zeroTexture` whose `default: 16` silently covered anything unlisted — which would have quietly over-allocated for every format added here. The Metal mapping is the single source of truth and the reverse lookup is derived from it rather than being a second table.
+
+Tests (`PixelFormatTests`): the mapping is injective and round-trips, an undeclarable Metal format returns nil, every format survives a kernel write/read, and `bytesPerPixel` is validated against Metal's own row stride by pushing a byte pattern through `replace`/`getBytes`. I checked that last one actually bites by understating three formats — it fails for exactly those three.
+
+Also updated the format list in `docs/Front-Matter-Reference.md`, including a note that single- and dual-channel textures read back as `(r, 0, 0, 1)`, which is the main reason to want them.
+
+The generation JSON schema derives its enum from `CaseIterable`, so it picked all this up with no change and the parity test still passes.
 
 ---
 

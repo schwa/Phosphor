@@ -53,7 +53,7 @@ comments and other block comments — so a generated shader can carry a
 |---|---|---|---|
 | `id` | string | *required* | Name, referenced by passes and by `output`. |
 | `size` | see below | `"drawable"` | Pixel dimensions. |
-| `format` | string | `"rgba32Float"` | One of `rgba8Unorm`, `bgra8Unorm`, `rgba16Float`, `rgba32Float`. |
+| `format` | string | `"rgba32Float"` | Pixel format; see below. |
 | `swap` | string | `"none"` | Ping-pong behaviour: `none`, `endOfFrame`, `immediate`. |
 | `init` | see below | `{ kind = "zero" }` | Contents at materialisation. |
 
@@ -68,6 +68,20 @@ size = { scaledDrawable = 0.5 }              # half the view, and stays half
 A texture whose size depends on the drawable is reallocated (and zeroed) when
 the window resizes. `uniforms.resized` is `1` on the frame after that happens,
 which is how feedback shaders know to re-seed.
+
+### `format`
+
+| Group | Formats |
+|---|---|
+| 8-bit normalised | `r8Unorm`, `rg8Unorm`, `rgba8Unorm`, `bgra8Unorm`, `rgba8Unorm_srgb`, `bgra8Unorm_srgb`, `r8Snorm`, `rgba8Snorm` |
+| 16-bit normalised | `r16Unorm`, `rg16Unorm`, `rgba16Unorm` |
+| Floating point | `r16Float`, `rg16Float`, `rgba16Float`, `r32Float`, `rg32Float`, `rgba32Float` |
+| Packed | `rgb10a2Unorm`, `rg11b10Float`, `rgb9e5Float` |
+
+Kernels always see a texture as `texture2d<float, …>` whatever its format, so
+a single- or dual-channel texture reads back as `(r, 0, 0, 1)` — handy for
+simulation state where you only need one or two values per pixel and don't
+want to pay for four.
 
 ### `swap`
 
