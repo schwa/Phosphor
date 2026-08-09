@@ -3968,11 +3968,12 @@ Relates to the provider-picker work and #108 (real AI backend).
 ## 117: Flesh out in-app Help
 
 +++
-status: new
+status: open
 priority: low
 kind: documentation
 labels: effort:m
 created: 2026-06-25T00:52:46Z
+updated: 2026-08-09T16:14:34Z
 +++
 
 The Help menu now opens a minimal Help window (Phosphor/Views/HelpScene.swift) with a one-line description and two links (Apple Metal site + MSL spec PDF). Replace this stub with real help content.
@@ -3994,12 +3995,12 @@ Consider whether this should be DocC/HTML rendered in-app vs native SwiftUI page
 ## 118: Video input: video file source
 
 +++
-status: new
+status: open
 priority: medium
 kind: feature
 labels: effort:l
 created: 2026-06-25T03:01:17Z
-updated: 2026-06-25T03:03:31Z
+updated: 2026-08-09T16:14:34Z
 +++
 
 Allow a video file (mp4/mov/etc.) to be used as a texture input channel, sampled per-frame in sync with the shader timeline.
@@ -4027,10 +4028,12 @@ Related: #39 (webcam), #65 (image assets), #68 (pixel formats).
 ## 119: Export rendered frame as screenshot
 
 +++
-status: new
+status: open
 priority: medium
 kind: feature
+labels: effort:s
 created: 2026-06-25T03:01:23Z
+updated: 2026-08-09T16:14:34Z
 +++
 
 Export the current rendered frame to an image file (PNG/JPEG/TIFF).
@@ -4052,10 +4055,12 @@ Related: #68 (pixel formats).
 ## 120: Export rendered output as video
 
 +++
-status: new
+status: open
 priority: medium
 kind: feature
+labels: effort:l
 created: 2026-06-25T03:01:29Z
+updated: 2026-08-09T16:14:35Z
 +++
 
 Render the shader over a time range and encode the frames to a video file (mp4/mov).
@@ -4078,11 +4083,12 @@ Related: #119 (screenshot export), #68 (pixel formats).
 ## 121: Remove MetalSprockets dependency from PhosphorKit
 
 +++
-status: new
+status: open
 priority: medium
 kind: task
+labels: effort:xl
 created: 2026-06-25T03:02:12Z
-updated: 2026-06-25T17:02:09Z
+updated: 2026-08-09T16:14:35Z
 +++
 
 Make PhosphorKit dependency-free of MetalSprockets / MetalSprocketsAddOns by replacing the MetalSprockets-based render layer in PhosphorRuntime with raw Metal.
@@ -4101,10 +4107,13 @@ Effort: XL.
 ## 122: Make .phosphor documents self-contained: embed images and other assets
 
 +++
-status: new
+status: blocked
 priority: medium
 kind: feature
+labels: effort:l
+depends: 78
 created: 2026-06-25T03:04:10Z
+updated: 2026-08-09T16:14:35Z
 +++
 
 Today a `.phosphor` file is a single JSON blob (`PhosphorDocument`: version + configuration + source). Image inputs (`TextureInit.image(file:)`) are resolved through a *host-injected asset registry* — the asset bytes live outside the document. That means a `.phosphor` isn't portable: open it elsewhere and the referenced images are missing.
@@ -4139,15 +4148,19 @@ Related: #78 (flat vs. bundle decision), #65 (image assets), #118 (video file so
 
 So the format should probably support a per-asset choice: **embedded** (portable) vs. **referenced** (bookmark). Could default to referenced for large/video assets and embedded for small images. Bookmarks must be created in the sandboxed app layer (PhosphorKit stays platform-y but bookmark creation/resolution lives app-side or behind an injected resolver).
 
+- `2026-08-09T16:14:35Z`: Triage: blocked on #78 (flat .phosphor vs .phosphord bundle decision) — the embed-vs-bundle choice falls out of that.
+
 ---
 
 ## 123: Add more built-in textures, including 1D colour-palette LUTs
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
+labels: effort:m
 created: 2026-06-25T03:25:12Z
+updated: 2026-08-09T16:14:35Z
 +++
 
 Expand `BuiltinTextures.all` beyond the current set (mandrill, testcard, several noise variants). In particular, ship 1D colour-palette / gradient LUTs that shaders can index by a scalar to colourise output — a very common shadertoy idiom.
@@ -4181,10 +4194,12 @@ Related: #65 (image assets).
 ## 124: Document objectWillChange shim for @Observable + ReferenceFileDocument
 
 +++
-status: new
+status: open
 priority: low
-kind: none
+kind: task
+labels: effort:s
 created: 2026-06-25T16:50:10Z
+updated: 2026-08-09T16:14:35Z
 +++
 
 On the OS 26 backport, PhosphorMetalDocument and PhosphorBundleDocument are @Observable classes that must also conform to ReferenceFileDocument, which refines ObservableObject. The @Observable macro does not synthesize objectWillChange, and the ObservableObject default synthesis does not fire, so both documents declare an explicit '@ObservationIgnored let objectWillChange = ObservableObjectPublisher()' purely to satisfy the protocol. SwiftUI observes via Observation/@Bindable, not this publisher.
@@ -4196,10 +4211,12 @@ Risk: not yet runtime-tested on 26. Verify save / open / Save As / undo-redo beh
 ## 125: New document doesn't refresh Recent Documents in Splash
 
 +++
-status: new
+status: open
 priority: low
-kind: none
+kind: bug
+labels: effort:s
 created: 2026-06-25T16:51:21Z
+updated: 2026-08-09T16:14:35Z
 +++
 
 Creating a new document (Cmd-N / Cmd-Shift-N, or via the splash) does not update the Recent Documents list shown in the Splash window. SplashScene reads NSDocumentController.shared.recentDocumentURLs as a plain computed property, so the view doesn't re-render when the recents list changes. Need to observe recent-document changes (e.g. NSDocumentController KVO on recentDocumentURLs, or a refresh trigger when the splash reappears) so the list stays current.
@@ -4209,10 +4226,12 @@ Creating a new document (Cmd-N / Cmd-Shift-N, or via the splash) does not update
 ## 126: Custom document icons not showing for .phosphor files
 
 +++
-status: new
+status: open
 priority: low
-kind: none
+kind: bug
+labels: effort:s
 created: 2026-06-25T16:54:21Z
+updated: 2026-08-09T16:14:35Z
 +++
 
 Finder/the OS isn't showing a custom document icon for .phosphor files. Likely causes:
@@ -4230,8 +4249,10 @@ To fix: add a document icon asset (iconset / .icon) and wire it via CFBundleType
 +++
 status: new
 priority: low
-kind: none
+kind: feature
+labels: effort:l, needs-info
 created: 2026-06-25T17:25:00Z
+updated: 2026-08-09T16:14:35Z
 +++
 
 A distinct, optional export path (separate from the PhosphorKit embed-and-link core): transpile a .phosphor shader into a SwiftUI Shader effect with ZERO dependencies — not even PhosphorKit.
@@ -4247,6 +4268,8 @@ Cost / limitations (this is a lossy transpile, only viable for the subset of sha
 - No audio buffers.
 
 Open question: is this worth doing at all? Park as a maybe. It does NOT block the core embed-and-link work (PhosphorKit / PhosphorKitLite) or RFC-004's successor.
+
+- `2026-08-09T16:14:35Z`: Triage: left in New — issue itself asks 'is this worth doing at all?'. Needs a go/no-go decision before it can be sized for real.
 
 ---
 
@@ -4292,10 +4315,12 @@ precompile so the exported package doesn't compile the shader at runtime.
 ## 129: Export as Playground (.swiftpm App Playground)
 
 +++
-status: new
+status: open
 priority: low
-kind: none
+kind: feature
+labels: effort:m
 created: 2026-06-25T20:04:55Z
+updated: 2026-08-09T16:14:35Z
 +++
 
 Add an "Export as Playground" action, mirroring Export as Swift Package (#128). Same mechanism: ship a template as a bundled .aar, expand into a chosen folder, swap in the current document's .phosphor.
@@ -4317,11 +4342,12 @@ Author the template by hand first and confirm it builds/runs, then fold it into 
 ## 130: Explore video-effects plugin host integration for PhosphorKit
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
-labels: research, phosphorkit
+labels: research, phosphorkit, effort:xl
 created: 2026-06-26T05:31:39Z
+updated: 2026-08-09T16:14:35Z
 +++
 
 Investigate turning PhosphorKit into a video-effects plugin for host apps (Final Cut/Motion, After Effects, Premiere, DaVinci Resolve, OBS).
@@ -4421,11 +4447,12 @@ Verify: 'swift build' and 'xcb test' from Packages/PhosphorSupport, plus 'xcb bu
 ## 133: Reduce token usage in AI shader generation
 
 +++
-status: new
+status: open
 priority: medium
-kind: none
-labels: generation, performance
+kind: task
+labels: generation, performance, effort:m
 created: 2026-06-26T17:40:08Z
+updated: 2026-08-09T16:14:35Z
 +++
 
 Investigate and reduce token consumption in the PhosphorGeneration conversational flow (ConversationalGenerator + tools).
@@ -4574,11 +4601,12 @@ Remaining (the deeper 1/4): extract the projection/timeline into a pure, value-t
 ## 138: ShaderTools: collapse boilerplate tool pattern and overlapping edit surfaces
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
-labels: refactor, generation
+labels: refactor, generation, effort:m
 created: 2026-06-26T21:51:58Z
+updated: 2026-08-09T16:14:35Z
 +++
 
 ShaderTools.swift (Packages/PhosphorSupport/Sources/PhosphorGeneration/Collaboration/, ~364 lines) defines 6 Tool structs where 4 of 6 are mechanical wrappers, and the tool surface overlaps with itself.
