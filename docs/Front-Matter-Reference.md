@@ -121,9 +121,10 @@ init = { kind = "image", file = "mandrill" }              # an asset, or a built
 init = { kind = "noise", seed = 42 }
 ```
 
-Write float components with a decimal point. TOML distinguishes integers from
-floats and the decoder doesn't coerce, so `color = [1, 0, 0, 1]` fails with
-`Cannot decode "Float" from 1`. Same for a `float` uniform's `default`.
+Whole numbers are fine where a float is expected — `color = [1, 0, 0, 1]` and
+`color = [1.0, 0.0, 0.0, 1.0]` mean the same thing, as do mixtures. The
+reverse isn't true: an integer field like a `fixed` width rejects `512.5`
+rather than truncating it.
 
 Image lookups try the literal name, then the name without its extension, then
 the built-in registry — so `file = "mandrill"` finds `mandrill.png` in a
@@ -221,8 +222,8 @@ default = [0.6, 0.8, 1.0, 1.0]
 ui = "color"
 ```
 
-As with `fill` above, float defaults need a decimal point: `default = 6` is a
-TOML integer and won't decode as a `float` uniform.
+As with `fill` above, whole numbers are accepted: `default = 6` and
+`min = 0, max = 24` work as well as their decimal spellings.
 
 `ui` is one of `{ slider = { min, max } }`, `"color"`, `"toggle"`, or
 `"vector"`.

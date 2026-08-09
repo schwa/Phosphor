@@ -5348,11 +5348,13 @@ Found during the Shadertoy compatibility audit (#26); `docs/Shadertoy-Compatibil
 ## 145: Front-matter rejects whole numbers where a float is expected
 
 +++
-status: new
+status: closed
 priority: low
 kind: bug
 labels: effort:s
 created: 2026-08-09T21:52:05Z
+updated: 2026-08-09T22:50:05Z
+closed: 2026-08-09T22:50:05Z
 +++
 
 TOML distinguishes integers from floats, and the front-matter decoder doesn't coerce between them. Writing a whole number without a decimal point in a float position fails to parse:
@@ -5376,5 +5378,21 @@ Actual: the whole front-matter block fails to decode, and the diagnostic points 
 Writing `1` instead of `1.0` is an easy thing to do by hand, and the model does it too when generating configuration.
 
 Found while writing `docs/Front-Matter-Reference.md` (#25) — the reference's own example was wrong until a test caught it.
+
+\- `2026-08-09T22:50:05Z`: Fixed in PhosphorKit (commit 34254c4d, unpushed). Whole numbers now work anywhere a float is expected.
+
+Covered every float site in the configuration, not just the one in the report:
+- `init = { kind = "fill", color = … }`
+- `float` / `float2` / `float3` / `float4` / `color` uniform defaults
+- `ui = { slider = { min, max } }` — a slider range is exactly where round numbers get typed
+- `size = { scaledDrawable = … }`
+
+One case needed more than a fallback: a **mixed** array like `[1, 0.5, 0, 1]` decodes as neither `[Float]` nor `[Int]`, so it's handled element by element. That's the shape you'd most likely hit in practice — one channel at full brightness, the rest fractional.
+
+**Leniency is one-directional on purpose.** Integer fields still reject `512.5`; a `fixed` width or a noise `seed` silently truncating would hide a real mistake rather than forgive a typo. There's a test pinning that, and another pinning that `["red", 0, 0, 1]` is still an error.
+
+Eight assertions fail before the change — verified by reverting the two decode sites.
+
+Also updated `docs/Front-Matter-Reference.md`, which previously told people the opposite (it documented the decimal point as a requirement, since that was true when I wrote it for #25).
 
 ---
