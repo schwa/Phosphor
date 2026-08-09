@@ -28,6 +28,11 @@ struct PhosphorBundleDocumentView: View {
         Set(document.assets.keys)
     }
 
+    /// What the sidebar has selected. Shaders and assets are separate cases
+    /// rather than bare strings so a shader and an asset with the same name
+    /// can't be confused for one another.
+    @State private var selection: BundleSelection?
+
     private var activeTextBinding: Binding<String> {
         Binding(
             get: { document.activeText },
@@ -41,9 +46,15 @@ struct PhosphorBundleDocumentView: View {
                 shaderNames: sortedShaderNames,
                 assetNames: sortedAssetNames,
                 selection: Binding(
-                    get: { document.activeShader },
+                    get: { selection ?? document.activeShader.map(BundleSelection.shader) },
                     set: { newValue in
-                        if let newValue { document.selectShader(newValue) }
+                        selection = newValue
+                        // Picking an asset previews it without changing which
+                        // shader is being edited, so going back to the editor
+                        // lands where you left off.
+                        if case .shader(let name) = newValue {
+                            document.selectShader(name)
+                        }
                     }
                 ),
                 onAddShader: { document.addShader() },
@@ -54,16 +65,20 @@ struct PhosphorBundleDocumentView: View {
                 onRenameAsset: { document.renameAsset(from: $0, to: $1, undoManager: undoManager) }
             )
         } detail: {
-            ShaderEditorView(
-                text: activeTextBinding,
-                parsed: document.parsed,
-                onTextChange: { document.refreshParsed() },
-                isUntouchedTemplate: document.isUntouchedTemplate,
-                logIdentity: document.logIdentity
-            )
-            .environment(\.textMutator, TextMutator { newText, actionName in
-                document.setActiveText(newText, actionName: actionName, undoManager: undoManager)
-            })
+            if case .asset(let name) = selection, let asset = document.assets[name] {
+                AssetPreviewView(asset: asset)
+            } else {
+                ShaderEditorView(
+                    text: activeTextBinding,
+                    parsed: document.parsed,
+                    onTextChange: { document.refreshParsed() },
+                    isUntouchedTemplate: document.isUntouchedTemplate,
+                    logIdentity: document.logIdentity
+                )
+                .environment(\.textMutator, TextMutator { newText, actionName in
+                    document.setActiveText(newText, actionName: actionName, undoManager: undoManager)
+                })
+            }
         }
         // Debounce recompiles so mid-edit syntax errors don't flicker back (#53);
         // see PhosphorDocumentView. Keyed on the active text + asset set so a new
@@ -106,10 +121,17 @@ struct PhosphorBundleDocumentView: View {
 /// toolbar buttons at the bottom for "New Shader" and "Import…". Accepts
 /// drag-and-drop of `.metal` files (added as shaders) and other files
 /// (added as assets).
+/// A row in the bundle sidebar. Shaders and assets are distinct cases so
+/// same-named entries in the two sections stay distinguishable.
+enum BundleSelection: Hashable {
+    case shader(String)
+    case asset(String)
+}
+
 private struct BundleSidebar: View {
     let shaderNames: [String]
     let assetNames: [String]
-    @Binding var selection: String?
+    @Binding var selection: BundleSelection?
     let onAddShader: () -> Void
     let onImport: ([URL]) -> Void
     let onDeleteShader: (String) -> Void
@@ -146,7 +168,7 @@ private struct BundleSidebar: View {
                 Section("Sources") {
                     ForEach(filtered(shaderNames), id: \.self) { name in
                         renamableRow(name: name, systemImage: "doc.text", commit: onRenameShader)
-                            .tag(name)
+                            .tag(BundleSelection.shader(name))
                             .swipeActions(edge: .trailing) {
                                 Button("Delete", systemImage: "trash", role: .destructive) {
                                     onDeleteShader(name)
@@ -161,6 +183,7 @@ private struct BundleSidebar: View {
                 Section("Assets") {
                     ForEach(filtered(assetNames), id: \.self) { name in
                         renamableRow(name: name, systemImage: "photo", commit: onRenameAsset)
+                            .tag(BundleSelection.asset(name))
                             .swipeActions(edge: .trailing) {
                                 Button("Delete", systemImage: "trash", role: .destructive) {
                                     onDeleteAsset(name)

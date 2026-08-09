@@ -2585,15 +2585,27 @@ No test: SwiftUI drop-target visual state, with no testable unit and no app test
 ## 65: Handle selection of image assets
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: effort:m
 created: 2026-06-21T05:00:30Z
-updated: 2026-06-22T15:40:16Z
+updated: 2026-08-09T22:02:05Z
+closed: 2026-08-09T22:02:05Z
 +++
 
 In the bundle sidebar, asset rows aren't selectable/previewable. Selecting an image asset should do something useful — e.g. show a preview/thumbnail and metadata (dimensions, format) in the detail or inspector area.
+
+\- `2026-08-09T22:02:05Z`: Done. Asset rows are now selectable and get a detail pane.
+
+- Sidebar selection became a `BundleSelection` enum (`.shader` / `.asset`) rather than a bare `String`. Asset rows previously had no `.tag` at all, so they simply couldn't be selected; using the name alone would also have made a shader and an asset with the same name indistinguishable.
+- Selecting an asset shows `AssetPreviewView` in the detail pane: the image on a checkerboard (so a transparent PNG reads as transparent rather than as whatever the window background is), plus name, pixel dimensions, format and data size.
+- Dimensions come from `PhosphorAsset.pixelSize()`, which reads the header without decoding pixels; format comes from `CGImageSourceGetType`, i.e. the actual file header — assets are referenced without an extension, so the name can't be trusted for that.
+- The details grid includes the ready-to-paste `init = { kind = "image", file = "…" }` line, since knowing the reference name is the main reason to look at an asset.
+- Selecting an asset deliberately does **not** change `document.activeShader`, so switching back to a shader lands where you left off.
+- An asset ImageIO can't decode gets a `ContentUnavailableView` rather than a blank pane.
+
+No test: SwiftUI selection and preview wiring, with no testable unit and no app test bundle. Build-verified and lint-clean; I couldn't drive the UI this run (screen locked).
 
 ---
 
