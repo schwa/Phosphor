@@ -41,6 +41,15 @@ Apple Intelligence path also exists as a fallback but is weaker.)
 
 Generation is powered by [CollaborationKit](https://github.com/schwa/CollaborationKit).
 
+## Shadertoy
+
+Paste a single-pass Shadertoy shader in and Phosphor translates it: the
+`mainImage` entry point, the `iTime`/`iResolution`/`iMouse` built-ins, GLSL
+type names and `texture()`/`texelFetch()` calls are all rewritten for you.
+[docs/Shadertoy-Compatibility.md](docs/Shadertoy-Compatibility.md) is a
+feature-by-feature audit of what ports cleanly and what still needs hand
+editing.
+
 ## Links
 
 Inspired by [Shadertoy](https://www.shadertoy.com/), [twigl.app](http://twigl.app) and <https://mini.gmshaders.com/p/decoding-phosphor>, amongst other things.

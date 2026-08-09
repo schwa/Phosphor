@@ -794,12 +794,13 @@ Use the swift-documentation skill.
 ## 26: Shadertoy compatibility audit: what fraction can we run today?
 
 +++
-status: open
+status: closed
 priority: medium
 kind: task
 labels: effort:m
 created: 2026-06-18T22:08:22Z
-updated: 2026-06-24T22:45:39Z
+updated: 2026-08-09T21:36:00Z
+closed: 2026-08-09T21:36:00Z
 +++
 
 Survey Shadertoy's API surface against what Phosphor 2 currently supports. Goal: a written gap analysis so we know what to add next to maximise the fraction of Shadertoy shaders that port over with mechanical changes.
@@ -856,6 +857,24 @@ Categories to cover at minimum:
 For each ❌ or ⚠, link to the relevant existing issue or note the work required.
 
 Outcome: a markdown table (or a doc section under DocC) summarising what 'a Shadertoy port' costs in 2026 vs. once we close the open issues. Probably motivates the priority order on several existing issues.
+
+\- `2026-08-09T21:36:00Z`: Done: `docs/Shadertoy-Compatibility.md`, linked from the README.
+
+Every row was checked against the code rather than written from memory — the table has a "how" column naming the mechanism (front-matter key, uniform field, translator rule) so it can be re-verified. Doing this straight after #27 meant the language section describes the translator as actually built rather than as planned.
+
+Headline finding: a single-pass shader using only `iTime`/`iResolution`/`iMouse` and maths runs unmodified today. The gaps that cost manual work, in order of how often you hit them: built-ins referenced inside helper functions (Metal has no globals), GLSL's implicit int→float promotion, multi-pass, and non-image channel inputs.
+
+Some findings worth pulling out:
+
+- **`mod()` on negative numbers is the only silent failure on the page.** GLSL's `mod` follows the sign of the divisor, MSL's `fmod` follows the dividend. Everything else fails loudly as a compile error. Fixing it is one helper in `Phosphor.h` plus a rewrite rule — best value-per-effort item in the whole audit.
+- **Multi-pass is a translator gap, not a runtime gap.** The runtime already does multi-pass with ping-pong, and `swap = "endOfFrame"` is precisely Shadertoy's buffer semantics (the `Bloom` example is exactly this shape). Porting Buffer A–D is plumbing in the translator plus a tab-splitting directive, not new engine work.
+- **Sampler state is per-call, not per-channel.** Phosphor has no sampler declarations in the generated header; shaders declare their own `constexpr sampler`. Filter/wrap/sRGB/VFlip therefore have no per-channel equivalent, which is a quiet source of mismatch.
+- **Phosphor is ahead of Shadertoy on MRT** (a pass can declare any number of write bindings — validation only requires at least one) and on `swap = "immediate"`.
+- Cheap additions the audit surfaced: `iChannelResolution[N]` and `iDate` are both small `BuiltinUniforms` extensions.
+
+The doc ends with a "what would move the needle" list ordered by coverage-per-unit-work, which is the prioritisation input this issue was asking for. Existing issues are linked where they apply (#39 webcam, #92 3D textures, #118 video).
+
+Not compiled: documentation-only change, plus a README link.
 
 ---
 
@@ -1841,7 +1860,24 @@ what's on screen.
 - Pairs naturally with #44 (deepen the generation pipeline / ports & adapters)
   \u2014 the screenshot becomes another input on the LanguageModelPort.
 
-- `2026-06-22T15:49:24Z`: Related to #77 (chat-like generation panel): the chat panel is the natural place to attach per-turn rendered previews.
+\- `2026-06-22T15:49:24Z`: Related to #77 (chat-like generation panel): the chat panel is the natural place to attach per-turn rendered previews.
+\- `2026-08-09T21:33:28Z`: Punting: the v1 as specified needs a change in CollaborationKit, which is a separate project from Phosphor/PhosphorKit and outside what I should be editing here.
+
+What I found (CollaborationKit, current `main`):
+
+- Multi-modal support **already exists** on the request path. `Message.user(text:images:)`, `ImageContent(mediaType:data:)`, `LLMSession.send(text:images:)` and `ConversationStore.send(_:images:snapshot:)` are all public. So the "depends on multi-modal support in the adapter layer" note in this issue is stale — that part is done.
+- The composer already has an attachment strip, file drops and paste (`ComposerView`, `AttachmentThumbnailsView`, `ImageContentTransfer`).
+- **But** `Attachment` and `ComposerAttachmentBuffer` are internal to `CollaborationKitUI`, and the buffer is only reachable through an internal environment key. There is no public way for a host app to push an image into the composer's pending attachments. That's exactly what the proposed 'Use current frame' checkbox needs.
+- Tool results can't carry images either — `ToolResult.content` is a `String` — so the tidier alternative (a `captureFrame` tool the model calls itself) isn't available.
+
+The capture half is ready: #119 landed `FrameCapture`, which reads the last-rendered output texture back as a `CGImage` and encodes it to PNG. Downscaling it to ~512×512 before attaching is a couple of lines on top.
+
+Two ways forward — needs your call:
+
+1. **Add public API to CollaborationKit** (my preference): make `ComposerAttachmentBuffer` public with an `add(imageData:mediaType:)` (or expose an `attachments` binding on `CollaborationChatView`). Phosphor then gets the checkbox exactly as this issue describes, and the frame rides along with whatever the user types. Requires work in the CollaborationKit repo.
+2. **Keep it inside Phosphor**: a 'Send Current Frame' button in the Generate panel that calls `store.send(text:images:)` directly with a canned message plus the PNG. No CollaborationKit changes, but the frame goes as its own turn rather than attaching to the user's next prompt, which is a worse fit for the 'complement to the prompt' framing in this issue.
+
+Also worth noting for whichever route: the open design questions here can be answered now — 512×512 downscale, send the frame alongside the source rather than instead of it, and capture without pausing (`FrameCapture` reads the already-rendered texture rather than re-rendering, so playback doesn't need to stop).
 
 ---
 
