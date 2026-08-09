@@ -3397,12 +3397,13 @@ Touch points: ShaderGenerator (return per-attempt error history), GenerationStat
 ## 97: App launches with a transient 'missing asset' red banner that immediately disappears
 
 +++
-status: open
+status: closed
 priority: medium
 kind: bug
 labels: effort:s
 created: 2026-06-22T20:03:23Z
-updated: 2026-06-23T06:05:03Z
+updated: 2026-08-09T21:01:58Z
+closed: 2026-08-09T21:01:58Z
 +++
 
 On app launch (opening a document / example), a red diagnostics banner briefly appears reading something like "asset '<name>' missing ... — texture zero-filled" and then disappears on its own a moment later. It's a transient flash, not a persistent error — the shader renders fine once it settles.
@@ -3419,6 +3420,21 @@ Investigation steps:
 - Decide the fix: suppress diagnostics until the first settled compile, debounce/clear stale diagnostics, or ensure assets are present before the first reload that can emit missingAsset.
 
 Touch points: PhosphorRuntime (diagnostics timing), DiagnosticsView (missingAsset rendering), the editor reload task (PhosphorDocumentView / PhosphorBundleDocumentView 300ms debounce), asset injection.
+
+\- `2026-08-09T21:01:58Z`: Root cause confirmed by tracing a real launch (temporary os_log instrumentation in PhosphorRuntime, since removed):
+
+```
+13:59:39.452 [Phosphor] missingOutput(image)
+13:59:40.630 TRACE applyConfiguration wiping 1 diagnostics, new=0 assets=["mandrill"] textures=["image"]
+```
+
+It is not a missing-asset diagnostic and not an asset race. The editor views hold `@State private var runtime = PhosphorRuntime()`; that default-constructed placeholder compiles an empty source against the default `output = "image"` configuration, which always produces `missingOutput("image")`. The banner shows for ~1.2s until the debounced first load replaces the diagnostics.
+
+Fix (PhosphorKit): a source-less runtime reports no diagnostics — there is nothing to diagnose yet. A runtime built with real source still reports normally.
+
+Regression test: `Tests/PhosphorRuntimeTests/RuntimeDiagnosticsTests.swift`. Fails before the fix with `Expectation failed: runtime.diagnostics.isEmpty`. Also verified by relaunching the app on Examples.phosphord — no diagnostics logged at all now.
+
+Note: the code change is in the PhosphorKit repo (commit 2f0eea16, unpushed). The app picks it up from GitHub `main`, so it needs a push to land in app builds.
 
 ---
 
