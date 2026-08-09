@@ -4078,12 +4078,13 @@ Related: #39 (webcam), #65 (image assets), #68 (pixel formats).
 ## 119: Export rendered frame as screenshot
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: effort:s
 created: 2026-06-25T03:01:23Z
-updated: 2026-08-09T16:14:34Z
+updated: 2026-08-09T21:15:02Z
+closed: 2026-08-09T21:15:02Z
 +++
 
 Export the current rendered frame to an image file (PNG/JPEG/TIFF).
@@ -4099,6 +4100,17 @@ Export the current rendered frame to an image file (PNG/JPEG/TIFF).
 - Include/exclude any UI overlay (assume just the shader output).
 
 Related: #68 (pixel formats).
+
+\- `2026-08-09T21:15:02Z`: Implemented at drawable resolution, shader output only (no UI chrome), with both save-to-file and copy-to-clipboard.
+
+- `FrameCapture` reads back the texture the renderer last blitted to the drawable rather than re-rendering, so taking a picture doesn't advance a feedback shader. Ping-pong parity is recomputed the way `PhosphorRenderer` does (even frames = parity A) from a non-observable frame counter kept by the render surface.
+- Conversion goes through `CIImage(mtlTexture:)`, so float output formats work as well as 8-bit ones (partly addresses the #68 dependency — whatever format the texture is, Core Image converts it).
+- Orientation: verified empirically with a standalone harness (4×4 texture, red top row) that Core Image reads a Metal texture bottom-up and the CGImage needs a vertical flip. `configuration.flipY` shaders are already drawn inverted on screen, so they take the unflipped conversion — the capture matches what you see either way.
+- `FrameExporter` adds File ▸ Export Frame as Image… (NSSavePanel, PNG/JPEG/TIFF, PNG default) and File ▸ Copy Frame (⇧⌘C).
+
+Still open, not done here: capturing at a user-specified export resolution rather than the drawable's. Worth a separate issue if wanted — it needs a re-render into an offscreen target, which is a different code path from reading back the displayed frame.
+
+No unit test: the app target has no test bundle, and the capture needs a live runtime with rendered GPU textures. The risky part (vertical orientation) was verified with the standalone Metal/CoreImage harness described above.
 
 ---
 

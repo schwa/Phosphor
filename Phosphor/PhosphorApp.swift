@@ -60,6 +60,7 @@ struct PhosphorApp: App {
                 ReformatFrontMatterButton()
             }
             CommandGroup(after: .importExport) {
+                ExportFrameButtons()
                 ExportSwiftPackageButton()
                 ExportDebugLogButton()
             }

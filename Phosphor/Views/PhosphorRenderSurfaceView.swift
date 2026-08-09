@@ -37,6 +37,11 @@ struct PhosphorRenderSurfaceView: View {
     @State private var zoomBase: Float = 0.5
     @State private var rotateBase: Float = 0.5
 
+    // The frame counter the renderer last used. Deliberately not observable:
+    // it changes every frame and nothing should redraw because of it. Frame
+    // capture reads it to pick the right ping-pong half (#119).
+    @State private var renderedFrame = RenderedFrameCounter()
+
     private var gestureBindings: UniformGestureBinding.Bindings {
         UniformGestureBinding.bindings(for: configuration)
     }
@@ -54,6 +59,12 @@ struct PhosphorRenderSurfaceView: View {
                 applyPlaybackSideEffects(context: context)
             }
         )
+        #if os(macOS)
+        .focusedSceneValue(\.exportFrame, ExportFrameAction(
+            save: { FrameExporter.save(runtime: runtime, displayedResource: model.displayedResource, frameIndex: renderedFrame.index) },
+            copy: { FrameExporter.copy(runtime: runtime, displayedResource: model.displayedResource, frameIndex: renderedFrame.index) }
+        ))
+        #endif
         .onChange(of: model.isPaused) { _, newValue in
             if newValue {
                 playbackClock.pause()
@@ -112,6 +123,7 @@ struct PhosphorRenderSurfaceView: View {
     /// Builds the per-frame `BuiltinUniforms`, applying pause/rebase.
     private func buildUniforms(context: RenderViewContext, drawableSize: CGSize) -> BuiltinUniforms {
         let sample = playbackClock.kernelSample(wallClock: wallClock(from: context))
+        renderedFrame.index = UInt32(max(0, sample.frame))
         return BuiltinUniforms(
             time: sample.time,
             timeDelta: sample.delta,
