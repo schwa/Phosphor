@@ -83,7 +83,7 @@ Implementation:
 - Wire it into `PhosphorView`: if env is nil, infer from `source`; otherwise honor the explicit env argument. Probably split into a `PhosphorView(source:)` convenience that parses, and a `PhosphorView(environment:, source:)` raw form.
 - Add the docs example from §4 of Phosphor2.md as a test fixture; verify the resulting env equals the equivalent Swift literal.
 
-- `2026-06-18T20:12:51Z`: Implemented. TOMLKit parses /* phosphor:environment ... */ blocks at the top of a source file into a PhosphorEnvironment. Custom Codable conformances on Resource, TextureSize, TextureInit, UniformDecl, UniformValue, and UniformUIHint adapt the model to a hand-friendly TOML shape (string-or-table for unit enum cases, flat kind-discriminator for Resource, kind-driven dispatch for UniformValue). Texture2DSpec, Pass, and PhosphorEnvironment grew custom Codable inits with optional-with-default decoding so omitted fields fall back to sane defaults.
+\- `2026-06-18T20:12:51Z`: Implemented. TOMLKit parses /* phosphor:environment ... */ blocks at the top of a source file into a PhosphorEnvironment. Custom Codable conformances on Resource, TextureSize, TextureInit, UniformDecl, UniformValue, and UniformUIHint adapt the model to a hand-friendly TOML shape (string-or-table for unit enum cases, flat kind-discriminator for Resource, kind-driven dispatch for UniformValue). Texture2DSpec, Pass, and PhosphorEnvironment grew custom Codable inits with optional-with-default decoding so omitted fields fall back to sane defaults.
 
 PhosphorView gained a failable PhosphorView(source:) convenience that parses front-matter, surfaces parse + validation diagnostics in the overlay, and forwards the cleaned body to the runtime. GameOfLife is now defined entirely through its embedded front-matter block.
 
@@ -142,7 +142,7 @@ Fix when this becomes an actual problem (Shadertoy port that uses multiple ping-
 
 Tracked separately from `FlipTiming.immediate` (#4) but tightly related — that change forces a similar restructuring of the parity model.
 
-- `2026-06-18T22:29:02Z`: Fixed. PhosphorRuntime.writeChannelBuffers now picks each channel slot's texture based on the *sampled resource's* parity, not the reading pass's. Self-feedback (e.g. Game of Life) still uses readTexture for last-frame data; upstream-pass-in-the-same-frame reads now use writeTexture so they see the just-written data with no one-frame lag.
+\- `2026-06-18T22:29:02Z`: Fixed. PhosphorRuntime.writeChannelBuffers now picks each channel slot's texture based on the *sampled resource's* parity, not the reading pass's. Self-feedback (e.g. Game of Life) still uses readTexture for last-frame data; upstream-pass-in-the-same-frame reads now use writeTexture so they see the just-written data with no one-frame lag.
 
 The buffers are also allocated fresh per frame (closes the parity precompute table approach) which sidesteps the in-flight read race that motivated the original precompute (the channel-buffer half of #6).
 
@@ -324,7 +324,7 @@ To make them work:
 
 Shadertoy semantics for reference: iMouse.xy is the current position while held, iMouse.zw is the click origin with sign indicating button state. We chose to split this into 3 separate fields for clarity; preserve those semantics.
 
-- `2026-06-18T23:42:51Z`: Done. PhosphorView now tracks mouse state via @State (position, button mask, click origin) and feeds it into BuiltinUniforms each frame.
+\- `2026-06-18T23:42:51Z`: Done. PhosphorView now tracks mouse state via @State (position, button mask, click origin) and feeds it into BuiltinUniforms each frame.
 
 Tracking:
 - onContinuousHover updates mousePosition (mouse-moved-with-no-button).
@@ -484,7 +484,7 @@ Keep our existing Plasma demo separate \u2014 the Phosphor 1 "Plasma" is a diffe
 
 Once ported, update Examples/ in the README / docs so users can discover them.
 
-- `2026-06-19T01:19:44Z`: Done. 17 of the original 19 Phosphor 1 example snippets ported into Examples/: Checkerboard, Cityscape, Fire, FractalKaleidoscope, FractalPlant, Heart, HelloTriangle, HSVRaymarch, IterativeTrig, NeonLamp, NoiseFlow, PlasmaClassic, RaymarchingSphere, ReactionDiffusion, TerrainRiver, VoronoiCells, WaterRipples.
+\- `2026-06-19T01:19:44Z`: Done. 17 of the original 19 Phosphor 1 example snippets ported into Examples/: Checkerboard, Cityscape, Fire, FractalKaleidoscope, FractalPlant, Heart, HelloTriangle, HSVRaymarch, IterativeTrig, NeonLamp, NoiseFlow, PlasmaClassic, RaymarchingSphere, ReactionDiffusion, TerrainRiver, VoronoiCells, WaterRipples.
 
 Skipped:
 - BrokenShader (intentionally broken; not useful as a demo).
@@ -597,7 +597,7 @@ Notes:
 - The model name string lives in our settings; the Anthropic key lives in the Keychain. Keep that split.
 - Token-usage display would be nice eventually \u2014 LanguageModelSession exposes a .usage property after each respond. Out of scope here.
 
-- `2026-06-18T22:58:13Z`: Done. GenerationModel.anthropicClaudeOpus replaced with a parameterized .anthropic(AnthropicModel) case. AnthropicModel is a tiny struct with id + displayName; the curated catalogue (Opus 4.5, Sonnet 4.5, Haiku 4.5) lives on AnthropicModel.all and is easy to update.
+\- `2026-06-18T22:58:13Z`: Done. GenerationModel.anthropicClaudeOpus replaced with a parameterized .anthropic(AnthropicModel) case. AnthropicModel is a tiny struct with id + displayName; the curated catalogue (Opus 4.5, Sonnet 4.5, Haiku 4.5) lives on AnthropicModel.all and is easy to update.
 
 GenerationModel.all returns the full list (on-device, PCC, three Anthropic models). The picker uses that. raw-value persistence migrates: 'anthropicClaudeOpus' from earlier builds doesn't decode anymore, falls back to On Device — acceptable hiccup since the user can pick again.
 
@@ -659,7 +659,7 @@ Fix:
 
 Once added, regenerate a few prompts that previously came out flipped and confirm they're right-side-up.
 
-- `2026-06-18T22:41:40Z`: Fixed. Added a `flipY: Bool` field to PhosphorEnvironment (default false, omitted from TOML when false). When true, PhosphorPipeline passes flipped V coordinates to TextureBillboardPipeline so the final blit is upside down — the kernel can write in GLSL/Shadertoy convention (Y=0 at bottom) and the result lands right-side up.
+\- `2026-06-18T22:41:40Z`: Fixed. Added a `flipY: Bool` field to PhosphorEnvironment (default false, omitted from TOML when false). When true, PhosphorPipeline passes flipped V coordinates to TextureBillboardPipeline so the final blit is upside down — the kernel can write in GLSL/Shadertoy convention (Y=0 at bottom) and the result lands right-side up.
 
 The system prompt explains both conventions explicitly and tells the model to set flipY when writing Shadertoy-style code. The generation schema (GeneratedShader) gained a matching flipY field. Existing demos (Phosphor convention, Y=0 at top) default to false and render identically to before; Shadertoy ports can paste verbatim and set flipY=true in the front-matter.
 
@@ -687,7 +687,7 @@ Sweep the SwiftUI surface (PhosphorView, PhosphorDocumentView, GeneratePanel, Se
 
 Use the swiftui-specialist and accessibility-audit skills.
 
-- `2026-06-19T02:33:55Z`: Done as a SwiftUI review pass on 2026-06-18. Findings landed across two commits:
+\- `2026-06-19T02:33:55Z`: Done as a SwiftUI review pass on 2026-06-18. Findings landed across two commits:
 
 - Extracted @ViewBuilder computed properties into View structs (house rule): UniformControl, PhosphorDocumentView, PhosphorView.
 - Migrated SettingsView's TabView to the macOS 27 Tab API (soft-deprecated tabItem).
@@ -752,7 +752,7 @@ Particular things likely to come up:
 
 Use the swift-linting skill.
 
-- `2026-06-19T02:39:44Z`: Done. swiftlint runs clean against the project.
+\- `2026-06-19T02:39:44Z`: Done. swiftlint runs clean against the project.
 
 - Added .build / Packages/*/.build exclusions to .swiftlint.yml so SwiftPM build artifacts don't trip line-length checks.
 - Fixed two real violations in Phosphor/GeneratePanel.swift (closure_end_indentation, opening_brace, trailing_closure) on the ShaderGenerator.generate(...) call site.
@@ -1000,7 +1000,7 @@ Notes:
 - Multi-pass generation may need to compile each pass kernel separately to scope errors.
 - Models that don't follow instructions well (small on-device model) may retry-loop without improving; the single-retry cap protects against that.
 
-- `2026-06-18T23:38:57Z`: Implemented. ShaderGenerator.generate runs an automatic compile-on-success / retry-on-failure loop:
+\- `2026-06-18T23:38:57Z`: Implemented. ShaderGenerator.generate runs an automatic compile-on-success / retry-on-failure loop:
 
 - After the model responds, parse the front-matter and run the body through PhosphorCompiler against MTLCreateSystemDefaultDevice().
 - If compile throws, capture the error and call session.respond again with a follow-up prompt explaining the failure. (The session retains conversation history so the model already has its own attempt as context.)
@@ -1051,7 +1051,7 @@ Stretch:
 - 'Slow motion' multiplier.
 - 'Step back' is impossible without snapshotting feedback state \u2014 don't promise it.
 
-- `2026-06-19T02:11:29Z`: Done. Three toolbar buttons: Pause/Play toggle (play.fill / pause.fill), Reset (arrow.counterclockwise). No scrub.
+\- `2026-06-19T02:11:29Z`: Done. Three toolbar buttons: Pause/Play toggle (play.fill / pause.fill), Reset (arrow.counterclockwise). No scrub.
 
 Semantics:
 - Pause freezes uniforms->time and uniforms->frame at the values the kernel last saw. Captures the snapshot in PhosphorView's .onWorkloadEnter so it matches the renderer's clock exactly.
@@ -1164,7 +1164,7 @@ No FFT yet \u2014 spectrum buffer stays zero. That's the next issue.
 
 Effort: medium. AVAudioEngine + sandboxed permissions are the main complications.
 
-- `2026-06-19T00:24:56Z`: Done. AudioCaptureEngine in PhosphorSupport wraps AVAudioEngine with a tap on the input node, populates a 1024-sample mono Float32 ring buffer with the most recent audio, and exposes copyLatestSamples(into:) for the render loop.
+\- `2026-06-19T00:24:56Z`: Done. AudioCaptureEngine in PhosphorSupport wraps AVAudioEngine with a tap on the input node, populates a 1024-sample mono Float32 ring buffer with the most recent audio, and exposes copyLatestSamples(into:) for the render loop.
 
 @Observable, @MainActor for control surface; lock-protected nonisolated ring buffer + isRunning flag so the Metal render loop can read without bouncing through the actor. Injected via SwiftUI environment (\.audioCapture).
 
@@ -1203,7 +1203,7 @@ Tests:
 
 Effort: medium. vDSP API surface is fiddly, especially the setup/teardown and the interleaved real/imaginary buffer layouts.
 
-- `2026-06-19T00:52:51Z`: Done. SpectrumAnalyzer (Accelerate framework) wraps vDSP.FFT for forward 1024-point real FFT with a Hann window, linear-magnitude normalization to ~[0,1], and cross-frame smoothing (default α=0.4) so the spectrum doesn't strobe.
+\- `2026-06-19T00:52:51Z`: Done. SpectrumAnalyzer (Accelerate framework) wraps vDSP.FFT for forward 1024-point real FFT with a Hann window, linear-magnitude normalization to ~[0,1], and cross-frame smoothing (default α=0.4) so the spectrum doesn't strobe.
 
 PhosphorRuntime.writeAudioBuffers() lazily creates the analyzer and processes the waveform into spectrumBuffer every frame. Zero-fills when the capture engine isn't running.
 
@@ -1234,7 +1234,7 @@ Tests:
 
 Effort: small. ~30 min. Closes #17 once landed.
 
-- `2026-06-19T00:52:51Z`: Done. Examples/AudioProbe.metal: top half is an oscilloscope (1024-sample waveform as a green glowing trace), bottom half is a spectrum analyzer (512 FFT bins as bars colored blue at low freq, red at high). Mid-line separator. System prompt updated to document uniforms->waveform and uniforms->spectrum with their sizes and value ranges.
+\- `2026-06-19T00:52:51Z`: Done. Examples/AudioProbe.metal: top half is an oscilloscope (1024-sample waveform as a green glowing trace), bottom half is a spectrum analyzer (512 FFT bins as bars colored blue at low freq, red at high). Mid-line separator. System prompt updated to document uniforms->waveform and uniforms->spectrum with their sizes and value ranges.
 
 Audio buffers verified end to end: mic toggle enables capture; AudioProbe shows live waveform + spectrum.
 
@@ -1289,7 +1289,7 @@ closed: 2026-06-19T17:06:14Z
 
 Current TOML generation produces rather verbose output. Investigate ways to coax tomlkit into emitting a more compact representation (e.g. inline tables, inline arrays, fewer blank lines, compact dict styling) where appropriate.
 
-- `2026-06-19T02:24:56Z`: Partial progress: applied the two trivial TOMLKit FormatOptions tweaks:
+\- `2026-06-19T02:24:56Z`: Partial progress: applied the two trivial TOMLKit FormatOptions tweaks:
 
 - Dropped `.allowLiteralStrings` so strings emit as double-quoted (`"image"` vs `'image'`), matching the hand-written Examples.
 - Added `.relaxedFloatPrecision` so 0.6 doesn't serialize as 0.60000002384185791.
@@ -1729,7 +1729,7 @@ and writes its contents freely.
 compatibility \u2014 channel images), #39 (webcam input, same materialization
 path).
 
-- `2026-06-19T17:07:02Z`: v1 scope landed. Both doc types ship, .phosphord bundles persist shader.metal + assets/, asset name resolution works end-to-end, both doc types share the editor body and runtime via plain bindings.
+\- `2026-06-19T17:07:02Z`: v1 scope landed. Both doc types ship, .phosphord bundles persist shader.metal + assets/, asset name resolution works end-to-end, both doc types share the editor body and runtime via plain bindings.
 
 The 'auto-migrate .metal to .phosphord on image drop' UX item is not done. Plain .metal documents handle text fine; users who want assets create a new Phosphor Bundle. We'll file migration as a separate issue if it comes up.
 
@@ -2012,7 +2012,7 @@ Also update generator instructions and the new-document templates.
 - #51 (sensible defaults) is downstream \u2014 with this model, defaults
   become easy to express.
 
-- `2026-06-19T18:10:25Z`: Done. Texture model redesign landed across 6 commits, RFC at RFCs/RFC-001-texture-model-redesign.md.
+\- `2026-06-19T18:10:25Z`: Done. Texture model redesign landed across 6 commits, RFC at RFCs/RFC-001-texture-model-redesign.md.
 
 Summary:
 - Resource enum -> flat Texture value type with id/size/format/swap/init.
@@ -2391,7 +2391,7 @@ closed: 2026-06-21T02:33:44Z
 
 App often crashes when loading a doc, but not always — appears to be a race condition with window sizing. Crash log to be attached.
 
-- `2026-06-21T00:06:23Z`: Root cause from crash log: window-sizing race produces a zero-width drawable.
+\- `2026-06-21T00:06:23Z`: Root cause from crash log: window-sizing race produces a zero-width drawable.
 
 CAMetalLayer ignoring invalid setDrawableSize width=0.000000 height=796.000000
 [CAMetalLayer nextDrawable] returning nil because allocation failed.
@@ -2742,7 +2742,7 @@ Distinct from but related to:
 
 Touch points: PhosphorConfiguration (Model), SourceAssembler + PhosphorHeader (Source), BuiltinUniforms, front-matter parser/validator, configuration editor UI.
 
-- `2026-06-22T15:42:30Z`: Correction to the front-matter example in the description (asterisks were stripped on entry). It should read:
+\- `2026-06-22T15:42:30Z`: Correction to the front-matter example in the description (asterisks were stripped on entry). It should read:
 
 /* phosphor:environment
 compatibility = "shadertoy"
@@ -2868,12 +2868,13 @@ Ask: which direction? Once decided, spin off concrete follow-up issues.
 ## 79: Redo not available after undoing a programmatic text mutation
 
 +++
-status: open
+status: closed
 priority: high
 kind: bug
 labels: effort:s
 created: 2026-06-22T16:39:02Z
-updated: 2026-06-23T06:05:03Z
+updated: 2026-08-09T20:52:51Z
+closed: 2026-08-09T20:52:51Z
 +++
 
 Undoing a programmatic, undoable text mutation works, but Redo never becomes available afterward.
@@ -2891,6 +2892,15 @@ Infrastructure in place (from #76):
 - TextMutator bridges the doc-agnostic editor UI to those methods; injected via environment and re-published as a focused-scene value for menu commands.
 
 Not yet root-caused; do not over-theorize here. Reproduce with the debug command, then investigate why the nested registerUndo inside the undo closure does not register as a redo action.
+
+\- `2026-08-09T20:52:49Z`: Root-caused with a standalone SwiftUI repro (/tmp harness, not committed):
+
+- The document's nested `registerUndo` pattern is correct — verified in isolation with a bare UndoManager: set → undo → canRedo=true → redo restores.
+- With a `TextEditor` in the view, `NSUndoManagerDidOpenUndoGroup` fires one runloop turn *after* the undo, and `canRedo` flips true → false. TextEditor treats the programmatic text echo as an edit and registers its own undo, opening a new top-level group, which purges the redo stack.
+
+Fix: `MetalSourceView` now suppresses undo registration (`disableUndoRegistration`/`enableUndoRegistration` around one main-actor hop) while pushing a *programmatic* text change into the TextEditor. Typing echoes are detected via `lastUserEdit` and left untouched, so keystroke undo is unaffected.
+
+No regression test: the failure only manifests with a live SwiftUI TextEditor in an NSWindow, and neither the app nor PhosphorEditorSupport has a UI-hosting test target. Verified manually with the standalone harness (undo → canRedo=true → redo restores text).
 
 ---
 
@@ -3201,7 +3211,7 @@ Add built-in support for MetalFX spatial scaling (MTLFXSpatialScaler) so shaders
 
 Out of scope for this issue: MetalFX temporal scaling.
 
-- `2026-06-22T17:27:09Z`: MetalSprockets core already provides a `MetalFXSpatial` element (Sources/MetalSprockets/Metal/MetalFXSpatial.swift):
+\- `2026-06-22T17:27:09Z`: MetalSprockets core already provides a `MetalFXSpatial` element (Sources/MetalSprockets/Metal/MetalFXSpatial.swift):
 
     public struct MetalFXSpatial: Element, BodylessElement {
         public init(inputTexture: MTLTexture, outputTexture: MTLTexture)
@@ -3613,7 +3623,7 @@ Proposed targets (to be refined):
 
 Goal: clear target boundaries with explicit dependencies so e.g. the app doesn't pull in generation code unnecessarily.
 
-- `2026-06-23T00:42:48Z`: Split the monolithic PhosphorSupport package into four focused targets and deleted the umbrella:
+\- `2026-06-23T00:42:48Z`: Split the monolithic PhosphorSupport package into four focused targets and deleted the umbrella:
 
 - PhosphorModel — core data model + BuiltinTextures resource (leaf, no Metal).
 - PhosphorCompile — Parser + Compile + Source, owns Phosphor.h (-> Model; TOMLKit, tree-sitter).
@@ -4141,7 +4151,7 @@ Let a `.phosphor` document carry its own assets (images, and later video/audio/e
 
 Related: #78 (flat vs. bundle decision), #65 (image assets), #118 (video file source).
 
-- `2026-06-25T03:04:40Z`: Third option: don't embed at all — **reference** external assets via persistent links.
+\- `2026-06-25T03:04:40Z`: Third option: don't embed at all — **reference** external assets via persistent links.
 
 - Store a stable reference per asset instead of bytes: a file URL plus a **security-scoped bookmark** (sandbox-safe) so the app can re-resolve and `startAccessingSecurityScopedResource()` on load.
 - Pro: tiny documents; no base64 bloat; works for large video. Con: not portable/self-contained — moving/deleting the original breaks the doc (need stale-bookmark handling + a 'relink' UI).
@@ -4590,7 +4600,7 @@ Goal (module-deepening): extract a pure, value-typed projection/timeline engine 
 
 This is an RFC-sized refactor; design the deepened interface before implementing.
 
-- `2026-06-27T00:22:30Z`: Partial progress via a CollaborationKit model refactor (the '3/4' fix). Made the message model domain-shaped in CollaborationKit: ContentBlock.toolCall(ToolCall) replaces split toolUse/toolResult so a tool call owns its result in one assistant message; Message gained a stable id + timestamp. This removed the use/result correlation logic and the separate-tool-result-message mirror handling from ConversationStore (applyToolResults deleted; appendToolResultToMirror -> attachResultToMirror in place; appendAssistantRows reads call.result inline). Tested in the app (generate + tool call + rollback) and works.
+\- `2026-06-27T00:22:30Z`: Partial progress via a CollaborationKit model refactor (the '3/4' fix). Made the message model domain-shaped in CollaborationKit: ContentBlock.toolCall(ToolCall) replaces split toolUse/toolResult so a tool call owns its result in one assistant message; Message gained a stable id + timestamp. This removed the use/result correlation logic and the separate-tool-result-message mirror handling from ConversationStore (applyToolResults deleted; appendToolResultToMirror -> attachResultToMirror in place; appendAssistantRows reads call.result inline). Tested in the app (generate + tool call + rollback) and works.
 
 Remaining (the deeper 1/4): extract the projection/timeline into a pure, value-typed engine that's unit-testable with scripted events + a fake clock. ConversationStore is still ~620 lines and still owns reproject()/the presentation+idByKey side-tables/streaming+error overlays/rollback. Message.id/timestamp now exist but the store still uses its own per-row timing (duration/latency are UI-event times, not message times, so those legitimately stay in Phosphor). App target still has no test bundle, so the extraction's testability payoff depends on hosting the engine in a leaf package target.
 
@@ -4677,7 +4687,7 @@ Three-step migration, one commit each:
 
 (Child issue ids added once filed.)
 
-- `2026-07-13T18:37:09Z`: All three steps done. Deleted ~1,750 lines of hand-rolled UI/plumbing (CredentialsModel, ConversationProvider, AnthropicOAuthStore, ConversationStore, ConversationExport, GeneratePanel, SettingsView, GlowingPromptBorder, StopButton, KeychainStore, ExportDebugLogAction). Replaced with CollaborationCredentials + CollaborationSettingsView + CollaborationChatView + CKUI ConversationStore + SessionExport, plus a small PhosphorConversation coordinator (~140 lines) that owns the LLMSession, MetalSourceDocument, tool set, and rollback snapshot wiring.
+\- `2026-07-13T18:37:09Z`: All three steps done. Deleted ~1,750 lines of hand-rolled UI/plumbing (CredentialsModel, ConversationProvider, AnthropicOAuthStore, ConversationStore, ConversationExport, GeneratePanel, SettingsView, GlowingPromptBorder, StopButton, KeychainStore, ExportDebugLogAction). Replaced with CollaborationCredentials + CollaborationSettingsView + CollaborationChatView + CKUI ConversationStore + SessionExport, plus a small PhosphorConversation coordinator (~140 lines) that owns the LLMSession, MetalSourceDocument, tool set, and rollback snapshot wiring.
 
 Verified working end-to-end by the user: sign-in, chat, streaming, tool calls, undo, and rollback all functional.
 
@@ -4778,7 +4788,7 @@ Replace Phosphor's hand-rolled conversation store and Generate panel with Collab
 - Prompt queueing (new CK feature) behaves sanely when the user hits Send during a turn.
 - `stop()` still cancels mid-turn without corrupting undo history.
 
-- `2026-07-13T18:31:44Z`: Replaced Phosphor's hand-rolled ConversationStore (~500 lines) and GeneratePanel (525 lines) with CollaborationKitUI's ConversationStore + CollaborationChatView. New PhosphorConversation coordinator (@MainActor) bundles the LLMSession, MetalSourceDocument, tool summarizer, tool-icon lookup, tool-result visibility rule, and the RollbackSnapshot closure. Debug export flows through .collaborationDebugExport(store:model:userInfo:) with userInfo.currentSource so bug-report bundles include the exact .metal.
+\- `2026-07-13T18:31:44Z`: Replaced Phosphor's hand-rolled ConversationStore (~500 lines) and GeneratePanel (525 lines) with CollaborationKitUI's ConversationStore + CollaborationChatView. New PhosphorConversation coordinator (@MainActor) bundles the LLMSession, MetalSourceDocument, tool summarizer, tool-icon lookup, tool-result visibility rule, and the RollbackSnapshot closure. Debug export flows through .collaborationDebugExport(store:model:userInfo:) with userInfo.currentSource so bug-report bundles include the exact .metal.
 
 Also deleted ConversationExport.swift and StopButton.swift (CK has native SessionExport + StopButton). Replaced Phosphor's local ExportDebugLogAction with CK's public one, so File → Export Generation Debug Log… now reads @FocusedValue(\.exportDebugLog) from CK.
 

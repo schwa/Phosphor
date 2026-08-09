@@ -22,6 +22,11 @@ public struct MetalSourceView: View {
     private let palette: SyntaxPalette
 
     @State private var attributedText: AttributedString = ""
+    /// Last plain text this view pushed *out* through the binding (i.e. the
+    /// user's own typing). Used to tell a typing echo apart from a
+    /// programmatic mutation — see ``pushAttributed(_:)``.
+    @State private var lastUserEdit: String?
+    @Environment(\.undoManager) private var undoManager
 
     /// Read-only view of `text`.
     public init(text: String, palette: SyntaxPalette = .default) {
@@ -40,11 +45,39 @@ public struct MetalSourceView: View {
             .font(.system(.body, design: .monospaced))
             .textSelection(.enabled)
             .task(id: HighlightKey(source: currentSource, palette: palette)) {
-                attributedText = AttributedString(currentSource)
-                if let highlighted = try? Self.format(currentSource, palette: palette) {
-                    attributedText = highlighted
+                let source = currentSource
+                // A programmatic mutation (Generate, Reformat, undo/redo of
+                // one) arrives here without having gone through the editing
+                // binding, so it isn't the echo of a keystroke.
+                let isProgrammatic = source != lastUserEdit
+                await pushAttributed(AttributedString(source), suppressingUndo: isProgrammatic)
+                if let highlighted = try? Self.format(source, palette: palette) {
+                    await pushAttributed(highlighted, suppressingUndo: isProgrammatic)
                 }
             }
+    }
+
+    /// Hands a new `AttributedString` to the `TextEditor`.
+    ///
+    /// `TextEditor` treats an externally-supplied value as an edit and
+    /// registers its own undo action for it. That registration opens a fresh
+    /// top-level undo group, which purges the redo stack — so redoing a
+    /// programmatic mutation was impossible (#79). Suppressing registration
+    /// across the update keeps the redo step our document registered alive.
+    ///
+    /// The text view picks the value up on the next main-actor turn, hence
+    /// the hop before re-enabling.
+    private func pushAttributed(_ newValue: AttributedString, suppressingUndo: Bool) async {
+        guard suppressingUndo, let undoManager else {
+            attributedText = newValue
+            return
+        }
+        undoManager.disableUndoRegistration()
+        attributedText = newValue
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+        undoManager.enableUndoRegistration()
     }
 
     @ViewBuilder
@@ -72,6 +105,7 @@ public struct MetalSourceView: View {
             set: { newAttributed in
                 let newPlain = String(newAttributed.characters)
                 if newPlain != plainTextBinding.wrappedValue {
+                    lastUserEdit = newPlain
                     plainTextBinding.wrappedValue = newPlain
                 }
             }
