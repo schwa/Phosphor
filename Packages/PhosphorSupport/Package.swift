@@ -12,7 +12,8 @@ let package = Package(
     products: [
         .library(name: "PhosphorGeneration", targets: ["PhosphorGeneration"]),
         .library(name: "PhosphorMetalSprockets", targets: ["PhosphorMetalSprockets"]),
-        .library(name: "PhosphorEditorSupport", targets: ["PhosphorEditorSupport"])
+        .library(name: "PhosphorEditorSupport", targets: ["PhosphorEditorSupport"]),
+        .library(name: "SourceEditor", targets: ["SourceEditor"])
     ],
     dependencies: [
         .package(url: "https://github.com/schwa/PhosphorKit", branch: "main"),
@@ -52,16 +53,22 @@ let package = Package(
                 .product(name: "MetalSprocketsUI", package: "MetalSprockets")
             ]
         ),
-        // Misfit-toys target: cross-cutting app-side helpers that don't belong
-        // in PhosphorKit (they pull tree-sitter / SwiftUI) and aren't AI
-        // generation. First residents: the syntax-highlighted source view.
+        // General-purpose syntax-highlighted source editor. Knows nothing
+        // about Phosphor, Metal, or any particular grammar: callers supply a
+        // SourceLanguage and a SyntaxPalette.
+        .target(
+            name: "SourceEditor",
+            dependencies: [
+                .product(name: "SwiftTreeSitter", package: "swift-tree-sitter")
+            ]
+        ),
+        // Phosphor's flavouring of SourceEditor: the Metal (C++ + TOML
+        // front-matter) language definition.
         .target(
             name: "PhosphorEditorSupport",
             dependencies: [
-                .product(name: "PhosphorModel", package: "PhosphorKit"),
-                .product(name: "PhosphorCompile", package: "PhosphorKit"),
+                "SourceEditor",
                 .product(name: "SwiftTreeSitter", package: "swift-tree-sitter"),
-                .product(name: "SwiftTreeSitterLayer", package: "swift-tree-sitter"),
                 .product(name: "TreeSitterCPP", package: "tree-sitter-cpp"),
                 .product(name: "TreeSitterTOML", package: "tree-sitter-toml")
             ]
@@ -73,6 +80,13 @@ let package = Package(
                 .product(name: "PhosphorCompile", package: "PhosphorKit"),
                 "PhosphorGeneration",
                 .product(name: "CollaborationKit", package: "CollaborationKit")
+            ]
+        ),
+        .testTarget(
+            name: "SourceEditorTests",
+            dependencies: [
+                "SourceEditor",
+                "PhosphorEditorSupport"
             ]
         )
     ],

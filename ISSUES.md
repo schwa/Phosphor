@@ -3156,12 +3156,13 @@ Touch points: PhosphorAsset / asset registry, TextureInit + resolution path in P
 ## 90: Extract source code editor into a generic SourceEditor target in PhosphorSupport
 
 +++
-status: open
+status: closed
 priority: medium
 kind: enhancement
 labels: effort:l
 created: 2026-06-22T17:25:10Z
-updated: 2026-06-23T06:05:14Z
+updated: 2026-08-09T21:09:23Z
+closed: 2026-08-09T21:09:23Z
 +++
 
 Move the source-code-editor-related code out of the Phosphor app target and into a new, dedicated target in the PhosphorSupport package. Make it generic — a general-purpose syntax-highlighted source code editor, not tied to shaders/Metal.
@@ -3182,6 +3183,24 @@ These are already deps of PhosphorSupport; the new target should own the tree-si
 - Public API: read-only display + editable binding, configurable language/grammar, configurable color palette.
 - Shader-specific pieces (e.g. ShaderEditorView, PhosphorHeader display) stay in the app and consume the new target.
 - Build and run tests after the move.
+
+\- `2026-08-09T21:09:23Z`: Partly done already: the editor files had been moved to `Packages/PhosphorSupport/Sources/PhosphorEditorSupport` before this pass. Remaining work — making it generic — is now done.
+
+New `SourceEditor` target/product (language- and app-agnostic):
+- `TokenRole` — open (RawRepresentable) set of semantic categories.
+- `TokenStyle` / `SyntaxPalette` — role-keyed styles (color + italic), unmatched roles fall back to `foreground`. Presets `.default`, `.dark`, `.darkWithBackdrop` preserved.
+- `SourceLanguage` — a tree-sitter `Language` + node-type→role table + a closure returning `EmbeddedRegion`s for sub-languages (front-matter, heredocs, embedded scripts).
+- `SyntaxHighlighter.highlight(_:language:palette:)` — the walker, now generic and public.
+- `SourceEditorView` — read-only (`String`) or editable (`Binding<String>`), takes a language and palette. Carries the #79 undo-suppression fix.
+- Depends only on SwiftTreeSitter; ships no grammars.
+
+`PhosphorEditorSupport` is now just Phosphor's flavouring: `SourceLanguage.metal` (C++ grammar with the `/* phosphor:environment */` body re-highlighted as TOML) and `SourceLanguage.toml`, plus previews. It owns the TreeSitterCPP/TOML deps. Dropped its unused PhosphorModel/PhosphorCompile/SwiftTreeSitterLayer deps.
+
+App: `CodePaneView` uses `SourceEditorView(text:language:.metal, palette:)`; `SourceEditor` added as a package product to the Xcode target.
+
+Tests: new `SourceEditorTests` target with 4 tests over `SyntaxHighlighter` — role→color mapping, foreground fallback, embedded-region override (the risky part of the port), and a standalone TOML language. All PhosphorSupport tests pass; app builds.
+
+Not verified visually: I couldn't get a screenshot of the running app window (it didn't land on the captured display), so the port is verified by tests + build only.
 
 ---
 

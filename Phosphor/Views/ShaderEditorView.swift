@@ -1,7 +1,6 @@
 import CollaborationKit
 import CollaborationKitUI
 import PhosphorCompile
-import PhosphorEditorSupport
 import PhosphorGeneration
 import PhosphorModel
 import PhosphorRuntime

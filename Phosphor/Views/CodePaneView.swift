@@ -3,6 +3,7 @@ import PhosphorEditorSupport
 import PhosphorGeneration
 import PhosphorModel
 import PhosphorRuntime
+import SourceEditor
 import SwiftUI
 
 /// Left side of the document split: a tabbed source view with the editable
@@ -56,7 +57,7 @@ struct CodePaneView: View {
     }
 
     private var shaderTab: some View {
-        MetalSourceView(text: $text, palette: resolvedPalette)
+        SourceEditorView(text: $text, language: .metal, palette: resolvedPalette)
             .background(opaque ? Self.editorBackground : .clear)
             .onChange(of: text) { _, _ in
                 onTextChange()
@@ -64,7 +65,7 @@ struct CodePaneView: View {
     }
 
     private var headerTab: some View {
-        MetalSourceView(text: PhosphorHeader.source(for: configuration), palette: resolvedPalette)
+        SourceEditorView(text: PhosphorHeader.source(for: configuration), language: .metal, palette: resolvedPalette)
             .background(opaque ? Self.editorBackground : .clear)
     }
 
