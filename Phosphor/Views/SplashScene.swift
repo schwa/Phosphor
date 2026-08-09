@@ -81,6 +81,15 @@ struct SplashView: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
 
+                    Button {
+                        openUntitledDocument(ofType: .phosphorBundle)
+                        dismissWindow(id: "splash")
+                    } label: {
+                        Label("New Bundle", systemImage: "folder.badge.plus")
+                            .frame(width: 160)
+                    }
+                    .controlSize(.large)
+
                     if examplesArchiveURL != nil {
                         Button {
                             exportExamples()

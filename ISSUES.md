@@ -3009,15 +3009,20 @@ Depends on #82 (chat history UI).
 ## 84: Add 'New Bundle' option to splash screen
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: effort:xs
 created: 2026-06-22T16:55:19Z
-updated: 2026-06-23T06:05:14Z
+updated: 2026-08-09T21:10:55Z
+closed: 2026-08-09T21:10:55Z
 +++
 
 The splash screen (Phosphor/Views/SplashScene.swift) only offers a single 'New Metal Shader' button. There is no way to create a new bundle (.phosphord) document from the splash screen, even though PhosphorBundleDocument exists. Add a 'New Bundle' button/action alongside 'New Metal Shader'.
+
+\- `2026-08-09T21:10:55Z`: Added a 'New Bundle' button below 'New Metal Shader' in SplashView, using the same `openUntitledDocument(ofType:)` path with `.phosphorBundle`. Info.plist already declares `io.schwa.phosphor.bundle` with an Editor role, so NSDocumentController can make an untitled one.
+
+No test: pure SwiftUI view wiring, no testable unit. Verified by build only — I couldn't verify at runtime because the machine's screen was locked during this run (the app launched but exposed no window to the accessibility API).
 
 ---
 
