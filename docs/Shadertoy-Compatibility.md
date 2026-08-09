@@ -18,10 +18,13 @@ rewrites it. That is the large majority of Shadertoy by count.
 What still costs manual work, roughly in order of how often you'll hit it:
 
 1. Helper functions that read `iTime`/`iResolution` directly — Metal has no
-   globals, so they need the value passed in as a parameter.
+   globals, so they need the value passed in as a parameter (#144).
 2. GLSL idioms Metal's stricter type checker rejects (`1.0 / 2` and friends).
-3. Anything with more than one pass — Buffer A–D and the Common tab.
+3. Anything with more than one pass — Buffer A–D and the Common tab (#143).
 4. Non-image channel inputs: video, keyboard, cubemaps, 3D textures.
+
+All of these fail loudly, as Metal compile errors. Nothing known renders
+silently wrong.
 
 ## Uniforms and built-ins
 
@@ -98,7 +101,7 @@ equivalent for.
 | `#define` and the preprocessor | ✅ | Metal's preprocessor handles them |
 | `gl_FragCoord` half-pixel offset | ✅ | The generated kernel uses `float2(gid) + 0.5` |
 | Implicit int→float promotion | ❌ | `float x = 1;` and `vec2(1, 2.0)` compile on Shadertoy, not in Metal. Shows up as a compile error, so at least it's loud |
-| `mod()` on negatives | ❌ | GLSL `mod` follows the sign of the divisor, MSL `fmod` follows the dividend. Silently wrong pixels — the worst failure mode on this page |
+| `mod()` | ✅ | MSL has no `mod` at all; `Phosphor.h` supplies GLSL's (`x - y * floor(x / y)`), which differs from `fmod` for negative arguments |
 | Built-ins inside helper functions | ❌ | Metal has no globals. The translator detects this and says so rather than emitting a confusing Metal error |
 | Multiple GLSL versions | n/a | Shadertoy is effectively one dialect (GLSL ES 3.0-ish) |
 
@@ -106,20 +109,23 @@ equivalent for.
 
 Ordered by how much Shadertoy coverage each unlocks per unit of work.
 
-1. **`mod()` semantics.** One helper emitted into `Phosphor.h` plus a
-   rewrite rule. This is the only entry on the page that fails *silently*.
-2. **Built-ins in helper functions.** The single biggest source of "it
-   didn't compile" on otherwise-simple shaders. Needs either a real parse
-   step to thread a uniforms parameter through, or a macro trick.
-3. **Buffer A–D translation.** The runtime is already capable; this is
-   translator plumbing plus a directive for splitting tabs. Opens up the
+1. **Built-ins in helper functions** (#144). The single biggest source of
+   "it didn't compile" on otherwise-simple shaders. Needs either a real
+   parse step to thread a uniforms parameter through, or a macro trick.
+2. **Buffer A–D translation** (#143). The runtime is already capable; this
+   is translator plumbing plus a directive for splitting tabs. Opens up the
    multi-pass half of Shadertoy.
-4. **`iChannelResolution`, `iDate`.** Small additions to `BuiltinUniforms`.
-5. **Per-channel sampler state** (filter/wrap/sRGB/vflip). Currently
+3. **`iChannelResolution`, `iDate`.** Small additions to `BuiltinUniforms`.
+4. **Per-channel sampler state** (filter/wrap/sRGB/vflip). Currently
    shader-authored; making it a texture property matches Shadertoy and
    removes a class of subtle mismatches.
-6. **Video and webcam channels** (#118, #39). Large — they need the first
+5. **Video and webcam channels** (#118, #39). Large — they need the first
    live-texture pathway — and they unlock a narrower slice than the above.
+
+Note on failure modes: every known incompatibility on this page surfaces as
+a Metal compile error rather than as wrong pixels. That's worth preserving.
+It is why `mod()` is defined with GLSL's semantics rather than aliased to
+`fmod()` — the alias would have compiled and then rendered incorrectly.
 
 Keyboard, cubemap and sound passes are the long tail; each is a distinct
 subsystem and none is on the critical path.

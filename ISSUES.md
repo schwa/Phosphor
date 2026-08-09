@@ -4964,39 +4964,49 @@ Also deleted ConversationExport.swift and StopButton.swift (CK has native Sessio
 
 ---
 
-## 142: Translated Shadertoy shaders using mod() on negative numbers render wrong, silently
+## 142: Translated Shadertoy shaders using mod() fail to compile
 
 +++
-status: new
+status: closed
 priority: high
 kind: bug
 labels: effort:s
 created: 2026-08-09T21:36:31Z
+updated: 2026-08-09T21:40:00Z
+closed: 2026-08-09T21:40:00Z
 +++
 
-GLSL's `mod(x, y)` follows the sign of the divisor; Metal's `fmod(x, y)` follows the sign of the dividend. The Shadertoy translator (#27) leaves `mod` alone, so it binds to Metal's `fmod`.
+Shadertoy shaders routinely call `mod(x, y)`. MSL has no `mod` of any kind, so a translated shader that uses it fails to compile:
 
-For non-negative arguments the two agree, so most shaders look fine. For negative arguments they differ and the shader renders incorrectly with no diagnostic — no compile error, no warning, just wrong pixels. Every other Shadertoy incompatibility surfaces as a Metal compile error; this one does not.
+```
+program_source:4:14: error: use of undeclared identifier 'mod'
+```
+
+`mod` is one of the most common GLSL built-ins (tiling, wrapping, repeating patterns), so this blocks a large share of otherwise-clean single-pass ports.
 
 Repro:
 
-1. Paste a Shadertoy shader that tiles or wraps with `mod` on a signed coordinate:
+1. Paste a Shadertoy shader that wraps a coordinate, e.g. `vec2 cell = mod(uv * 4.0, 1.0);`
+2. Observe the compile error.
 
-   ```glsl
-   void mainImage(out vec4 fragColor, in vec2 fragCoord)
-   {
-       vec2 uv = (fragCoord - 0.5 * iResolution.xy) / iResolution.y;
-       vec2 cell = mod(uv * 4.0, 1.0);
-       fragColor = vec4(cell, 0.0, 1.0);
-   }
-   ```
+Expected: it renders, matching Shadertoy.
+Actual: `use of undeclared identifier 'mod'`.
 
-2. Compare against the same shader running on Shadertoy.
+Note for whoever fixes this: `mod` is not a synonym for `fmod`. GLSL defines `mod(x, y)` as `x - y * floor(x / y)`, so the result takes the sign of the divisor; `fmod` takes the sign of the dividend. They agree for non-negative arguments and disagree for negative ones. Aliasing to `fmod` would turn this compile error into silently wrong pixels wherever a shader tiles across the origin.
 
-Expected: identical output.
-Actual: the region with negative coordinates is discontinuous relative to Shadertoy, because `fmod` returns negative results there.
+Found during the Shadertoy compatibility audit (#26).
 
-Found during the Shadertoy compatibility audit (#26). `docs/Shadertoy-Compatibility.md` flags this as the only silent failure in the compatibility matrix.
+\- `2026-08-09T21:40:00Z`: Fixed in PhosphorKit (commit 2328ff73, unpushed): `Phosphor.h` now declares `mod()` for float and float2/3/4, including GLSL's vector-with-scalar-divisor form.
+
+Correction to my own filing: I originally wrote this issue up as *silently wrong pixels* on the assumption that `mod` was binding to Metal's `fmod`. That was wrong, and I caught it doing the red-first check — removing the helper made the shader fail to compile rather than render incorrectly. A direct probe confirms MSL has no `mod` at any arity:
+
+```
+program_source:4:14: error: use of undeclared identifier 'mod'
+```
+
+So this was always a loud failure. The issue title and description are now corrected, and `docs/Shadertoy-Compatibility.md` has been fixed too — it claimed `mod` was the only silent failure in the compatibility matrix, which it wasn't. As far as I can tell there are no known silent failures; every Shadertoy incompatibility surfaces as a compile error. The doc now says so explicitly and explains that `mod` is defined with GLSL semantics precisely to keep it that way.
+
+Tests (`GLSLModTests`) render a 1×1 shader and read the pixel back, comparing `mod` and `fmod` side by side: `mod(-1.5, 1.0) == 0.5` while `fmod(-1.5, 1.0) == -0.5`, they agree for non-negative arguments, and the vector overloads work. Fails before the change.
 
 ---
 
