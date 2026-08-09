@@ -706,12 +706,13 @@ Accessibility and perf bits of the original audit not addressed here; if needed 
 ## 23: MetalSprockets audit: are we using it idiomatically?
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: effort:s
 created: 2026-06-18T22:05:34Z
-updated: 2026-06-18T22:06:31Z
+updated: 2026-08-09T22:45:31Z
+closed: 2026-08-09T22:45:31Z
 +++
 
 Sweep PhosphorPipeline.swift, PhosphorRuntime.swift, and PhosphorView.swift for MetalSprockets best practices per the metalsprockets skill:
@@ -726,6 +727,21 @@ Sweep PhosphorPipeline.swift, PhosphorRuntime.swift, and PhosphorView.swift for 
 - Capture support: should we expose .capture() for GPU traces?
 
 Use the metalsprockets skill.
+
+\- `2026-08-09T22:45:31Z`: Audited; written up in `docs/MetalSprockets-Usage.md`, linked from the README. **No code changes needed** — one deviation found, understood and now documented rather than left as folklore.
+
+**The headline is that most of the checklist doesn't apply any more.** Phosphor doesn't use MetalSprockets as a rendering DSL — it uses it as a frame-loop host. There is no `RenderPass`, `RenderPipeline`, `Draw` or `.parameter(…)` anywhere in the app. `PhosphorRenderElement` is an `EmptyElement` + `.onWorkloadEnter` that hands the command buffer and drawable to PhosphorKit's raw-Metal `PhosphorRenderer`, which owns its encoders. That's the deliberate consequence of PhosphorKit being MetalSprockets-free. What we actually get from the framework is the `RenderView` frame loop, frame-timing statistics, the MTKView configuration modifiers, and environment plumbing.
+
+Point by point:
+
+- **`@MSState` vs `@State`** — no `@MSState`, correctly. The two things that must outlive a frame (`PhosphorRenderer` for its pipeline cache, `UpscaleTarget`) are `@State` on the SwiftUI view, which is right since they're created before the element tree exists.
+- **Body purity — one exception, and it's mine.** `PhosphorMetalSprocketsView.content(_:_:)` allocates the offscreen upscale target while building the element tree, which I introduced in #91. `MetalFXSpatial` takes its input texture as a *value*, so it must exist before the element is constructed; moving it to `onSetupEnter` would leave the tree referencing a texture that doesn't exist on the first frame. It's memoised on size, so it's idempotent and only allocates on a real resize — not the kind of side effect that changes behaviour under re-evaluation. Documented in the doc and in a comment at the site, with the cleaner shape (an element owning the texture in `@MSState`) recorded for if it ever matters.
+- **`onSetupEnter` vs `onWorkloadEnter`** — only `onWorkloadEnter`, and only for per-frame work. There's no one-time GPU setup in the element tree to misplace.
+- **`@ElementBuilder` helpers** — `content(context:drawableSize:)` deliberately isn't annotated; it does arithmetic a result builder won't allow and returns `try Group { … }` explicitly.
+- **Reflection / bind-by-name** — not applicable, no pipeline to reflect through.
+- **Pipeline-state caching — verified.** `PhosphorRenderer.computePipelineStates` is keyed by pass id and only cleared when `runtime.library` identity changes (`cachedLibrary !== runtime.library`). A recompile drops it; nothing else does. This is PhosphorKit's own cache, not MetalSprockets'.
+- **Element composition** — a flat `Group` of two elements with a conditional. Nothing to hoist.
+- **`.capture()`** — recommend *not* exposing it. It bakes a debug affordance into the render path and needs a rebuild to use, whereas capturing externally gets the same trace against a running build. Worth revisiting only if catching one specific frame (e.g. the first after a recompile) proves hard from outside.
 
 ---
 

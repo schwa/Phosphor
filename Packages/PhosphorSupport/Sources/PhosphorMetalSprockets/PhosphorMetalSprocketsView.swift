@@ -68,6 +68,13 @@ public struct PhosphorMetalSprocketsView: View {
 
     /// Built outside the `@ElementBuilder` closure so it can do the arithmetic
     /// and texture lookup that a result builder won't allow inline.
+    ///
+    /// Note this allocates the offscreen target while building the element
+    /// tree, which element bodies are otherwise meant to avoid. `MetalFXSpatial`
+    /// takes its input texture as a value, so it has to exist before the
+    /// element is constructed. The lookup is memoised on size, so it's
+    /// idempotent and only allocates on an actual resize — see
+    /// docs/MetalSprockets-Usage.md.
     private func content(context: RenderViewContext, drawableSize: CGSize) throws -> some Element {
         let internalSize = Self.internalSize(for: drawableSize, scale: renderScale)
         let offscreen = internalSize == drawableSize

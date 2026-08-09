@@ -36,6 +36,8 @@ the app.
   the feature each demonstrates.
 - [@Observable documents](docs/Observable-Documents.md) — why the document
   types carry both `@Observable` and `ObservableObject`.
+- [MetalSprockets usage](docs/MetalSprockets-Usage.md) — how the render host
+  is wired, and the one place it deviates from the framework's guidance.
 
 ## Documents
 
