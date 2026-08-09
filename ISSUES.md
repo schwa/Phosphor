@@ -4963,3 +4963,86 @@ Replace Phosphor's hand-rolled conversation store and Generate panel with Collab
 Also deleted ConversationExport.swift and StopButton.swift (CK has native SessionExport + StopButton). Replaced Phosphor's local ExportDebugLogAction with CK's public one, so File → Export Generation Debug Log… now reads @FocusedValue(\.exportDebugLog) from CK.
 
 ---
+
+## 142: Translated Shadertoy shaders using mod() on negative numbers render wrong, silently
+
++++
+status: new
+priority: high
+kind: bug
+labels: effort:s
+created: 2026-08-09T21:36:31Z
++++
+
+GLSL's `mod(x, y)` follows the sign of the divisor; Metal's `fmod(x, y)` follows the sign of the dividend. The Shadertoy translator (#27) leaves `mod` alone, so it binds to Metal's `fmod`.
+
+For non-negative arguments the two agree, so most shaders look fine. For negative arguments they differ and the shader renders incorrectly with no diagnostic — no compile error, no warning, just wrong pixels. Every other Shadertoy incompatibility surfaces as a Metal compile error; this one does not.
+
+Repro:
+
+1. Paste a Shadertoy shader that tiles or wraps with `mod` on a signed coordinate:
+
+   ```glsl
+   void mainImage(out vec4 fragColor, in vec2 fragCoord)
+   {
+       vec2 uv = (fragCoord - 0.5 * iResolution.xy) / iResolution.y;
+       vec2 cell = mod(uv * 4.0, 1.0);
+       fragColor = vec4(cell, 0.0, 1.0);
+   }
+   ```
+
+2. Compare against the same shader running on Shadertoy.
+
+Expected: identical output.
+Actual: the region with negative coordinates is discontinuous relative to Shadertoy, because `fmod` returns negative results there.
+
+Found during the Shadertoy compatibility audit (#26). `docs/Shadertoy-Compatibility.md` flags this as the only silent failure in the compatibility matrix.
+
+---
+
+## 143: Shadertoy translator doesn't handle Buffer A-D or Common tabs
+
++++
+status: new
+priority: medium
+kind: feature
+labels: effort:m
+created: 2026-08-09T21:36:46Z
++++
+
+The Shadertoy translator (#27) handles a single Image pass. Shadertoy shaders with Buffer A/B/C/D tabs, or a Common tab, are not translated: pasting one produces a shader that references buffers that don't exist.
+
+Phosphor's runtime already supports what these need — multiple `[[passes]]` and ping-pong textures, where `swap = "endOfFrame"` matches Shadertoy's buffer semantics exactly (the `Bloom` example is this shape). The gap is entirely in the translator and in how a multi-tab Shadertoy shader is represented as one Phosphor source file.
+
+Two sub-problems:
+
+- Shadertoy keeps each pass in a separate editor tab, so pasted source has no delimiter. There is no way today to say "this region is Buffer A". #27 notes this needs explicit directives or magic-comment markers.
+- The Common tab is source shared by every pass. Phosphor kernels all live in one file, so this may fall out for free, or may need its own handling.
+
+Found during the Shadertoy compatibility audit (#26); see `docs/Shadertoy-Compatibility.md`, which ranks this third by coverage-per-unit-work.
+
+---
+
+## 144: Shadertoy shaders reading built-ins inside helper functions can't be translated
+
++++
+status: new
+priority: medium
+kind: feature
+labels: effort:l
+created: 2026-08-09T21:36:46Z
++++
+
+Shadertoy's built-ins are globals, so shaders routinely read them from helper functions:
+
+```glsl
+float wobble() { return sin(iTime); }
+```
+
+Phosphor's built-ins arrive as a kernel parameter, so there is no `uniforms` in scope inside a helper. The translator (#27) detects this and emits a diagnostic telling the user to pass the values in as parameters, but the shader still doesn't run without hand editing.
+
+This is the most common reason an otherwise-simple single-pass Shadertoy shader fails to port — more common than any other language-level gap, since reaching for `iTime` inside a helper is idiomatic on Shadertoy.
+
+Found during the Shadertoy compatibility audit (#26); `docs/Shadertoy-Compatibility.md` ranks it second by coverage-per-unit-work.
+
+---
