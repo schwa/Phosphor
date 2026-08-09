@@ -2116,12 +2116,13 @@ Follow-ups already filed: #51 (sensible front-matter defaults), #54 (inter-pass 
 ## 51: Sensible front-matter defaults: empty block should just work
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: effort:s
 created: 2026-06-19T16:44:13Z
-updated: 2026-06-22T15:40:16Z
+updated: 2026-08-09T21:57:53Z
+closed: 2026-08-09T21:57:53Z
 +++
 
 ## Problem
@@ -2186,6 +2187,22 @@ in only when fields are absent.
 - The synthesized pass id matches the kernel function name (`image`).
   Document that the kernel function must match the (defaulted or declared)
   pass id.
+
+\- `2026-08-09T21:57:53Z`: Done in PhosphorKit (commit f454def9, unpushed). `/* phosphor:environment */` on its own now works.
+
+- `output` defaults to `"image"`, so it's no longer a required key.
+- `PhosphorConfiguration.normalized()` synthesises the missing pieces: a drawable-sized texture named after `output`, and a single pass of the same name writing to it.
+- Applied at both parse boundaries, so JSON `.phosphor` documents get the same treatment as embedded TOML front matter.
+
+Your open question, answered: gaps are filled **independently**, not only when everything is missing. Declaring only textures still gets a pass; declaring only passes still gets the output texture. And an explicit `output = "screen"` drives the names of both synthesised pieces, so renaming the output doesn't force you to spell the rest out.
+
+One deliberate limit: a pass is only synthesised when a texture matching `output` actually exists. Otherwise a configuration with a typo would get a pass invented around the typo instead of a diagnostic. There's a test pinning that — a pass writing to an undeclared texture is still an error.
+
+Your second note — that the kernel function name must match the pass id — is covered in `docs/Front-Matter-Reference.md` (written for #25), which says `id` is "also the kernel function name".
+
+Starter template updated to the minimal form as asked, with a one-line comment saying what the empty block means and pointing at the reference doc, so the front matter stays discoverable for someone seeing it for the first time. Added tests that the template parses cleanly *and* compiles — it's the first thing every user sees, and nothing was checking it before.
+
+Note the front-matter shape in this issue's description is from an older schema (`[[resources]]` with `kind`/`spec`, and `output` on the pass); the current shape is `[[textures]]` plus per-binding `access`. The defaults are implemented against the current one.
 
 ---
 
