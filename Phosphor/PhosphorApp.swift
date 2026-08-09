@@ -61,6 +61,7 @@ struct PhosphorApp: App {
             }
             CommandGroup(after: .importExport) {
                 ExportFrameButtons()
+                ExportVideoButton()
                 ExportSwiftPackageButton()
                 ExportDebugLogButton()
             }

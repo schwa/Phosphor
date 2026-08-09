@@ -34,6 +34,7 @@ struct ShaderEditorView: View {
     @SceneStorage("phosphor.ui.showInspector") private var showInspector: Bool = true
     @SceneStorage("phosphor.ui.layoutMode") private var layoutMode: LayoutMode = .horizontal
     @SceneStorage("phosphor.render.scale") private var renderScale: RenderScale = .native
+    @State private var isExportingVideo = false
     @Environment(AudioCaptureEngine.self) private var audioCapture: AudioCaptureEngine?
     @Environment(PhosphorRuntime.self) private var runtime: PhosphorRuntime
     @Environment(CollaborationCredentials.self) private var credentials
@@ -143,6 +144,14 @@ struct ShaderEditorView: View {
             hasUniforms: hasUniforms,
             showGenerate: openGenerate
         ))
+        .focusedSceneValue(\.exportVideo, ExportVideoAction { isExportingVideo = true })
+        .sheet(isPresented: $isExportingVideo) {
+            ExportVideoSheet(
+                parsed: parsed,
+                assets: [:],
+                uniformValues: model.uniformValues
+            )
+        }
         .toolbarRole(.editor)
         .toolbar { toolbarContent }
         .inspector(isPresented: $showInspector) {

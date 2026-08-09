@@ -4235,12 +4235,13 @@ No unit test: the app target has no test bundle, and the capture needs a live ru
 ## 120: Export rendered output as video
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: effort:l
 created: 2026-06-25T03:01:29Z
-updated: 2026-08-09T16:14:35Z
+updated: 2026-08-09T21:44:20Z
+closed: 2026-08-09T21:44:20Z
 +++
 
 Render the shader over a time range and encode the frames to a video file (mp4/mov).
@@ -4257,6 +4258,26 @@ Render the shader over a time range and encode the frames to a video file (mp4/m
 - Default resolution: drawable size vs. configured output vs. user choice?
 
 Related: #119 (screenshot export), #68 (pixel formats).
+
+\- `2026-08-09T21:44:20Z`: Implemented. Renderer/encoder in a new `PhosphorVideo` target (headlessly testable); UI in the app.
+
+Open questions, resolved as the issue leaned:
+- **Offline, not real-time capture.** Frame *n* is rendered at `startTime + n / frameRate` with `frame = n`, independent of encode speed. The exporter builds its own `PhosphorRuntime`, so exporting neither disturbs nor is disturbed by the live preview's feedback state.
+- **No audio.** The only audio source today is the live microphone, which has no meaning in an offline deterministic render. Revisit alongside #118/#39.
+- **Resolution: user's choice**, defaulting to 1920×1080 and remembered via `@AppStorage`. Not tied to the drawable, since export size and window size have no reason to match.
+
+Implementation notes:
+- Frames are rendered straight into the `AVAssetWriterInputPixelBufferAdaptor` pool's `CVPixelBuffer` via `CVMetalTextureCache`, so there's no texture→CPU→buffer round trip per frame.
+- The loop waits on `isReadyForMoreMediaData` — the encoder is slower than the renderer, and without backpressure the whole movie buffers in memory.
+- Cancellation via task cancellation; a cancelled or failed export calls `cancelWriting()` and removes the partial file rather than leaving a corrupt movie behind.
+- UI: File ▸ Export Video… opens a sheet (size, frame rate, duration, H.264/HEVC, computed frame count), then a save panel, then a progress bar with cancel.
+
+Tests (`PhosphorVideoTests`, headless):
+- Frame-count arithmetic, including that a zero duration still yields one frame — a zero-frame movie reads as corrupt in most players.
+- A real export, checking the file exists and the track's natural size and duration match the request.
+- Progress is monotonic and ends at exactly 1.
+- **Determinism**: two exports of the same shader decode to identical frames. Note the assertion is on decoded pixels, not file bytes — my first attempt compared `Data` and failed, because the QuickTime container carries a creation date, so identical footage never produces identical files.
+- **Shader time actually advances**: a shader whose red channel is `uniforms.time` is exported at 10 fps for 1s, then frame 0 and frame 9 are decoded and their mean red compared (≈0 vs ≈0.9). Without this, an exporter that rendered every frame at t=0 would pass all the other tests.
 
 ---
 

@@ -13,7 +13,8 @@ let package = Package(
         .library(name: "PhosphorGeneration", targets: ["PhosphorGeneration"]),
         .library(name: "PhosphorMetalSprockets", targets: ["PhosphorMetalSprockets"]),
         .library(name: "PhosphorEditorSupport", targets: ["PhosphorEditorSupport"]),
-        .library(name: "SourceEditor", targets: ["SourceEditor"])
+        .library(name: "SourceEditor", targets: ["SourceEditor"]),
+        .library(name: "PhosphorVideo", targets: ["PhosphorVideo"])
     ],
     dependencies: [
         .package(url: "https://github.com/schwa/PhosphorKit", branch: "main"),
@@ -53,6 +54,15 @@ let package = Package(
                 .product(name: "MetalSprocketsUI", package: "MetalSprockets")
             ]
         ),
+        // Offline, deterministic rendering of a shader to a movie file.
+        .target(
+            name: "PhosphorVideo",
+            dependencies: [
+                .product(name: "PhosphorModel", package: "PhosphorKit"),
+                .product(name: "PhosphorCompile", package: "PhosphorKit"),
+                .product(name: "PhosphorRuntime", package: "PhosphorKit")
+            ]
+        ),
         // General-purpose syntax-highlighted source editor. Knows nothing
         // about Phosphor, Metal, or any particular grammar: callers supply a
         // SourceLanguage and a SyntaxPalette.
@@ -85,6 +95,10 @@ let package = Package(
         .testTarget(
             name: "PhosphorMetalSprocketsTests",
             dependencies: ["PhosphorMetalSprockets"]
+        ),
+        .testTarget(
+            name: "PhosphorVideoTests",
+            dependencies: ["PhosphorVideo"]
         ),
         .testTarget(
             name: "SourceEditorTests",
