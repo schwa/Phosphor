@@ -1338,7 +1338,7 @@ Why not other options:
 
 Related: #17 (mic input).
 
-- `2026-08-09T22:34:45Z`: Engine side done in PhosphorKit (commit fddc32fc, unpushed). **App side is written but deliberately not committed** — explanation at the end.
+\- `2026-08-09T22:34:45Z`: Engine side done in PhosphorKit (commit fddc32fc, unpushed). **App side is written but deliberately not committed** — explanation at the end.
 
 Done, following the issue's plan:
 - `AudioCaptureEngine.Source` (`microphone` / `systemAudio`). Changing it while enabled stops and restarts on the new source, and clears any recorded denial — the two sources have unrelated permissions, so a microphone refusal shouldn't disable system audio.
@@ -4482,12 +4482,13 @@ So the format should probably support a per-asset choice: **embedded** (portable
 ## 123: Add more built-in textures, including 1D colour-palette LUTs
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: effort:m
 created: 2026-06-25T03:25:12Z
-updated: 2026-08-09T16:14:35Z
+updated: 2026-08-09T22:39:29Z
+closed: 2026-08-09T22:39:29Z
 +++
 
 Expand `BuiltinTextures.all` beyond the current set (mandrill, testcard, several noise variants). In particular, ship 1D colour-palette / gradient LUTs that shaders can index by a scalar to colourise output — a very common shadertoy idiom.
@@ -4514,7 +4515,24 @@ The runtime currently hard-codes `texture2d` for all bindings (`PhosphorHeader.s
 
 Related: #65 (image assets).
 
-- `2026-06-25T03:27:30Z`: Decision: ship palettes as **Nx1 2D textures** (e.g. 256x1). No model/header changes needed — sample with uv.x at y=0.5. True `texture1d` support is out of scope here; can be a separate issue later if ergonomics warrant it.
+\- `2026-06-25T03:27:30Z`: Decision: ship palettes as **Nx1 2D textures** (e.g. 256x1). No model/header changes needed — sample with uv.x at y=0.5. True `texture1d` support is out of scope here; can be a separate issue later if ergonomics warrant it.
+\- `2026-08-09T22:39:28Z`: Done in PhosphorKit (commit 486b3c39, unpushed), following your decision to ship them as Nx1 2D textures.
+
+Eight palettes, all 256×1: `palette-viridis`, `palette-magma`, `palette-inferno`, `palette-plasma`, `palette-cividis`, `palette-grayscale`, `palette-hsv`, `palette-heat`. They sit under a `palette-` prefix in the existing `builtin:` namespace rather than a separate sub-namespace, and `BuiltinTextures.palettes` exposes just them for UI that wants to group them.
+
+**On the data.** I didn't eyeball these. The perceptual maps come from matplotlib via `Scripts/generate-palettes.py`, which is committed alongside them — so they're reproducible and their provenance is written down rather than being eight opaque PNGs. Spot-checked viridis against the canonical values: (68,1,84) → (33,145,140) → (253,231,37).
+
+**Licensing, since you flagged it:**
+- viridis / magma / inferno / plasma / cividis — CC0, released into the public domain by their authors (Smith & van der Walt; Nuñez, Anderton & Renslow). Fine to bundle, no attribution required.
+- grayscale / hsv / heat — formulaic ramps, no novel authorship.
+- **turbo deliberately not shipped.** It's Google's under Apache-2.0, which carries an attribution obligation. That's a decision for you, not something I should quietly take on the project's behalf. Say the word and it's one line in the generator.
+- jet also skipped — the issue offered it "for nostalgia", but it's perceptually bad and nothing else here needs it. Easy to add if you want it.
+
+Answering the other open question: 8 palettes, ~1.5KB total, so bloat isn't a concern.
+
+**Documented the idiom**, which is the part that actually makes these usable — `docs/Front-Matter-Reference.md` now has a palettes section with a complete worked example (declaring the texture, the `sample` binding, and the shader line). It notes that the sampler wants `address::clamp_to_edge`: with `repeat`, a `t` a hair above 1 wraps to the opposite end of the ramp, which is a nasty little artefact to debug. A test compiles that exact example so the docs can't rot.
+
+Tests also assert every palette decodes at exactly 256×1 — the shape is load-bearing for the `y = 0.5` sampling — and pin viridis's endpoints so a bad regeneration fails rather than ships.
 
 ---
 

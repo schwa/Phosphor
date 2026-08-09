@@ -127,9 +127,43 @@ floats and the decoder doesn't coerce, so `color = [1, 0, 0, 1]` fails with
 
 Image lookups try the literal name, then the name without its extension, then
 the built-in registry — so `file = "mandrill"` finds `mandrill.png` in a
-bundle, or falls back to `builtin:mandrill`. The built-ins are `mandrill`,
-`testcard`, `noise-white`, `noise-white-rgb`, `noise-value`, `noise-fbm` and
-`noise-blue`, all reachable with or without the `builtin:` prefix.
+bundle, or falls back to `builtin:mandrill`. Built-ins are reachable with or
+without the `builtin:` prefix:
+
+| Kind | Names |
+|---|---|
+| Images | `mandrill`, `testcard` |
+| Noise | `noise-white`, `noise-white-rgb`, `noise-value`, `noise-fbm`, `noise-blue` |
+| Palettes | `palette-viridis`, `palette-magma`, `palette-inferno`, `palette-plasma`, `palette-cividis`, `palette-grayscale`, `palette-hsv`, `palette-heat` |
+
+### Colour palettes
+
+The palettes are 256×1 lookup tables for colourising a scalar — a height, a
+density, an iteration count. Declare one as a sampled texture and index it
+with the value:
+
+```toml
+[[textures]]
+id = "palette"
+init = { kind = "image", file = "palette-viridis" }
+
+[[passes]]
+id = "image"
+textures = [
+    { id = "image", access = "write" },
+    { id = "palette", access = "sample" },
+]
+```
+
+```metal
+constexpr sampler paletteSampler(coord::normalized, address::clamp_to_edge, filter::linear);
+
+float t = saturate(value);
+float3 color = uniforms.textures.palette.sample(paletteSampler, float2(t, 0.5)).rgb;
+```
+
+`address::clamp_to_edge` matters: with `repeat`, a `t` that lands slightly
+above 1 wraps around to the other end of the ramp.
 
 Image-initialised textures take the decoded image's size, ignoring `size`, and
 can't be ping-pong.
