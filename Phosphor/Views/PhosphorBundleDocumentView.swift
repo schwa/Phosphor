@@ -121,6 +121,19 @@ private struct BundleSidebar: View {
     /// True while a drag is hovering the sidebar, so the drop target can
     /// show it will accept (#64).
     @State private var isDropTargeted: Bool = false
+    @State private var searchText: String = ""
+
+    /// Case- and diacritic-insensitive substring filter, matching how Finder
+    /// and the rest of the system filter lists.
+    private func filtered(_ names: [String]) -> [String] {
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return names }
+        return names.filter { $0.localizedStandardContains(query) }
+    }
+
+    private var hasResults: Bool {
+        !filtered(shaderNames).isEmpty || !filtered(assetNames).isEmpty
+    }
     /// The row currently being renamed inline, keyed by its name. Nil when no
     /// rename is in progress.
     @State private var renamingName: String?
@@ -131,7 +144,7 @@ private struct BundleSidebar: View {
         VStack(spacing: 0) {
             List(selection: $selection) {
                 Section("Sources") {
-                    ForEach(shaderNames, id: \.self) { name in
+                    ForEach(filtered(shaderNames), id: \.self) { name in
                         renamableRow(name: name, systemImage: "doc.text", commit: onRenameShader)
                             .tag(name)
                             .swipeActions(edge: .trailing) {
@@ -146,7 +159,7 @@ private struct BundleSidebar: View {
                     }
                 }
                 Section("Assets") {
-                    ForEach(assetNames, id: \.self) { name in
+                    ForEach(filtered(assetNames), id: \.self) { name in
                         renamableRow(name: name, systemImage: "photo", commit: onRenameAsset)
                             .swipeActions(edge: .trailing) {
                                 Button("Delete", systemImage: "trash", role: .destructive) {
@@ -161,6 +174,14 @@ private struct BundleSidebar: View {
                 }
             }
             .listStyle(.sidebar)
+            .searchable(text: $searchText, placement: .sidebar, prompt: "Filter")
+            .overlay {
+                // Only for an unproductive filter — an empty bundle with no
+                // filter typed isn't a "no results" situation.
+                if !searchText.isEmpty, !hasResults {
+                    ContentUnavailableView.search(text: searchText)
+                }
+            }
             .dropDestination(for: URL.self) { urls, _ in
                 onImport(urls)
                 return !urls.isEmpty

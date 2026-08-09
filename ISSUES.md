@@ -2524,13 +2524,24 @@ closed: 2026-06-21T04:48:16Z
 ## 62: Bundle UI: add filter/search to list
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: effort:s
 created: 2026-06-21T00:03:03Z
-updated: 2026-06-22T15:40:16Z
+updated: 2026-08-09T22:00:30Z
+closed: 2026-08-09T22:00:30Z
 +++
+
+\- `2026-08-09T22:00:30Z`: Added a filter field to the bundle sidebar: `.searchable(placement: .sidebar)` filtering both the Sources and Assets sections by name.
+
+- Matching is `localizedStandardContains`, so it's case- and diacritic-insensitive and behaves like Finder's filtering rather than a literal substring match.
+- An unproductive filter shows `ContentUnavailableView.search`, guarded on the query being non-empty — an empty bundle with nothing typed isn't a "no results" situation, it's just empty.
+- Filtering is display-only: selection, rename, delete, drag-and-drop and import all still operate on the real names.
+
+The issue was title-only, so I read it as "filter the sidebar list by name", which is what `.searchable` gives for free. Say if you wanted something broader — searching shader *contents*, for instance, would be a different feature.
+
+No test: SwiftUI list filtering with no testable unit and no app test bundle. Build-verified only; I couldn't drive the UI this run (screen locked).
 
 ---
 
@@ -4946,7 +4957,7 @@ Surface overlap (the real smell):
 
 Goal: reduce the tool definitions to a small shared pattern (kill the triplicated empty-input/empty-schema and the ToolError-wrapping helpers), and reconsider the two-surface design so the prompt doesn't have to referee text-vs-structured edits. Lower-leverage than #137/#136 — mostly surface collapse, not coverage (ShaderTools is already fairly tested).
 
-- `2026-08-09T21:59:38Z`: Did the surface collapse; left the two-surface redesign alone. Reasoning below.
+\- `2026-08-09T21:59:38Z`: Did the surface collapse; left the two-surface redesign alone. Reasoning below.
 
 **Done: the triplicated empty input and schema.** `ReadMetalTool`, `ReadConfigurationTool` and `CompileShaderTool` each carried their own empty `Input` struct and their own `.object([type: object, properties: .object([:])])` literal. They now share `NoToolInput` and `JSONValue.noToolInput`. Tests assert the shared schema's shape and that all three tools advertise it, so the three can't drift apart again.
 
