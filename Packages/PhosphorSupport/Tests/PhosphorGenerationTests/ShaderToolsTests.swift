@@ -230,3 +230,21 @@ struct PhosphorConfigurationDecodeTests {
         }
     }
 }
+
+/// The no-argument tools share one input type and one schema (#138), so a
+/// change to either lands everywhere at once.
+@Suite("No-argument tool inputs")
+struct NoToolInputTests {
+    @Test("The shared schema is an empty object")
+    func schemaShape() {
+        #expect(JSONValue.noToolInput == .object(["type": "object", "properties": .object([:])]))
+    }
+
+    @Test("Every no-argument tool advertises the shared schema", arguments: ["read", "readConfiguration", "compileShader"])
+    func toolsUseIt(name: String) throws {
+        let document = MetalSourceDocument(source: "")
+        let tools: [any Tool] = .shaderTools(for: document) { _ in nil }
+        let tool = try #require(tools.first { $0.name == name })
+        #expect(tool.inputSchema == .noToolInput)
+    }
+}

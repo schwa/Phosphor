@@ -8,6 +8,20 @@ import Metal
 import PhosphorCompile
 import PhosphorModel
 
+/// Input for a tool that takes no arguments.
+///
+/// Several tools here act on the whole document and have nothing to decode;
+/// each used to carry its own empty `Input` struct and its own empty schema
+/// literal (#138).
+public struct NoToolInput: Decodable, Sendable {
+    public init() {}
+}
+
+public extension JSONValue {
+    /// The JSON Schema for ``NoToolInput``: an object with no properties.
+    static let noToolInput = JSONValue.object(["type": "object", "properties": .object([:])])
+}
+
 // The conversational shader tools, in two distinct surfaces:
 //
 // 1. Whole-file `read` / `write` / `edit` over the entire `.metal` source —
@@ -26,9 +40,7 @@ import PhosphorModel
 /// body — so the model can see exactly what it's editing. Call this before
 /// editing if the current contents are unknown.
 public struct ReadMetalTool: Tool {
-    public struct Input: Decodable, Sendable {
-        public init() {}
-    }
+    public typealias Input = NoToolInput
 
     private let document: TextDocument
 
@@ -40,9 +52,7 @@ public struct ReadMetalTool: Tool {
     public var description: String {
         "Read the entire current .metal source (front-matter comment and kernel body). Call this before editing if you don't know the current contents."
     }
-    public var inputSchema: JSONValue {
-        .object(["type": "object", "properties": .object([:])])
-    }
+    public var inputSchema: JSONValue { .noToolInput }
 
     public func call(_ input: Input) async throws -> String {
         try readSource(document)
@@ -159,9 +169,7 @@ public struct EditMetalTool: Tool {
 /// model can inspect the structured environment (textures, passes, uniforms,
 /// output) without parsing the `.metal` text itself.
 public struct ReadConfigurationTool: Tool {
-    public struct Input: Decodable, Sendable {
-        public init() {}
-    }
+    public typealias Input = NoToolInput
 
     private let document: TextDocument
 
@@ -173,9 +181,7 @@ public struct ReadConfigurationTool: Tool {
     public var description: String {
         "Read the shader's structured front-matter configuration (textures, passes, uniforms, output) as JSON."
     }
-    public var inputSchema: JSONValue {
-        .object(["type": "object", "properties": .object([:])])
-    }
+    public var inputSchema: JSONValue { .noToolInput }
 
     public func call(_ input: Input) async throws -> String {
         let source = try readSource(document)
@@ -266,9 +272,7 @@ public struct WriteConfigurationTool: Tool {
 /// failure, or "compiles cleanly" on success. This is the self-correction
 /// primitive — the model edits, compiles, reads the error, edits again.
 public struct CompileShaderTool: Tool {
-    public struct Input: Decodable, Sendable {
-        public init() {}
-    }
+    public typealias Input = NoToolInput
 
     /// Compiles a parsed source and returns a human-readable diagnostic
     /// summary (empty when it compiles cleanly). Injected so the host can wire
@@ -298,9 +302,7 @@ public struct CompileShaderTool: Tool {
     public var description: String {
         "Compile the current shader and report any Metal compiler or configuration errors. Call this after editing to check your work."
     }
-    public var inputSchema: JSONValue {
-        .object(["type": "object", "properties": .object([:])])
-    }
+    public var inputSchema: JSONValue { .noToolInput }
 
     public func call(_ input: Input) async throws -> String {
         let source = try readSource(document)

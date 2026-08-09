@@ -4946,6 +4946,20 @@ Surface overlap (the real smell):
 
 Goal: reduce the tool definitions to a small shared pattern (kill the triplicated empty-input/empty-schema and the ToolError-wrapping helpers), and reconsider the two-surface design so the prompt doesn't have to referee text-vs-structured edits. Lower-leverage than #137/#136 — mostly surface collapse, not coverage (ShaderTools is already fairly tested).
 
+- `2026-08-09T21:59:38Z`: Did the surface collapse; left the two-surface redesign alone. Reasoning below.
+
+**Done: the triplicated empty input and schema.** `ReadMetalTool`, `ReadConfigurationTool` and `CompileShaderTool` each carried their own empty `Input` struct and their own `.object([type: object, properties: .object([:])])` literal. They now share `NoToolInput` and `JSONValue.noToolInput`. Tests assert the shared schema's shape and that all three tools advertise it, so the three can't drift apart again.
+
+**Deliberately kept: `readSource`/`writeSource`.** The issue lists them as boilerplate because "every tool funnels through them", but that's the argument for keeping them, not against: they're the single seam where a document error becomes a `ToolError` with a consistent message. Inlining them would spread that error handling across six call sites. Happy to be overruled, but it reads as good factoring rather than a smell.
+
+**Not done: the two-surface redesign**, which the issue itself calls the real smell. Narrowing the surface — dropping the whole-file text tools, or the structured configuration tools — changes what the model can do and how it behaves, and this repo has no way to check generation quality without live credentials. It's the same blocker I hit on #133: the low-risk mechanical work is safe to do blind, the behaviour-changing work isn't.
+
+One data point for whoever takes that on, from #133: the prompt policing that overlap is smaller than this issue suggests. It cited ~35 lines of `toolLoopGuidance`; after the de-duplication pass in #133 the whole guidance block is ~40 lines and the part refereeing text-vs-structured edits is down to about four. So the prompt-as-glue cost is real but modest, which weakens the case for a disruptive surface change and strengthens the case for measuring first.
+
+**Note on the `EditMetalTool` observation:** the issue reads "a near-verbatim port of CollaborationKit's EditTool" as re-implementation to avoid. That comment is describing why the port exists — CollaborationKit's version targets its own file abstraction, not a `TextDocument` over live editor text. Reusing it would mean CollaborationKit growing a document abstraction, which is a change in a different repo. Worth its own discussion rather than folding into this one.
+
+Suggest either closing this as the mechanical part being done, or re-scoping it to just the two-surface question.
+
 ---
 
 ## 139: Adopt CollaborationKitUI to replace hand-rolled generation UI (umbrella)
