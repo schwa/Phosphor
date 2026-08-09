@@ -23,7 +23,8 @@ import UniformTypeIdentifiers
 /// writes the whole tree back on save.
 @Observable
 final class PhosphorBundleDocument: ReferenceFileDocument, ObservableObject {
-    /// See `PhosphorMetalDocument.objectWillChange`.
+    /// See `PhosphorMetalDocument.objectWillChange` and
+    /// `docs/Observable-Documents.md`.
     @ObservationIgnored let objectWillChange = ObservableObjectPublisher()
 
     static let readableContentTypes: [UTType] = [.phosphorBundle]

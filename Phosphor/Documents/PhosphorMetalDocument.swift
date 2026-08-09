@@ -16,10 +16,13 @@ import UniformTypeIdentifiers
 final class PhosphorMetalDocument: ReferenceFileDocument, ObservableObject {
     typealias Snapshot = String
 
-    /// `ReferenceFileDocument` refines `ObservableObject`; provide the publisher
-    /// explicitly since the `@Observable` macro drives change tracking and the
-    /// default synthesis doesn't fire. SwiftUI observes the document via
-    /// `@Bindable`/Observation, not this publisher.
+    /// Satisfies `ReferenceFileDocument`'s `ObservableObject` refinement
+    /// explicitly. Nothing sends on it: change tracking runs through
+    /// `@Observable`, and SwiftUI observes the document via `@Bindable`.
+    ///
+    /// Note this is documentation rather than a load-bearing shim — removing
+    /// it still compiles, because `ObservableObject` supplies the same
+    /// publisher by default. See `docs/Observable-Documents.md`.
     @ObservationIgnored let objectWillChange = ObservableObjectPublisher()
 
     static let readableContentTypes: [UTType] = [.phosphorSource, .metalSource]

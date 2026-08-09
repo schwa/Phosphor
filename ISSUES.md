@@ -4539,17 +4539,34 @@ Tests also assert every palette decodes at exactly 256×1 — the shape is load-
 ## 124: Document objectWillChange shim for @Observable + ReferenceFileDocument
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: effort:s
 created: 2026-06-25T16:50:10Z
-updated: 2026-08-09T16:14:35Z
+updated: 2026-08-09T22:43:40Z
+closed: 2026-08-09T22:43:40Z
 +++
 
 On the OS 26 backport, PhosphorMetalDocument and PhosphorBundleDocument are @Observable classes that must also conform to ReferenceFileDocument, which refines ObservableObject. The @Observable macro does not synthesize objectWillChange, and the ObservableObject default synthesis does not fire, so both documents declare an explicit '@ObservationIgnored let objectWillChange = ObservableObjectPublisher()' purely to satisfy the protocol. SwiftUI observes via Observation/@Bindable, not this publisher.
 
 Risk: not yet runtime-tested on 26. Verify save / open / Save As / undo-redo behave correctly. If the dual ObservableObject + @Observable conformance causes change-tracking glitches, revisit (e.g. drop @Observable in favor of @Published, or wrap the document).
+
+\- `2026-08-09T22:43:39Z`: Documented in `docs/Observable-Documents.md`, linked from the README, with the in-code comments updated to point at it.
+
+**The existing comment was subtly wrong, and I checked rather than transcribing it.** It said the explicit publisher was needed "since the default synthesis doesn't fire". I removed the line from both documents and rebuilt: **it still compiles.** `ObservableObject` supplies a default `objectWillChange` whenever the publisher type is `ObservableObjectPublisher`, and that default satisfies `ReferenceFileDocument` fine.
+
+The old wording conflated two separate things:
+- *synthesis* — does happen, which is why removing the line compiles;
+- *firing* — a runtime matter, and moot because nothing in the app ever calls `objectWillChange.send()`.
+
+So it's an explicit statement of a satisfied-but-unused protocol requirement, not a load-bearing shim. Worth a line, but nobody should be afraid to touch it thinking the build depends on it. The doc says so, and says to remove it from both documents together if it ever goes.
+
+**The risk you flagged is still open and I've said so plainly in the doc.** Save / open / Save As / undo-redo on a macOS 26 deployment are untested — I had no way to drive the UI this session (the machine's screen was locked, so the app never exposed a window to the accessibility API). The doc records the fallbacks you listed (drop `@Observable` for `@Published`, or wrap the document) in case glitches turn up.
+
+Measurements were on Xcode 27 / macOS 27 SDK with a macOS 26 deployment target, which the doc states, since the conclusion is toolchain-dependent.
+
+Closing the documentation task; the runtime verification is worth its own issue if you want it tracked.
 
 ---
 
@@ -4715,6 +4732,24 @@ Template:
 Plumbing: reuse SwiftPackageExporter (AppleArchive expand + single-file swap) and add a just encode-playground recipe that stages a clean copy (no .build/.swiftpm-cruft/Package.resolved/.DS_Store) and writes Phosphor/Resources/PhosphorPlayground.aar. Add an Export as Playground menu item + focused-scene action from both document views.
 
 Author the template by hand first and confirm it builds/runs, then fold it into the export flow. No renaming for now; swap the single .phosphor file only.
+
+\- `2026-08-09T22:41:26Z`: Punting on a specific, verified blocker: **an App Playground can't be validated from the command line**, and this issue's own plan says to "author the template by hand first and confirm it builds/runs, then fold it into the export flow". I can do the authoring; I can't do the confirming, and shipping an Export menu item that produces a playground which won't open is worse than not shipping it.
+
+What I established:
+
+1. `.iOSApplication` \u2014 the product type that makes a `.swiftpm` an App Playground \u2014 lives in the `AppleProductTypes` module, not `PackageDescription`. Confirmed by manifest error.
+2. `AppleProductTypes` isn't in the Swift toolchain. It ships inside Xcode at `Contents/SharedFrameworks/SwiftPM.framework/Versions/A/SharedSupport/ManifestAPI/`, alongside a *second* copy of `PackageDescription`.
+3. Pointing SwiftPM at that directory with `-Xmanifest -I/-L` doesn't work: `AppleProductTypes.swiftinterface` needs Xcode's `PackageDescription` (it references `ProductSetting`, which the toolchain's copy doesn't have), and the toolchain's copy keeps winning. So `swift build` and `swift package dump-package` both refuse the manifest.
+4. `xcodebuild` doesn't take a `.swiftpm` as a project either.
+
+So the manifest can only be validated by Xcode or Swift Playgrounds opening it — a GUI step. I couldn't do that this session anyway (machine screen was locked, the app never exposed a window to the accessibility API), but even with a live screen this needs a human to confirm the playground opens and runs.
+
+Two other things worth deciding before someone picks this up:
+
+- **App Playgrounds are iOS-only.** `.iOSApplication` has no macOS equivalent, and it requires `supportedDeviceFamilies` / `supportedInterfaceOrientations`. Phosphor is a macOS app, so the export would produce an iOS artefact that runs on the Mac only via Swift Playgrounds for macOS or Designed-for-iPad. PhosphorKit does support iOS 26, so it should work \u2014 but it's a different shape from the existing `Export as Swift Package`, which is multiplatform.
+- The plumbing half is genuinely easy and already patterned: `SwiftPackageExporter` (expand `.aar`, swap the single `.phosphor`), a `just encode-playground` recipe mirroring `encode-template`, and a menu item + focused-scene action \u2014 exactly like `ExportSwiftPackageButton`. None of that is the risk; the template is.
+
+Concrete unblocker: hand-author `Templates/PhosphorPlayground.swiftpm`, open it once in Xcode or Swift Playgrounds to confirm it builds and renders, and commit it. The export flow after that is a small, well-patterned follow-up.
 
 ---
 

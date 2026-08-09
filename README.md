@@ -34,6 +34,8 @@ the app.
   Shadertoy port costs today.
 - [Examples](Examples/README.md) — a tour of the shipped shaders, tagged by
   the feature each demonstrates.
+- [@Observable documents](docs/Observable-Documents.md) — why the document
+  types carry both `@Observable` and `ObservableObject`.
 
 ## Documents
 
