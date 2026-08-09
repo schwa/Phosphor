@@ -862,12 +862,13 @@ Outcome: a markdown table (or a doc section under DocC) summarising what 'a Shad
 ## 27: Shadertoy compatibility layer: auto-translate Shadertoy GLSL to Phosphor MSL
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: effort:l
 created: 2026-06-18T22:08:49Z
-updated: 2026-06-24T22:45:39Z
+updated: 2026-08-09T21:31:59Z
+closed: 2026-08-09T21:31:59Z
 +++
 
 Make Phosphor accept Shadertoy source verbatim and translate it to a Phosphor kernel at runtime, so users can paste Shadertoy URLs/snippets directly without manual rewriting.
@@ -905,6 +906,33 @@ Two layers, roughly orthogonal:
 - Multi-pass Shadertoy shaders require Buffer A/B/C/D modeling \u2014 explicit `#image` / `#buffer` directives or magic-comment markers.
 
 Related: #26 (Shadertoy audit), #16 (Phosphor 1 examples \u2014 those were also Shadertoy-style).
+
+\- `2026-08-09T21:31:59Z`: Lexical layer done (PhosphorKit commit 67871c1c, unpushed). Semantic layer and multi-pass deliberately not attempted — see below.
+
+**Deviation from the issue, flagged:** the issue says `ShadertoyTranslator` should live in PhosphorSupport and be invoked from the front-matter parser. Since the issue was written the parser moved to PhosphorKit's `PhosphorCompile`, and PhosphorSupport depends on PhosphorKit, not the other way round — so the stated arrangement is no longer possible. Per this project's AGENTS.md ("When you change parse/compile/render code, edit it in PhosphorKit") the translator went into `PhosphorCompile` next to the parser. Everything else follows the issue.
+
+Done:
+- Detection: a `mainImage(out vec4, in vec2)` signature and no `kernel void` of its own. A half-ported hybrid (Shadertoy signature + hand-written kernel) is deliberately not claimed.
+- Renames: `iTime`, `iTimeDelta`, `iFrame`, `iFrameRate`, `iResolution` (as `float3(resolution, 1)`, since Shadertoy's is a vec3), `iMouse` (as `float4(mouse, mouseClickOrigin)`). Word-bounded, so `iTimeless` is left alone.
+- Types: `vecN`/`ivecN`/`uvecN`/`bvecN`/`matN` → MSL spellings.
+- `texture()`/`texture2D()`/`textureLod()` → `.sample(...)`, `texelFetch()` → `.read(uint2(...))` with the lod argument dropped. These use a balanced-paren argument scanner rather than a regex — `texelFetch(iChannel0, ivec2(x, y), 0)` nests, and the regex version silently mangled it (caught by a test).
+- Front matter synthesised for the single-Image-pass case, including a sampled texture resource per referenced `iChannelN`.
+- `gl_FragCoord`'s half-pixel offset is applied (`float2(gid) + 0.5`).
+- Parser fallback: `PhosphorFrontMatter.parse` translates when there's no front-matter block, keeping the user's text as `originalSource` so the editor still shows what they pasted.
+
+Design note: `mainImage`'s body is *inlined* into the generated kernel rather than called as a function. A separate function can't name the uniforms type — `SourceAssembler` only `#define`s `Uniforms` to the per-pass struct immediately around the kernel. Inlining also lets the generated locals keep the user's own `fragColor`/`fragCoord` parameter names, so the body needs no further rewriting.
+
+Reported rather than mistranslated:
+- Sound and Cubemap passes.
+- Built-ins referenced *outside* `mainImage`. Shadertoy's built-ins are globals and Metal has none, so a helper like `float wobble() { return sin(iTime); }` cannot be fixed lexically — it gets a diagnostic saying the built-ins need to be passed in as parameters. Helpers that take their inputs as parameters carry over fine.
+
+Not attempted, per the issue's own split into two layers:
+- Semantic differences: GLSL implicit float promotion, negative-number `mod`, and anything else that only shows up as a Metal type error.
+- Multi-pass (Buffer A–D) and the Common tab. That needs the directive/marker design the issue mentions and is worth its own issue.
+
+On testing: the issue asks for 10 popular Shadertoy shaders as the yardstick. I have no network access, so instead there's a table of four representative idioms (uv gradient; mat2 rotation + loop; fract/mix/smoothstep; helper function taking parameters) which are translated and then run through the real Metal compiler — all four compile. That table is the place to add cases as coverage grows. 19 tests total covering detection, each rewrite in isolation, whole-source structure, the parser hook, and end-to-end compilation.
+
+Needs a PhosphorKit push before app builds pick it up.
 
 ---
 
@@ -3786,6 +3814,20 @@ updated: 2026-06-23T06:05:14Z
 +++
 
 Add support for MTLBuffer resources, including the ability to load buffer contents from a file.
+
+\- `2026-08-09T21:25:49Z`: Punting for now — this needs a design decision I shouldn't make unilaterally.
+
+What I looked at: textures are declared in front-matter (`id`/`format`/`size`/`init`), bound per-pass with an access mode, and surfaced to kernels as fields on a generated argument-buffer struct (`uniforms.textures.<id>`, see `PhosphorHeader.texturesDecl`). A buffer resource would slot into the same machinery: a `[[buffers]]` table, a per-pass binding list, and a generated `uniforms.buffers.<id>` field. The runtime already surfaces raw `device const float*` for audio, so the plumbing pattern exists.
+
+The blocker is the element type. Textures get away with one MSL type (`texture2d<float, access::X>`); a buffer needs to know what it's a buffer *of*, and that determines what the generated header declares. The options are meaningfully different and each drags in follow-on decisions:
+
+1. **Fixed set of scalar/vector element types** in front-matter (`element = "float4"` → `device const float4*`). Simple, closed, no parsing of user types. Rules out structs.
+2. **User-declared struct type** — the kernel defines a struct and front-matter names it (`element = "Particle"`). Needs the generated header to be emitted after the user's declarations, or a forward-declaration scheme, and gives no way to validate the file's byte layout.
+3. **Untyped bytes** (`device const uchar*`) and the shader casts. Trivial to implement, pushes all the type risk onto shader authors.
+
+Related open questions that fall out of the choice: are buffers writable (`access = "write"`, and does that make them per-pass ping-pong like textures)? Is the file raw bytes, or is there a declared count/stride that gets validated against file size? Does the `Examples`/asset system need to carry binary blobs, and does #122 (self-contained documents) have to land first?
+
+Concrete unblocker: pick one of the three element-type models above (I'd lean 1 for a first cut — closed set of scalar/vector types, read-only, raw-bytes file with a size check against `count * stride`), and say whether writable buffers are in scope. With that decided this is a straightforward follow-through.
 
 ---
 
