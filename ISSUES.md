@@ -4189,7 +4189,32 @@ Complements the webcam source (#39). Many Shadertoy-style effects process video;
 
 Related: #39 (webcam), #65 (image assets), #68 (pixel formats).
 
-- `2026-06-25T03:03:35Z`: Effort: L. The main cost is introducing the first *live/streaming texture* pathway — image inputs today load once at materialization; video needs a per-frame upload hook in the runtime plus a model-level live-texture source case. This infra is shared with #39 (webcam); whoever does one should build the shared live-texture plumbing for both. If #39 lands first, this drops to Medium.
+\- `2026-06-25T03:03:35Z`: Effort: L. The main cost is introducing the first *live/streaming texture* pathway — image inputs today load once at materialization; video needs a per-frame upload hook in the runtime plus a model-level live-texture source case. This infra is shared with #39 (webcam); whoever does one should build the shared live-texture plumbing for both. If #39 lands first, this drops to Medium.
+\- `2026-08-09T21:45:10Z`: Punting, but with a concrete proposal so the decision is cheap.
+
+The three needs-info questions have defensible defaults and aren't what's blocking me:
+
+- **Clock**: follow the shader clock. That's what the scope line asks for ("in sync with the shader timeline"), and it's the only choice that makes offline video *export* (#120, now landed) reproducible — a real-time "latest frame" source would make every export different.
+- **Audio track**: ignore for v1. The only audio path today is the live microphone, and the export path deliberately has no audio.
+- **Persistence**: reference the file for v1. Embedding is #122's job and that's currently Blocked.
+
+What actually blocks me is architectural, and it's the thing the earlier comment on this issue already flagged: this is the first *live texture*, and the plumbing is meant to be shared with #39 (webcam). Building it for video alone means unilaterally inventing an abstraction that another issue depends on, without knowing whether the webcam's needs are the same shape. They may well not be:
+
+- A video file is **seekable and clocked**: given shader time *t* you ask for the frame at *t*, and it's deterministic and replayable.
+- A webcam is **push-based and unclocked**: frames arrive when they arrive, there's no seeking, and "the frame at time *t*" is meaningless.
+
+An abstraction that suits one is a poor fit for the other. Designing around only the video case risks a `TextureSource` protocol that the webcam then has to fight, which is the cross-cutting-blast-radius case I'd rather not decide alone.
+
+Sketch, if you want it built this way:
+
+- `TextureInit` gains a `.video(file:)` case, or (better) textures gain a separate `source` concept, since "initial contents" is the wrong noun for something that changes every frame.
+- `PhosphorRuntime` grows a per-frame update hook called from `PhosphorRenderer.render` before the passes are encoded, which lets a source write into its texture. That hook is the shared piece both issues need.
+- The video source itself is an `AVPlayerItemVideoOutput` plus `copyPixelBuffer(forItemTime:)`, with `CVMetalTextureCache` to get a Metal texture without a CPU round trip — the same mechanism #120's exporter now uses in the opposite direction, so there's a working reference in the tree.
+- Looping is `fmod(shaderTime, assetDuration)`.
+
+Concrete unblocker: decide whether the live-texture hook should be pull-based-and-clocked (suits video, forces the webcam to keep a 'latest frame' box) or push-based (suits the webcam, forces video to run a real-time player and give up determinism), or whether both source kinds get to be their own thing behind a common per-frame update call. Say which, and this becomes straightforward follow-through.
+
+Suggest also considering whether the shared hook should be its own issue that both this and #39 depend on.
 
 ---
 
@@ -4681,6 +4706,30 @@ Because the session is long-running and stateful, the full system prompt + growi
 - Baseline token measurement captured for a representative generation session.
 - At least the low-risk wins (prompt de-duplication, history pruning) applied.
 - No regression in generation quality on a couple of sample prompts.
+
+- `2026-08-09T21:48:16Z`: Partially done — measurement plus the low-risk prompt win. The candidates that could change generation quality are deliberately **not** done, because I can't validate them; details below.
+
+**Measured (static per-turn cost).** This is the part re-sent on every turn of a stateful session, so it's paid once per message:
+
+| | chars | ~tokens |
+|---|---|---|
+| conversational system prompt (before) | 16,037 | ~4,009 |
+| conversational system prompt (after) | 14,725 | ~3,681 |
+| of which: `Phosphor.h` helper interface | 2,045 | ~511 |
+
+**Applied: candidate 1 (de-duplication), on `toolLoopGuidance` only.** \u22121,312 chars, ~328 tokens per turn (~8%). "Read before you edit" was stated four times across that block; the tool surface was enumerated twice; and `gid`'s file-scope declaration and the `#include` ban were repeated there despite already being in `instructions-full.md` (which mentions `gid` 18 times). Every distinct instruction survives, once.
+
+**Added a regression guard.** `PromptBudgetTests` fails if the prompt exceeds ~4,000 estimated tokens, if the derived helper interface grows past a quarter of the total, or if "read before edit" reappears more than once. Verified the budget test actually fails by setting the ceiling below the current size. Without this the prompt regrows one well-meaning clarification at a time.
+
+**Not done, and why:**
+
+- *Acceptance criterion "baseline token measurement for a representative generation session"* \u2014 I can't run a real session (no credentials/network here), so the measurement above covers only the static prompt, not history growth or tool-result accumulation. Those need a live session with `totalUsage` logged per turn. That part of the acceptance criteria is still open.
+- *Candidate 2 (don't re-send the interface)* \u2014 it's only ~511 tokens, 14% of the prompt, and making it a fetch-on-demand tool trades a fixed cost for an extra round trip. Not obviously a win; needs the live measurement first.
+- *Candidate 3 (reduce `read` payload)* \u2014 returning a span or diff instead of the whole file directly undermines `edit`, which matches `oldText` against the full text. This is the highest-risk item on the list and shouldn't be done without the ability to measure quality.
+- *Candidate 4 (prune history)* \u2014 real win, but it changes what the model can remember mid-conversation. Same problem: I can't verify "no regression in generation quality on a couple of sample prompts" without running generations.
+- *Condensing `instructions-full.md`* (11KB, the single biggest item) \u2014 there is genuine repetition, e.g. the kernel signature block appears four times (once as the canonical form, once in each of three examples). But the examples are the part most likely to be carrying quality, so cutting them blind is exactly the kind of change this issue's acceptance criteria say to validate first.
+
+Suggest keeping this issue open for the live-session measurement and the riskier candidates, or splitting those out \u2014 the low-risk work described here is complete.
 
 ---
 
