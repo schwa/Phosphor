@@ -1338,6 +1338,23 @@ Why not other options:
 
 Related: #17 (mic input).
 
+- `2026-08-09T22:34:45Z`: Engine side done in PhosphorKit (commit fddc32fc, unpushed). **App side is written but deliberately not committed** — explanation at the end.
+
+Done, following the issue's plan:
+- `AudioCaptureEngine.Source` (`microphone` / `systemAudio`). Changing it while enabled stops and restarts on the new source, and clears any recorded denial — the two sources have unrelated permissions, so a microphone refusal shouldn't disable system audio.
+- `SystemAudioCaptureSource` wraps `SCStream` and writes into the existing `AudioRingStorage`, so the runtime's waveform/spectrum path is untouched. `AudioRingStorage` gained a raw-pointer `append(samples:count:)` because `CMSampleBuffer` frames aren't an `AVAudioPCMBuffer`; the two existing overloads now funnel through it.
+- Config is as specified: `capturesAudio`, mono, 48kHz, and the smallest legal video (2×2 at 1fps) which is never subscribed to.
+
+**Verified the technique before building on it.** A standalone harness with that exact SCStream configuration captured 153 audio buffers over 3 seconds with non-zero amplitude while a sound played. So system-audio capture genuinely works here, rather than being assumed from the docs.
+
+**On permissions:** ScreenCaptureKit has no authorisation-status API to consult, unlike `AVCaptureDevice.authorizationStatus`. Asking for `SCShareableContent` *is* both the prompt and the check, so start-and-catch is the only shape available; failure sets `isPermissionDenied` and falls back to off, as you specified. Note the app's sandbox needs no new entitlement — Screen Recording is purely TCC-gated, there's no `com.apple.security` key for it. The current entitlements (`app-sandbox`, `device.audio-input`, `files.user-selected.read-write`, `network.client`) are unchanged.
+
+**Why the app side isn't committed.** I wrote it — an Audio Source picker in the Render menu, the toolbar toggle switching between mic and speaker iconography, and denial help text that names *Screen Recording* rather than Microphone, since that mismatch is exactly the confusion you flagged. It builds fine against `Phosphor-Dev.xcworkspace` (local PhosphorKit). But the app target resolves PhosphorKit from GitHub `main`, so committing code that references `AudioCaptureEngine.Source` would break `xcb build --target Phosphor` for everyone until PhosphorKit is pushed. I don't have permission to push, so I reverted it rather than leave the default build broken.
+
+This is the first issue this session where a PhosphorKit change crossed the API boundary — the earlier ones (#97, #104, #27, #142, #51, #68) were all internal, so the app kept building against the old package.
+
+Leaving this open for the app wiring. Push PhosphorKit and it's a small, already-written follow-up. Not verified end-to-end in the app either way: I couldn't grant TCC or observe audio-reactive output this session (screen locked).
+
 ---
 
 ## 38: TOML generation is verbose; try to make tomlkit produce a more compact output
