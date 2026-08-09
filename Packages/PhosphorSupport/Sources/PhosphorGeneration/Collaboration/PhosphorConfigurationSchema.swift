@@ -11,7 +11,7 @@ import PhosphorModel
 /// - `textures[]`: `{ id, size, format, swap, init }` (size/init are the
 ///   payload-enum shapes — `"drawable"` / `{fixed}` / `{scaledDrawable}`,
 ///   `{kind: "zero" | "fill" | "image" | "noise", ...}`).
-/// - `passes[]`: `{ id, textures: [{ id, access, name? }], enabled? }`.
+/// - `passes[]`: `{ id, textures: [{ id, access, name? }], enabled?, once? }`.
 /// - `uniforms[]`: `{ name, kind, default, ui?, gesture? }`.
 /// - `output`, `flipY`.
 enum PhosphorConfigurationSchema {
@@ -139,6 +139,7 @@ enum PhosphorConfigurationSchema {
                 "properties": .object([
                     "id": .object(["type": "string", "description": "Pass id; also the kernel function name."]),
                     "enabled": .object(["type": "boolean", "description": "Default true."]),
+                    "once": .object(["type": "boolean", "description": "Default false. When true the pass runs only on the first frame after a reload, reset, or resize instead of every frame \u{2014} use it to precompute a lookup table or noise field that a per-frame pass then reads. Don't use it to write a ping-pong ('swap') texture: one run only fills the half matching that frame's parity."]),
                     "textures": .object([
                         "type": "array",
                         "description": "Per-pass texture bindings. Include one 'write' binding for the pass's output texture, plus a 'read' (or 'sample') binding for each input. For feedback (ping-pong) the pass reads the previous frame via a second binding on the same texture id with a distinct 'name' (conventionally '<id>Prev').",

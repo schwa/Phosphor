@@ -3698,12 +3698,13 @@ PhosphorSupport is gone; the app imports the modules directly (no @_exported any
 ## 104: Support one-shot (init-time) passes
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: effort:m
 created: 2026-06-23T01:50:46Z
-updated: 2026-06-23T06:05:14Z
+updated: 2026-08-09T21:25:17Z
+closed: 2026-08-09T21:25:17Z
 +++
 
 Add the ability to mark a pass as one-shot so it runs once at init/reset time rather than every frame.
@@ -3716,6 +3717,24 @@ Proposed approach:
 Open questions:
 - Exact re-run triggers (reset + resize + recompile?).
 - Field naming (`once`).
+
+\- `2026-08-09T21:25:17Z`: Implemented as proposed.
+
+PhosphorKit (commit a7cc1d13, unpushed):
+- `Pass.once` (default false; omitted from the encoded form when false so round-tripped front-matter doesn't sprout `once = false` everywhere).
+- `PhosphorRuntime.oneShotPassesPending`, set on init, on reload/recompile, on `signalReset()`, and whenever `ensureTextures` reallocates. `PhosphorRenderer` consumes it once per frame and skips `once` passes when it's clear.
+
+Open questions, resolved:
+- Re-run triggers: reset + resize + recompile, i.e. exactly the set in the proposal. Reallocation is included because a fresh texture is blank, so whatever the one-shot wrote is gone.
+- Field name: `once`.
+
+Limitation, documented on the property: a one-shot pass writing to a ping-pong (`swap`) texture only fills the half matching that frame's parity, so it isn't suitable for seeding feedback. Precomputing a lookup table / noise field into a non-swap texture is the intended use.
+
+Also updated `PhosphorConfigurationSchema` in PhosphorGeneration so the generator knows about the field.
+
+Tests (PhosphorKit): per-trigger flag machinery, Codable round-trip and omission, and an end-to-end render — a `once` pass writes `uniforms.time` into a 1×1 store which a per-frame pass copies to the output. After three frames the store still reads t=0; the control shader without `once` reads t=2, so the assertion is measuring the skip and not something incidental. Deleting the renderer's skip line fails the first test.
+
+Note: like #97, the code is in PhosphorKit and needs a push before app builds see it.
 
 ---
 
