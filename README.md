@@ -12,6 +12,29 @@ parse / compile / render core and a reusable `PhosphorView` vended by
 
 - macOS 27 (Golden Gate)
 
+## Building
+
+Open `Phosphor.xcodeproj` and run, or from the command line:
+
+```sh
+xcb build --target Phosphor
+```
+
+`Phosphor-Dev.xcworkspace` is the same app with the sibling
+[PhosphorKit](https://github.com/schwa/PhosphorKit) and
+[CollaborationKit](https://github.com/schwa/CollaborationKit) checkouts
+overriding their package references — use it when changing those alongside
+the app.
+
+## Documentation
+
+- [Front-matter reference](docs/Front-Matter-Reference.md) — every key in the
+  `/* phosphor:environment */` block, and what the kernel sees.
+- [Shadertoy compatibility](docs/Shadertoy-Compatibility.md) — what a
+  Shadertoy port costs today.
+- [Examples](Examples/README.md) — a tour of the shipped shaders, tagged by
+  the feature each demonstrates.
+
 ## Documents
 
 Phosphor opens three kinds of document:
@@ -46,9 +69,8 @@ Generation is powered by [CollaborationKit](https://github.com/schwa/Collaborati
 Paste a single-pass Shadertoy shader in and Phosphor translates it: the
 `mainImage` entry point, the `iTime`/`iResolution`/`iMouse` built-ins, GLSL
 type names and `texture()`/`texelFetch()` calls are all rewritten for you.
-[docs/Shadertoy-Compatibility.md](docs/Shadertoy-Compatibility.md) is a
-feature-by-feature audit of what ports cleanly and what still needs hand
-editing.
+See the [compatibility audit](docs/Shadertoy-Compatibility.md) for what ports
+cleanly and what still needs hand editing.
 
 ## Links
 

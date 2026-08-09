@@ -789,6 +789,23 @@ Phosphor 2 has effectively no docs right now. Address three layers:
 
 Use the swift-documentation skill.
 
+- `2026-08-09T21:52:45Z`: Layers 2 and 3 done, plus the front-matter reference from layer 1. The DocC catalog and the doc-comment sweep are **not** done — detail below.
+
+**Layer 3, `Examples/README.md`** — all 44 shipped shaders, grouped by what they teach (start here / feedback and simulation / raymarching / audio reactive / procedural / pixel art) rather than alphabetically. Each row carries tags derived mechanically from the front matter — feedback, multipass, uniforms, audio, mouse, texture — so "show me a feedback example" is a table scan. Verified programmatically that every `.metal` in the bundle appears exactly once. Also flags the twelve Phosphor 1 ports, which wrap a legacy `mainImage` and shouldn't be read as idiomatic.
+
+**Layer 2, README** — added Building (including what `Phosphor-Dev.xcworkspace` is for) and a Documentation index. The rest of the README had already grown into decent shape since this issue was filed: description, screenshot, document formats, generation backends.
+
+**Layer 1, partial: `docs/Front-Matter-Reference.md`** — this was the "TOML front-matter reference" bullet, and it's the doc shader authors need most. Covers every top-level key, textures (size/format/swap/init, including the built-in texture names), passes and bindings, uniforms with UI hints and gesture bindings, the full `uniforms.*` surface the kernel sees, and what validation reports.
+
+Every TOML snippet in it is pinned by tests in PhosphorKit (`FrontMatterReferenceTests`), so the reference can't drift from the decoder. That paid off immediately: my `fill` example used `color = [1, 0, 0, 1]`, which TOML types as integers and the decoder rejects with `Cannot decode "Float" from 1`. Filed as #145; the doc now calls out the decimal point.
+
+**Not done:**
+
+- The DocC catalog and the tutorials (Getting Started, first shader, multi-pass, uniforms). These are a real chunk of work and the issue is stale on where they'd live: it says "DocC for PhosphorSupport", but the public API it's talking about — the model, parse, compile and render types — has since moved to PhosphorKit. PhosphorSupport now only holds generation, the editor, video export and the MetalSprockets host. A catalog should probably target PhosphorKit, with the tutorials as repo-level prose here.
+- The doc-comment sweep over bare public declarations. Also better done in PhosphorKit now, for the same reason.
+
+Suggest splitting those two into their own issue against PhosphorKit rather than leaving this one open — the documentation a *user* needs is now written; what's left is API reference for a different repo.
+
 ---
 
 ## 26: Shadertoy compatibility audit: what fraction can we run today?
@@ -4707,7 +4724,7 @@ Because the session is long-running and stateful, the full system prompt + growi
 - At least the low-risk wins (prompt de-duplication, history pruning) applied.
 - No regression in generation quality on a couple of sample prompts.
 
-- `2026-08-09T21:48:16Z`: Partially done — measurement plus the low-risk prompt win. The candidates that could change generation quality are deliberately **not** done, because I can't validate them; details below.
+\- `2026-08-09T21:48:16Z`: Partially done — measurement plus the low-risk prompt win. The candidates that could change generation quality are deliberately **not** done, because I can't validate them; details below.
 
 **Measured (static per-turn cost).** This is the part re-sent on every turn of a stateful session, so it's paid once per message:
 
@@ -5124,5 +5141,39 @@ Phosphor's built-ins arrive as a kernel parameter, so there is no `uniforms` in 
 This is the most common reason an otherwise-simple single-pass Shadertoy shader fails to port — more common than any other language-level gap, since reaching for `iTime` inside a helper is idiomatic on Shadertoy.
 
 Found during the Shadertoy compatibility audit (#26); `docs/Shadertoy-Compatibility.md` ranks it second by coverage-per-unit-work.
+
+---
+
+## 145: Front-matter rejects whole numbers where a float is expected
+
++++
+status: new
+priority: low
+kind: bug
+labels: effort:s
+created: 2026-08-09T21:52:05Z
++++
+
+TOML distinguishes integers from floats, and the front-matter decoder doesn't coerce between them. Writing a whole number without a decimal point in a float position fails to parse:
+
+```toml
+[[textures]]
+id = "a"
+init = { kind = "fill", color = [1, 0, 0, 1] }
+```
+
+```
+decode failed: DecodingError.typeMismatch: Expected value of type Float.
+Path: textures[1].init.color[0]. Debug description: Cannot decode "Float" from 1
+```
+
+`color = [1.0, 0.0, 0.0, 1.0]` works. The same applies to a `float` uniform's `default`: `default = 6` fails, `default = 6.0` works.
+
+Expected: `1` is accepted where a float is wanted, as it is in most config formats.
+Actual: the whole front-matter block fails to decode, and the diagnostic points at a codable path rather than at a line in the user's source, so it reads as an internal error rather than "put a decimal point here".
+
+Writing `1` instead of `1.0` is an easy thing to do by hand, and the model does it too when generating configuration.
+
+Found while writing `docs/Front-Matter-Reference.md` (#25) — the reference's own example was wrong until a test caught it.
 
 ---
