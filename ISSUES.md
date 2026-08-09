@@ -2537,15 +2537,20 @@ Intermittently the Anthropic API key fails to load and comes back blank. Likely 
 ## 64: Highlight sidebar on drag & drop of files
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: effort:xs
 created: 2026-06-21T05:00:15Z
-updated: 2026-06-22T15:40:16Z
+updated: 2026-08-09T21:55:30Z
+closed: 2026-08-09T21:55:30Z
 +++
 
 When dragging files over the bundle sidebar drop target, give visual feedback (highlight the drop area) so the user knows it will accept the drop. Currently dropDestination accepts files but provides no hover highlight.
+
+\- `2026-08-09T21:55:30Z`: Fixed. The sidebar's `dropDestination` now takes the `isTargeted:` closure and draws a tinted rounded border with a faint fill over the list while a drag hovers, animated in over 120ms. The overlay is `allowsHitTesting(false)` so it can't interfere with the drop itself.
+
+No test: SwiftUI drop-target visual state, with no testable unit and no app test bundle. Build-verified only — I couldn't drive a drag during this run (the machine's screen was locked, so the app exposed no window to the accessibility API).
 
 ---
 
@@ -4493,6 +4498,31 @@ Finder/the OS isn't showing a custom document icon for .phosphor files. Likely c
 2. UTI resolution: io.schwa.phosphor.source conforms to public.source-code + public.utf8-plain-text, but .phosphor content is actually JSON. The OS may be resolving the extension/content to a generic JSON/text type and using that system icon instead of ours.
 
 To fix: add a document icon asset (iconset / .icon) and wire it via CFBundleTypeIconFile (or UTTypeIconFile on the exported type), and double-check the UTI declaration so .phosphor maps unambiguously to io.schwa.phosphor.source rather than a built-in JSON/plain-text type. Verify .phosphord (bundle) icon too.
+
+\- `2026-08-09T21:54:52Z`: Investigated. Hypothesis 2 in the description is **wrong**, and hypothesis 1 is the whole story — which makes this a design task rather than a config one, so I'm punting rather than inventing an icon.
+
+Evidence. I registered a build with `lsregister` and asked the system what it thinks the files are:
+
+```
+$ mdls -name kMDItemContentType -name kMDItemContentTypeTree /tmp/probe.phosphor
+kMDItemContentType     = "io.schwa.phosphor.source"
+kMDItemContentTypeTree = ("public.source-code", "public.data", "public.utf8-plain-text",
+                          "public.plain-text", "public.item", "public.content",
+                          "io.schwa.phosphor.source", "public.text")
+
+$ mdls -name kMDItemContentType /tmp/probe.phosphord
+kMDItemContentType = "io.schwa.phosphor.bundle"
+```
+
+So UTI resolution is fine for both types: `.phosphor` maps unambiguously to `io.schwa.phosphor.source`, not to a built-in JSON or plain-text type, and `.phosphord` maps to the bundle type. Nothing needs double-checking in the declarations on that front.
+
+What's actually happening is hypothesis 1 alone: no icon is declared for either type — no `CFBundleTypeIconFile`, no `UTTypeIconFile`, and no document-icon asset in `Assets.xcassets` (which currently holds only `AppIcon`). With no icon of its own, the Finder falls back to the icon of the nearest conforming type, which is why `.phosphor` shows the generic source-code/plain-text page.
+
+So the remaining work is entirely "produce a document icon", which is a design artifact I shouldn't invent unilaterally — a made-up icon is worse than no icon and would be awkward to walk back once it's in a release.
+
+Concrete unblocker: an icon asset (or a decision to derive one from the existing `AppIcon.solidimagestack` artwork in the conventional page-with-app-icon style). Two would ideally be needed — a document icon for `.phosphor` and a package/folder-flavoured one for `.phosphord` — though one shared icon is a reasonable first cut. Wiring it up afterwards is a few lines in Info.plist.
+
+One thing worth deciding at the same time: `io.schwa.phosphor.source` currently declares conformance to `public.source-code` and `public.utf8-plain-text`, but the file content is JSON. That's inaccurate — it's why the inherited icon is a source-code page — and `public.json` would describe it better. It doesn't affect resolution either way, so it's a correctness tidy-up rather than a fix, and it changes which icon is inherited if the icon work is deferred.
 
 ---
 

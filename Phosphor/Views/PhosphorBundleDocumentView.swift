@@ -118,6 +118,9 @@ private struct BundleSidebar: View {
     let onRenameAsset: (String, String) -> Void
 
     @State private var showImporter: Bool = false
+    /// True while a drag is hovering the sidebar, so the drop target can
+    /// show it will accept (#64).
+    @State private var isDropTargeted: Bool = false
     /// The row currently being renamed inline, keyed by its name. Nil when no
     /// rename is in progress.
     @State private var renamingName: String?
@@ -161,7 +164,19 @@ private struct BundleSidebar: View {
             .dropDestination(for: URL.self) { urls, _ in
                 onImport(urls)
                 return !urls.isEmpty
+            } isTargeted: { isTargeted in
+                isDropTargeted = isTargeted
             }
+            .overlay {
+                if isDropTargeted {
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(.tint, lineWidth: 2)
+                        .background(.tint.opacity(0.1), in: .rect(cornerRadius: 8))
+                        .padding(4)
+                        .allowsHitTesting(false)
+                }
+            }
+            .animation(.easeOut(duration: 0.12), value: isDropTargeted)
 
             Divider()
             HStack(spacing: 8) {
