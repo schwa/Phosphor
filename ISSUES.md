@@ -789,7 +789,7 @@ Phosphor 2 has effectively no docs right now. Address three layers:
 
 Use the swift-documentation skill.
 
-- `2026-08-09T21:52:45Z`: Layers 2 and 3 done, plus the front-matter reference from layer 1. The DocC catalog and the doc-comment sweep are **not** done — detail below.
+\- `2026-08-09T21:52:45Z`: Layers 2 and 3 done, plus the front-matter reference from layer 1. The DocC catalog and the doc-comment sweep are **not** done — detail below.
 
 **Layer 3, `Examples/README.md`** — all 44 shipped shaders, grouped by what they teach (start here / feedback and simulation / raymarching / audio reactive / procedural / pixel art) rather than alphabetically. Each row carries tags derived mechanically from the front matter — feedback, multipass, uniforms, audio, mouse, texture — so "show me a feedback example" is a table scan. Verified programmatically that every `.metal` in the bundle appears exactly once. Also flags the twelve Phosphor 1 ports, which wrap a legacy `mainImage` and shouldn't be read as idiomatic.
 
@@ -4454,15 +4454,24 @@ Risk: not yet runtime-tested on 26. Verify save / open / Save As / undo-redo beh
 ## 125: New document doesn't refresh Recent Documents in Splash
 
 +++
-status: open
+status: closed
 priority: low
 kind: bug
 labels: effort:s
 created: 2026-06-25T16:51:21Z
-updated: 2026-08-09T16:14:35Z
+updated: 2026-08-09T21:54:07Z
+closed: 2026-08-09T21:54:07Z
 +++
 
 Creating a new document (Cmd-N / Cmd-Shift-N, or via the splash) does not update the Recent Documents list shown in the Splash window. SplashScene reads NSDocumentController.shared.recentDocumentURLs as a plain computed property, so the view doesn't re-render when the recents list changes. Need to observe recent-document changes (e.g. NSDocumentController KVO on recentDocumentURLs, or a refresh trigger when the splash reappears) so the list stays current.
+
+\- `2026-08-09T21:54:07Z`: Fixed. `recentDocumentURLs` was a computed property reading `NSDocumentController.shared` inline, so SwiftUI had no reason to re-render when the list changed. It's now `@State`, refreshed on appear and on `NSWindow.didBecomeKeyNotification` / `NSApplication.didBecomeActiveNotification`.
+
+Note on the approach: the issue suggests KVO on `recentDocumentURLs`. I tried to confirm that's KVO-compliant with a standalone probe and couldn't — an unbundled tool has no registered document types, so `noteNewRecentDocumentURL` is a no-op there and the observation never had a chance to fire. Rather than build on an undocumented and unverified guarantee, the refresh hangs off notifications that definitely fire whenever the splash could be coming back into view. Reading the list is trivial, so refreshing on window activation costs nothing.
+
+Also worth knowing: `onAppear` alone isn't enough. The splash is a `Window(id: "splash")` that gets ordered out rather than torn down, so its body isn't re-created when it comes back — which is the other half of why the list looked frozen.
+
+No test: the app target has no test bundle and this is AppKit/SwiftUI window-lifecycle glue. Build-verified only; I couldn't drive the UI during this run (the machine's screen was locked, so the app exposed no window to the accessibility API).
 
 ---
 

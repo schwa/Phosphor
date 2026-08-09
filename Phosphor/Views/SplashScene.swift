@@ -29,8 +29,17 @@ struct SplashView: View {
     @State
     private var isFileImporterPresented = false
 
-    private var recentDocumentURLs: [URL] {
-        NSDocumentController.shared.recentDocumentURLs
+    /// Snapshot of the recent-documents list.
+    ///
+    /// Held in state rather than read inline: `NSDocumentController` doesn't
+    /// publish changes to `recentDocumentURLs`, so a computed property leaves
+    /// the list stale after a document is created or opened (#125). Refreshed
+    /// whenever the splash could be coming back into view.
+    @State
+    private var recentDocumentURLs: [URL] = []
+
+    private func refreshRecentDocuments() {
+        recentDocumentURLs = NSDocumentController.shared.recentDocumentURLs
     }
 
     private var readableContentTypes: [UTType] {
@@ -163,6 +172,16 @@ struct SplashView: View {
             .background(.background)
         }
         .frame(width: 600, height: 400)
+        .onAppear { refreshRecentDocuments() }
+        // The splash window is ordered out rather than torn down, so onAppear
+        // alone won't fire on the way back. These cover returning to the
+        // splash after closing the last document, and reopening from the Dock.
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            refreshRecentDocuments()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshRecentDocuments()
+        }
     }
 
     private func openUntitledDocument(ofType contentType: UTType) {
