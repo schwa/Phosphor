@@ -110,13 +110,18 @@ public struct VideoExporter: Sendable {
             throw ExportError.textureCacheFailed
         }
 
-        let runtime = await PhosphorRuntime(
+        let runtime = PhosphorRuntime(
             configuration: parsed.configuration,
             source: parsed.body,
             assets: assets
         )
-        let renderer = await PhosphorRenderer(device: device)
-        guard let queue = device.makeCommandQueue() else { throw ExportError.noMetalDevice }
+        let renderer = try PhosphorRenderer(device: device)
+        guard let queue = device.makeMTL4CommandQueue() else { throw ExportError.noMetalDevice }
+        let allocatorDescriptor = MTL4CommandAllocatorDescriptor()
+        guard let allocator = try? device.makeCommandAllocator(descriptor: allocatorDescriptor),
+              let commandBuffer = device.makeCommandBuffer() else {
+            throw ExportError.noMetalDevice
+        }
 
         let frameDuration = CMTime(value: 1, timescale: CMTimeScale(settings.frameRate))
         let step = 1.0 / Double(settings.frameRate)
@@ -142,8 +147,9 @@ public struct VideoExporter: Sendable {
                     resolution: SIMD2<Float>(Float(width), Float(height))
                 )
 
-                guard let commandBuffer = queue.makeCommandBuffer() else { throw ExportError.noMetalDevice }
-                try await renderer.render(
+                allocator.reset()
+                commandBuffer.beginCommandBuffer(allocator: allocator)
+                try renderer.render(
                     runtime: runtime,
                     into: commandBuffer,
                     targetTexture: target,
@@ -151,8 +157,12 @@ public struct VideoExporter: Sendable {
                     builtin: uniforms,
                     userUniformValues: uniformValues
                 )
-                commandBuffer.commit()
-                await commandBuffer.completed()
+                commandBuffer.endCommandBuffer()
+                await withCheckedContinuation { continuation in
+                    let options = MTL4CommitOptions()
+                    options.addFeedbackHandler { _ in continuation.resume() }
+                    queue.commit([commandBuffer], options: options)
+                }
 
                 let presentationTime = CMTimeMultiply(frameDuration, multiplier: Int32(index))
                 guard adaptor.append(pixelBuffer, withPresentationTime: presentationTime) else {

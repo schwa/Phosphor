@@ -51,7 +51,7 @@ public struct PhosphorMetalSprocketsView: View {
         self.makeUniforms = makeUniforms
         self.onFrameTiming = onFrameTiming
         self.onFrameTick = onFrameTick
-        _renderer = State(initialValue: PhosphorRenderer(device: runtime.device))
+        _renderer = State(initialValue: try! PhosphorRenderer(device: runtime.device))
     }
 
     public var body: some View {

@@ -1,6 +1,7 @@
 #if canImport(MetalFX)
 import Metal
 import MetalSprockets
+import QuartzCore
 
 /// Upscales `sourceTexture` into the current drawable with MetalFX spatial
 /// scaling.

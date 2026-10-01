@@ -1,5 +1,5 @@
 {
-  "originHash" : "0736a08c9b7e28c7ba8aa970c41d4005847930eab1321cf698275a85e9633bc4",
+  "originHash" : "5f75a2097c26b7957ac0ddc7c3963e077f948f64d07c38108df28bb996d70879",
   "pins" : [
     {
       "identity" : "collaborationkit",
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/MetalCompilerPlugin",
       "state" : {
-        "revision" : "9c11db3648fa4e4f02bd4918c4b7db3472a73c64",
-        "version" : "0.1.6"
+        "revision" : "be146725554a704b77b7b9b19c58818a0233de3c",
+        "version" : "0.4.0"
       }
     },
     {
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/MetalSprockets",
       "state" : {
-        "revision" : "72938247e9d6fb92f2c2c2981324b28e802e9ff0",
-        "version" : "0.1.10"
+        "branch" : "metal4",
+        "revision" : "ce70952c3a773df890616a0bec0843605778a815"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/MetalSupport",
       "state" : {
-        "revision" : "4546c33a93435d7fce1f172fcc77fd1371a6a927",
-        "version" : "1.0.3"
+        "revision" : "74c03788c9428544ccea69bc6781cdc9d2b2da81",
+        "version" : "1.0.6"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/PhosphorKit",
       "state" : {
-        "branch" : "main",
-        "revision" : "39edd0948fe21cf2a04175e64a0f99d43af1ad66"
+        "branch" : "metal4",
+        "revision" : "c87172165102f0cdf141e542f20c2bb33a42e991"
       }
     },
     {
