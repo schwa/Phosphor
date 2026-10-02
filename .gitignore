@@ -135,5 +135,8 @@ iOSInjectionProject/
 # with the peer checkout at ../PhosphorKit). Not committed.
 Phosphor-Dev.xcworkspace/
 
+# Resolved SPM pins — untracked, resolved locally
+**/Package.resolved
+
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,swift,xcode
