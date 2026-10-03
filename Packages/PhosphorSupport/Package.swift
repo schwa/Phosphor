@@ -17,7 +17,7 @@ let package = Package(
         .library(name: "PhosphorVideo", targets: ["PhosphorVideo"])
     ],
     dependencies: [
-        .package(url: "https://github.com/schwa/PhosphorKit", from: "0.2.0"),
+        .package(url: "https://github.com/schwa/PhosphorKit", branch: "main"),
         .package(url: "https://github.com/schwa/CollaborationKit", from: "0.2.4"),
         .package(url: "https://github.com/schwa/MetalSprockets", from: "0.2.0"),
         .package(url: "https://github.com/tree-sitter/swift-tree-sitter", from: "0.25.0"),
