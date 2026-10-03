@@ -263,7 +263,9 @@ private struct BundleSidebar: View {
                 .textFieldStyle(.roundedBorder)
                 .focused($renameFieldFocused)
                 .onSubmit { commitRename(commit) }
+                #if os(macOS)
                 .onExitCommand { cancelRename() }
+                #endif
                 .onChange(of: renameFieldFocused) { _, focused in
                     if !focused { commitRename(commit) }
                 }

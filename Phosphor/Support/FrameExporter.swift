@@ -1,9 +1,3 @@
-#if os(macOS)
-import AppKit
-import PhosphorModel
-import PhosphorRuntime
-import UniformTypeIdentifiers
-
 /// Mutable, deliberately non-observable holder for the renderer's frame
 /// counter. Lives outside `EditorModel` because it changes every frame and
 /// nothing should invalidate a view because of it.
@@ -11,6 +5,12 @@ import UniformTypeIdentifiers
 final class RenderedFrameCounter {
     var index: UInt32 = 0
 }
+
+#if os(macOS)
+import AppKit
+import PhosphorModel
+import PhosphorRuntime
+import UniformTypeIdentifiers
 
 /// Save-to-disk and copy-to-clipboard for the rendered frame.
 @MainActor
