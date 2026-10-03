@@ -7,6 +7,7 @@ import MetalFX
 /// The shader pipeline renders into this at a reduced resolution and the
 /// scaler blows it up to the drawable. Kept out of the element tree so
 /// allocation happens once per size change rather than per frame.
+@preconcurrency
 @MainActor
 public final class UpscaleTarget {
     /// Pixel format shared by the offscreen target and the drawable. Fixed so

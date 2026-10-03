@@ -60,16 +60,15 @@ struct ShaderEditorView: View {
         conversation = PhosphorConversation(
             provider: provider,
             device: runtime.device,
-            initialSource: text,
-            apply: { newText, actionName in
+            initialSource: text
+        ) { newText, actionName in
                 if let textMutator {
                     textMutator.apply(newText, actionName: actionName)
                 } else {
                     text = newText
                     onTextChange()
                 }
-            }
-        )
+        }
     }
 
     /// Recreates the coordinator when the backend or credentials change,

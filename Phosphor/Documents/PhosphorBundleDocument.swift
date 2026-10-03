@@ -270,7 +270,7 @@ final class PhosphorBundleDocument: ReferenceFileDocument, ObservableObject {
         var previousFileWrapper: FileWrapper?
     }
 
-    init(configuration: ReadConfiguration) throws {
+    init(configuration: ReadConfiguration) {
         let snapshot = Self.decode(directory: configuration.file)
         self.shaders = snapshot.shaders
         self.activeShader = snapshot.activeShader
@@ -322,7 +322,7 @@ final class PhosphorBundleDocument: ReferenceFileDocument, ObservableObject {
 
     // MARK: - Writing
 
-    func fileWrapper(snapshot: Snapshot, configuration: WriteConfiguration) throws -> FileWrapper {
+    func fileWrapper(snapshot: Snapshot, configuration _: WriteConfiguration) -> FileWrapper {
         Self.encode(snapshot: snapshot)
     }
 
@@ -384,7 +384,7 @@ final class PhosphorBundleDocument: ReferenceFileDocument, ObservableObject {
         return asset.name
     }
 
-    func snapshot(contentType _: UTType) throws -> Snapshot {
+    func snapshot(contentType _: UTType) -> Snapshot {
         Snapshot(
             shaders: shaders,
             activeShader: activeShader,

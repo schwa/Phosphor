@@ -120,6 +120,7 @@ private struct DebugExportModifier: ViewModifier {
             content.collaborationDebugExport(
                 store: store,
                 model: model,
+                // swiftlint:disable:next trailing_closure
                 userInfo: { ["currentSource": currentSource] }
             )
         } else {

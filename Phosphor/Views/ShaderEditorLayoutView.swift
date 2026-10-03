@@ -84,6 +84,7 @@ struct ShaderEditorLayoutView: View {
         switch layoutMode {
         case .previewOnly:
             previewOnlyLayout
+
         default:
             overlayLayout
         }

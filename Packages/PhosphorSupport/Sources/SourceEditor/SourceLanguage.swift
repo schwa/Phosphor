@@ -24,6 +24,7 @@ public struct SourceLanguage: Sendable, Identifiable {
     /// after the outer pass, so it wins on overlap.
     public let embeddedRegions: @Sendable (String) -> [EmbeddedRegion]
 
+    @preconcurrency
     public init(
         id: String,
         language: Language,

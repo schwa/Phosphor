@@ -13,8 +13,8 @@ struct InternalSizeTests {
 
     @Test("Scales below 1 shrink the render target")
     func scalesDown() {
-        #expect(size(1000, 800, scale: 0.5) == CGSize(width: 500, height: 400))
-        #expect(size(1000, 800, scale: 0.75) == CGSize(width: 750, height: 600))
+        #expect(size(1_000, 800, scale: 0.5) == CGSize(width: 500, height: 400))
+        #expect(size(1_000, 800, scale: 0.75) == CGSize(width: 750, height: 600))
     }
 
     @Test("Fractional results are rounded, not truncated")
@@ -28,13 +28,13 @@ struct InternalSizeTests {
     /// existed.
     @Test("Scales at or above 1 pass the drawable size through", arguments: [1.0, 1.5, 2.0])
     func passesThroughAtNative(scale: Double) {
-        #expect(size(1000, 800, scale: scale) == CGSize(width: 1000, height: 800))
+        #expect(size(1_000, 800, scale: scale) == CGSize(width: 1_000, height: 800))
     }
 
     /// A degenerate scale must not produce a zero-sized texture.
     @Test("Nonsense scales fall back to the drawable size", arguments: [0.0, -1.0])
     func rejectsDegenerateScales(scale: Double) {
-        #expect(size(1000, 800, scale: scale) == CGSize(width: 1000, height: 800))
+        #expect(size(1_000, 800, scale: scale) == CGSize(width: 1_000, height: 800))
     }
 
     @Test("A scale that would round to zero falls back to the drawable size")

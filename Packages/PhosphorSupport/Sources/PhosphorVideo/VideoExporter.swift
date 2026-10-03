@@ -63,6 +63,7 @@ public struct VideoExporter: Sendable {
     ///
     /// - Parameter progress: called on each encoded frame with a value in
     ///   `0...1`. Cancel by cancelling the enclosing task.
+    @preconcurrency
     public func export(
         parsed: ParsedPhosphorSource,
         assets: [String: PhosphorAsset] = [:],

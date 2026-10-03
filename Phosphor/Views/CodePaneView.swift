@@ -50,6 +50,7 @@ struct CodePaneView: View {
             switch selectedTab {
             case .shader:
                 shaderTab
+
             case .header:
                 headerTab
             }

@@ -55,7 +55,7 @@ final class PhosphorConversation {
         )
         let store = ConversationStore(
             session: session,
-            summarizeTool: PhosphorConversation.summarize(_:)
+            summarizeTool: Self.summarize(_:)
         )
         self.store = store
 

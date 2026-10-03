@@ -94,7 +94,7 @@ final class PhosphorMetalDocument: ReferenceFileDocument, ObservableObject {
 
     // MARK: - Reading
 
-    init(configuration: ReadConfiguration) throws {
+    init(configuration: ReadConfiguration) {
         let text = Self.decode(configuration: configuration)
         self.text = text
         self.parsed = ParsedPhosphorSource(source: text)
@@ -119,7 +119,7 @@ final class PhosphorMetalDocument: ReferenceFileDocument, ObservableObject {
 
     // MARK: - Writing
 
-    func fileWrapper(snapshot: String, configuration: WriteConfiguration) throws -> FileWrapper {
+    func fileWrapper(snapshot: String, configuration: WriteConfiguration) -> FileWrapper {
         if configuration.contentType == .phosphorSource,
            let data = try? Self.phosphorDocument(from: snapshot).jsonData() {
             return FileWrapper(regularFileWithContents: data)
@@ -146,7 +146,7 @@ final class PhosphorMetalDocument: ReferenceFileDocument, ObservableObject {
         return PhosphorDocument(configuration: parsed.configuration, source: parsed.body)
     }
 
-    func snapshot(contentType _: UTType) throws -> String { text }
+    func snapshot(contentType _: UTType) -> String { text }
 }
 
 extension UTType {

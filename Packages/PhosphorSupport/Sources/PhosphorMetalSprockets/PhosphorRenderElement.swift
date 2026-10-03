@@ -21,6 +21,7 @@ import PhosphorRuntime
 /// - Parameter targetTexture: where to render. `nil` renders straight into the
 ///   current drawable; pass an offscreen texture to render at a different
 ///   resolution (see ``UpscaleTarget``).
+@preconcurrency
 @MainActor
 public func PhosphorRenderElement(
     renderer: PhosphorRenderer,
