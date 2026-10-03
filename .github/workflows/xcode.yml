@@ -25,8 +25,8 @@ jobs:
       - name: Build Example App (${{ matrix.destination }})
         run: |
           xcodebuild build \
-            -workspace Phosphor-Dev.xcworkspace \
-            -scheme collab-cli \
+            -project Phosphor.xcodeproj \
+            -scheme Phosphor \
             -destination '${{ matrix.destination }}' \
             -skipPackagePluginValidation \
             -skipMacroValidation \
