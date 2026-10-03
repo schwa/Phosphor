@@ -315,16 +315,16 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/schwa/MetalSprockets";
 			requirement = {
-				branch = metal4;
-				kind = branch;
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.2.0;
 			};
 		};
 		45D0A1112F80000000000011 /* XCRemoteSwiftPackageReference "PhosphorKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/schwa/PhosphorKit";
 			requirement = {
-				branch = metal4;
-				kind = branch;
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.2.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
