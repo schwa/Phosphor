@@ -153,6 +153,7 @@ struct ShaderEditorView: View {
         }
         .toolbarRole(.editor)
         .toolbar { toolbarContent }
+        #if !os(visionOS)
         .inspector(isPresented: $showInspector) {
             PhosphorInspectorView(
                 parsed: parsed,
@@ -172,6 +173,7 @@ struct ShaderEditorView: View {
             }
             .inspectorColumnWidth(min: 360, ideal: 480, max: 900)
         }
+        #endif
     }
 
     /// Reveals the Generate tab in the inspector (used by the View menu and the
