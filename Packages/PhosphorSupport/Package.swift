@@ -18,11 +18,12 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/schwa/PhosphorKit", from: "0.2.0"),
-        .package(url: "https://github.com/schwa/CollaborationKit", branch: "main"),
+        .package(url: "https://github.com/schwa/CollaborationKit", from: "0.2.4"),
         .package(url: "https://github.com/schwa/MetalSprockets", from: "0.2.0"),
         .package(url: "https://github.com/tree-sitter/swift-tree-sitter", from: "0.25.0"),
-        .package(url: "https://github.com/tree-sitter/tree-sitter-cpp", branch: "master"),
-        .package(url: "https://github.com/tree-sitter-grammars/tree-sitter-toml", branch: "master")
+        // No tagged release ships a Package.swift; SwiftPM support is master-only, so pin by revision.
+        .package(url: "https://github.com/tree-sitter/tree-sitter-cpp", revision: "c009222808634c1014f82438d4883753516a2c24"),
+        .package(url: "https://github.com/tree-sitter-grammars/tree-sitter-toml", exact: "0.7.0")
     ],
     targets: [
         // AI shader generation, layered on top of PhosphorKit.
